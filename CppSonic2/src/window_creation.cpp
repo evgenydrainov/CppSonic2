@@ -1,5 +1,7 @@
 #include "window_creation.h"
 
+#include "imgui_glue.h"
+
 Window window;
 
 
@@ -217,6 +219,9 @@ void begin_frame() {
 
 	SDL_Event ev;
 	while (SDL_PollEvent(&ev)) {
+		// @Cleanup
+		imgui_handle_event(&ev);
+
 		handle_event(&ev);
 	}
 }

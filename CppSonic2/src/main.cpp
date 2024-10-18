@@ -3,6 +3,8 @@
 #include "game.h"
 #include "batch_renderer.h"
 #include "package.h"
+#include "imgui_glue.h"
+#include "editor.h"
 
 
 int main(int /*argc*/, char* /*argv*/[]) {
@@ -18,17 +20,32 @@ int main(int /*argc*/, char* /*argv*/[]) {
 	game.init();
 	defer { game.deinit(); };
 
+	init_imgui();
+	defer { deinit_imgui(); };
+
+	editor.init();
+	defer { editor.deinit(); };
+
 	while (!window.should_quit) {
 		begin_frame();
+		imgui_begin_frame();
 
+		// update
 		game.update(window.delta);
 
-		vec4 clear_color = color_black;
-		render_begin_frame(clear_color);
+		editor.update(window.delta);
 
-		game.draw(window.delta);
+		// render
+		{
+			vec4 clear_color = color_cornflower_blue;
+			render_begin_frame(clear_color);
 
-		render_end_frame();
+			game.draw(window.delta);
+
+			render_end_frame();
+
+			imgui_render();
+		}
 
 		swap_buffers();
 	}
