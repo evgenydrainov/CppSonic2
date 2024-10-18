@@ -55,7 +55,7 @@ static void GLAPIENTRY gl_debug_callback(GLenum source,
 	// SDL_Window* win = SDL_GL_GetCurrentWindow();
 	// SDL_ShowSimpleMessageBox(0, "", message, win);
 
-	SDL_TriggerBreakpoint();
+	// SDL_TriggerBreakpoint();
 }
 #endif
 

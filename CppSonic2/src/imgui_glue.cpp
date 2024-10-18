@@ -7,6 +7,8 @@
 #include "imgui/imgui_impl_sdl2.h"
 #include "imgui/imgui_impl_opengl3.h"
 
+#include "IconsFontAwesome5.h"
+
 void init_imgui() {
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
@@ -24,7 +26,21 @@ void init_imgui() {
 	ImGui_ImplOpenGL3_Init();
 
 	// Load Fonts
-	// TODO
+	{
+		ImFont* font = io.Fonts->AddFontDefault();
+		float baseFontSize = 13.0f; // 13.0f is the size of the default font. Change to the font size you use.
+		float iconFontSize = baseFontSize; // * 2.0f / 3.0f; // FontAwesome fonts need to have their sizes reduced by 2.0f/3.0f in order to align correctly
+
+		static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_16_FA, 0 };
+
+		ImFontConfig icons_config;
+		icons_config.MergeMode = true;
+		icons_config.PixelSnapH = true;
+		icons_config.GlyphMinAdvanceX = iconFontSize;
+		io.Fonts->AddFontFromFileTTF("fonts/" FONT_ICON_FILE_NAME_FAS, iconFontSize, &icons_config, icons_ranges);             // Merge into first font
+
+		io.Fonts->Build();
+	}
 }
 
 void deinit_imgui() {
