@@ -11,6 +11,9 @@ int main(int /*argc*/, char* /*argv*/[]) {
 	init_window_and_opengl("CppSonic2", 424, 240, 2, false);
 	defer { deinit_window_and_opengl(); };
 
+	// #ifdef editor
+	SDL_MaximizeWindow(window.handle);
+
 	init_package();
 	defer { deinit_package(); };
 

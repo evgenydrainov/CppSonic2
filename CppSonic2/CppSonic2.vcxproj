@@ -93,7 +93,7 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)external\SDL2\include;$(SolutionDir)external\SDL2_mixer\include;$(SolutionDir)external\glm\include;$(SolutionDir)external\stb\include;$(SolutionDir)external\glad\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)external\SDL2\include;$(SolutionDir)external\SDL2_mixer\include;$(SolutionDir)external\glm\include;$(SolutionDir)external\stb\include;$(SolutionDir)external\glad\include;$(SolutionDir)external\freetype\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <UseFullPaths>false</UseFullPaths>
@@ -101,8 +101,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)external\SDL2\lib\$(PlatformTarget);$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2main.lib;SDL2.lib;SDL2_mixer.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)external\SDL2\lib\$(PlatformTarget);$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget);$(SolutionDir)external\freetype\lib\$(Platform)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDL2main.lib;SDL2.lib;SDL2_mixer.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.dll" "$(TargetDir)SDL2.dll"
@@ -143,7 +143,7 @@ copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll"
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)external\SDL2\include;$(SolutionDir)external\SDL2_mixer\include;$(SolutionDir)external\glm\include;$(SolutionDir)external\stb\include;$(SolutionDir)external\glad\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)external\SDL2\include;$(SolutionDir)external\SDL2_mixer\include;$(SolutionDir)external\glm\include;$(SolutionDir)external\stb\include;$(SolutionDir)external\glad\include;$(SolutionDir)external\freetype\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <UseFullPaths>false</UseFullPaths>
@@ -151,8 +151,8 @@ copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll"
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)external\SDL2\lib\$(PlatformTarget);$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2main.lib;SDL2.lib;SDL2_mixer.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)external\SDL2\lib\$(PlatformTarget);$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget);$(SolutionDir)external\freetype\lib\$(Platform)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDL2main.lib;SDL2.lib;SDL2_mixer.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.dll" "$(TargetDir)SDL2.dll"
@@ -195,6 +195,7 @@ copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll"
     <ClCompile Include="src\imgui_glue.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\package.cpp" />
+    <ClCompile Include="src\platform_windows.cpp" />
     <ClCompile Include="src\stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -212,6 +213,7 @@ copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll"
     <ClInclude Include="src\game.h" />
     <ClInclude Include="src\imgui_glue.h" />
     <ClInclude Include="src\package.h" />
+    <ClInclude Include="src\platform.h" />
     <ClInclude Include="src\stdafx.h" />
     <ClInclude Include="src\texture.h" />
     <ClInclude Include="src\util.h" />

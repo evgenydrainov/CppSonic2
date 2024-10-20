@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.h"
+#include "texture.h"
 
 #include "imgui/imgui.h"
 
@@ -11,6 +12,12 @@ struct Editor {
 	};
 
 	Mode mode;
+
+	struct {
+		Texture texture;
+		ImVec2 scrolling;
+		float zoom = 1;
+	} hmap;
 
 	void init();
 	void deinit();
