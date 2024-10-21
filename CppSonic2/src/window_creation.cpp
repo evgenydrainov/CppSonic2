@@ -219,8 +219,10 @@ void begin_frame() {
 
 	SDL_Event ev;
 	while (SDL_PollEvent(&ev)) {
-		// @Cleanup
-		imgui_handle_event(&ev);
+		#ifdef EDITOR
+			// @Cleanup
+			imgui_handle_event(&ev);
+		#endif
 
 		handle_event(&ev);
 	}

@@ -366,6 +366,11 @@ void break_batch() {
 void draw_texture(Texture t, Rect src,
 				  vec2 pos, vec2 scale,
 				  vec2 origin, float angle, vec4 color, glm::bvec2 flip) {
+	if (t.ID == 0) {
+		log_error("Trying to draw invalid texture.");
+		return;
+	}
+
 	if (src.w == 0 && src.h == 0) {
 		src.w = t.width;
 		src.h = t.height;

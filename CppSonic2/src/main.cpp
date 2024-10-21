@@ -3,16 +3,20 @@
 #include "game.h"
 #include "batch_renderer.h"
 #include "package.h"
+
+#ifdef EDITOR
 #include "imgui_glue.h"
 #include "editor.h"
+#endif
 
 
 int main(int /*argc*/, char* /*argv*/[]) {
 	init_window_and_opengl("CppSonic2", 424, 240, 2, false);
 	defer { deinit_window_and_opengl(); };
 
-	// #ifdef editor
-	SDL_MaximizeWindow(window.handle);
+	#ifdef EDITOR
+		SDL_MaximizeWindow(window.handle);
+	#endif
 
 	init_package();
 	defer { deinit_package(); };
@@ -23,20 +27,29 @@ int main(int /*argc*/, char* /*argv*/[]) {
 	game.init();
 	defer { game.deinit(); };
 
-	init_imgui();
-	defer { deinit_imgui(); };
+	#ifdef EDITOR
+		init_imgui();
+		defer { deinit_imgui(); };
 
-	editor.init();
-	defer { editor.deinit(); };
+		editor.init();
+		defer { editor.deinit(); };
+	#endif
 
 	while (!window.should_quit) {
 		begin_frame();
-		imgui_begin_frame();
+
+		#ifdef EDITOR
+			imgui_begin_frame();
+		#endif
 
 		// update
-		game.update(window.delta);
+		{
+			game.update(window.delta);
 
-		editor.update(window.delta);
+			#ifdef EDITOR
+				editor.update(window.delta);
+			#endif
+		}
 
 		// render
 		{
@@ -47,7 +60,9 @@ int main(int /*argc*/, char* /*argv*/[]) {
 
 			render_end_frame();
 
-			imgui_render();
+			#ifdef EDITOR
+				imgui_render();
+			#endif
 		}
 
 		swap_buffers();

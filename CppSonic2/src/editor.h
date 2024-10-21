@@ -23,6 +23,8 @@ struct Editor {
 	void deinit();
 	void update(float delta);
 	void draw(float delta);
+
+	void open_level();
 };
 
 extern Editor editor;

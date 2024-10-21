@@ -17,6 +17,17 @@ static string get_open_file_name(const char* filter = nullptr) {
 	}
 }
 
+static string get_folder_dialog() {
+	char* path;
+	nfdresult_t res = NFD_PickFolder(nullptr, &path); // @Leak
+
+	if (res == NFD_OKAY) {
+		return {path, strlen(path)};
+	} else {
+		return {};
+	}
+}
+
 void Editor::init() {
 	
 }
@@ -25,38 +36,50 @@ void Editor::deinit() {
 
 }
 
+void Editor::open_level() {
+	ImGuiIO& io = ImGui::GetIO();
+
+	string path = get_folder_dialog();
+
+	if (path.count > 0) {
+		if (hmap.texture.ID) {
+			glDeleteTextures(1, &hmap.texture.ID);
+			hmap.texture.ID = 0;
+		}
+
+		hmap = {};
+
+		{
+			char buf[512];
+			stb_snprintf(buf, sizeof(buf), Str_Fmt "/Tileset.png", Str_Arg(path));
+
+			hmap.texture = load_texture_from_file(buf);
+		}
+
+		hmap.scrolling = (io.DisplaySize - ImVec2(hmap.texture.width, hmap.texture.height)) / 2.0f;
+	}
+}
+
 void Editor::update(float delta) {
 	ImGuiIO& io = ImGui::GetIO();
 
 	ImGui::DockSpaceOverViewport(0, nullptr, ImGuiDockNodeFlags_PassthruCentralNode);
 
+	if (ImGui::IsKeyPressed(ImGuiKey_O) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+		open_level();
+	}
+
 	if (ImGui::BeginMainMenuBar()) {
+		if (ImGui::BeginMenu("File")) {
+			if (ImGui::MenuItem("Open Level...", "Ctrl+O")) {
+				open_level();
+			}
+
+			ImGui::EndMenu();
+		}
+
 		switch (mode) {
 			case MODE_HEIGHTMAP: {
-				if (ImGui::BeginMenu("File")) {
-					if (ImGui::MenuItem("Open Image...")) {
-						string filename = get_open_file_name("png");
-						if (filename.count > 0) {
-							if (hmap.texture.ID) {
-								glDeleteTextures(1, &hmap.texture.ID);
-								hmap.texture.ID = 0;
-							}
-
-							hmap = {};
-
-							char* cstr = to_c_string(filename);
-							defer { free(cstr); };
-
-							hmap.texture = load_texture_from_file(cstr);
-
-							hmap.scrolling = (io.DisplaySize - ImVec2(hmap.texture.width, hmap.texture.height)) / 2.0f;
-						}
-					}
-
-					if (ImGui::MenuItem("Open Heightmap...")) {}
-
-					ImGui::EndMenu();
-				}
 				break;
 			}
 		}
@@ -111,6 +134,13 @@ void Editor::update(float delta) {
 						hmap.scrolling.y += io.MouseDelta.y;
 					}
 
+					if (ImGui::IsWindowFocused()) {
+						if (ImGui::IsKeyDown(ImGuiKey_UpArrow))    hmap.scrolling.y += 10;
+						if (ImGui::IsKeyDown(ImGuiKey_DownArrow))  hmap.scrolling.y -= 10;
+						if (ImGui::IsKeyDown(ImGuiKey_LeftArrow))  hmap.scrolling.x += 10;
+						if (ImGui::IsKeyDown(ImGuiKey_RightArrow)) hmap.scrolling.x -= 10;
+					}
+
 					ImVec2 texture_size(hmap.texture.width * hmap.zoom, hmap.texture.height * hmap.zoom);
 					ImVec2 texture_pos = origin;
 					ImVec2 texture_center = texture_pos + texture_size / 2.0f;
@@ -153,6 +183,14 @@ void Editor::update(float delta) {
 						}
 					}
 				}
+			}
+			ImGui::End();
+			break;
+		}
+
+		case MODE_TILEMAP: {
+			if (ImGui::Begin("Tilemap Editor")) {
+				
 			}
 			ImGui::End();
 			break;
