@@ -35,6 +35,8 @@ if(SDL2_MIXER_INCLUDE_DIRS)
 	include_directories(${PROJECT_NAME} ${SDL2_MIXER_INCLUDE_DIRS})
 endif()
 
+include_directories(${PROJECT_NAME} /usr/include/freetype2)
+
 set(SOURCES
 	src/batch_renderer.cpp
 	src/font.cpp
@@ -46,7 +48,9 @@ set(SOURCES
 	src/window_creation.cpp
 	src/imgui_glue.cpp
 	src/imgui/imgui_single_file.cpp
-	src/editor.cpp)
+	src/editor.cpp
+	src/nfd/nfd_zenity.c
+	src/nfd/nfd_common.c)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
@@ -60,4 +64,6 @@ else()
 	target_link_libraries(${PROJECT_NAME} SDL2_mixer)
 endif()
 
-target_precompile_headers(${PROJECT_NAME} PRIVATE src/stdafx.h)
+target_link_libraries(${PROJECT_NAME} freetype)
+
+#target_precompile_headers(${PROJECT_NAME} PRIVATE src/stdafx.h)

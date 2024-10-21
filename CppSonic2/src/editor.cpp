@@ -1,11 +1,21 @@
 #include "editor.h"
 
 #include "IconsFontAwesome5.h"
-#include "platform.h"
-
+#include "nfd/nfd.h"
 #include <glad/gl.h>
 
 Editor editor;
+
+static string get_open_file_name(const char* filter = nullptr) {
+	char* path;
+	nfdresult_t res = NFD_OpenDialog(filter, nullptr, &path); // @Leak
+
+	if (res == NFD_OKAY) {
+		return {path, strlen(path)};
+	} else {
+		return {};
+	}
+}
 
 void Editor::init() {
 	
@@ -25,7 +35,7 @@ void Editor::update(float delta) {
 			case MODE_HEIGHTMAP: {
 				if (ImGui::BeginMenu("File")) {
 					if (ImGui::MenuItem("Open Image...")) {
-						string filename = get_open_file_name("png files (*.png)\0*.png\0");
+						string filename = get_open_file_name("png");
 						if (filename.count > 0) {
 							if (hmap.texture.ID) {
 								glDeleteTextures(1, &hmap.texture.ID);
