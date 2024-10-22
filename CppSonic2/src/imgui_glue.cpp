@@ -28,9 +28,9 @@ void init_imgui() {
 	// Load Fonts
 	{
 #ifdef _WIN32
-		ImFont* font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 18);
+		ImFont* font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 18, nullptr, io.Fonts->GetGlyphRangesCyrillic());
 #else
-		ImFont* font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf", 18);
+		ImFont* font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf", 18, nullptr, io.Fonts->GetGlyphRangesCyrillic());
 #endif
 
 		float baseFontSize = 13.0f; // 13.0f is the size of the default font. Change to the font size you use.
