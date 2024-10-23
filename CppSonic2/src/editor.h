@@ -7,6 +7,11 @@
 
 #include <filesystem>
 
+struct View {
+	ImVec2 scrolling;
+	float zoom = 1;
+};
+
 struct Editor {
 	enum Mode {
 		MODE_HEIGHTMAP,
@@ -15,21 +20,15 @@ struct Editor {
 
 	Mode mode;
 
-	struct {
-		ImVec2 scrolling;
-		float zoom = 1;
+	View heightmap_view;
+	Texture tileset_texture;
 
-		Texture texture;
-	} hmap;
+	View tilemap_view;
+	View tile_select_view;
 
-	struct {
-		ImVec2 scrolling;
-		float zoom = 1;
-
-		array<u32> tiles;
-		int width;
-		int height;
-	} tmap;
+	array<u32> tilemap_tiles;
+	int tilemap_width = 0;
+	int tilemap_height = 0;
 
 	bool is_level_open;
 	std::filesystem::path current_level_dir;
@@ -40,6 +39,8 @@ struct Editor {
 	void draw(float delta);
 
 	void update_window_caption();
+
+	void clear_state();
 };
 
 extern Editor editor;

@@ -35,7 +35,7 @@ static bool ButtonCentered(const char* label) {
 static char cnl_folder[512];
 static char cnl_tileset[512];
 
-static void pan_and_zoom(ImVec2& scrolling, float& zoom) {
+static void pan_and_zoom(View& view) {
 	ImGuiIO& io = ImGui::GetIO();
 
 	// Using InvisibleButton() as a convenience 1) it will advance the layout cursor and 2) allows us to use IsItemHovered()/IsItemActive()
@@ -55,20 +55,20 @@ static void pan_and_zoom(ImVec2& scrolling, float& zoom) {
 
 	const float mouse_threshold_for_pan = 0.0f;
 	if (is_active && ImGui::IsMouseDragging(ImGuiMouseButton_Middle, mouse_threshold_for_pan)) {
-		scrolling.x += io.MouseDelta.x;
-		scrolling.y += io.MouseDelta.y;
+		view.scrolling.x += io.MouseDelta.x;
+		view.scrolling.y += io.MouseDelta.y;
 	}
 
 	if (ImGui::IsWindowFocused()) {
-		if (ImGui::IsKeyDown(ImGuiKey_UpArrow))    scrolling.y += 10;
-		if (ImGui::IsKeyDown(ImGuiKey_DownArrow))  scrolling.y -= 10;
-		if (ImGui::IsKeyDown(ImGuiKey_LeftArrow))  scrolling.x += 10;
-		if (ImGui::IsKeyDown(ImGuiKey_RightArrow)) scrolling.x -= 10;
+		if (ImGui::IsKeyDown(ImGuiKey_UpArrow))    view.scrolling.y += 10;
+		if (ImGui::IsKeyDown(ImGuiKey_DownArrow))  view.scrolling.y -= 10;
+		if (ImGui::IsKeyDown(ImGuiKey_LeftArrow))  view.scrolling.x += 10;
+		if (ImGui::IsKeyDown(ImGuiKey_RightArrow)) view.scrolling.x -= 10;
 	}
 
-	ImVec2 texture_pos = canvas_p0 + scrolling;
+	ImVec2 texture_pos = canvas_p0 + view.scrolling;
 
-	ImVec2 mouse_pos_in_texture = io.MousePos / zoom - texture_pos / zoom;
+	ImVec2 mouse_pos_in_texture = io.MousePos / view.zoom - texture_pos / view.zoom;
 
 	const float MIN_ZOOM = 0.25f;
 	const float MAX_ZOOM = 50.0f;
@@ -77,27 +77,59 @@ static void pan_and_zoom(ImVec2& scrolling, float& zoom) {
 	if (is_hovered && mouse_wheel != 0) {
 		if (mouse_wheel > 0) {
 			while (mouse_wheel > 0) {
-				zoom *= 1.25f;
+				view.zoom *= 1.25f;
 				mouse_wheel--;
 			}
-			Clamp(&zoom, MIN_ZOOM, MAX_ZOOM);
+			Clamp(&view.zoom, MIN_ZOOM, MAX_ZOOM);
 
-			ImVec2 new_texture_pos = (io.MousePos / zoom - mouse_pos_in_texture) * zoom;
-			scrolling += new_texture_pos - texture_pos;
+			ImVec2 new_texture_pos = (io.MousePos / view.zoom - mouse_pos_in_texture) * view.zoom;
+			view.scrolling += new_texture_pos - texture_pos;
 		} else {
 			mouse_wheel = -mouse_wheel;
 			while (mouse_wheel > 0) {
-				zoom /= 1.25f;
+				view.zoom /= 1.25f;
 				mouse_wheel--;
 			}
-			Clamp(&zoom, MIN_ZOOM, MAX_ZOOM);
+			Clamp(&view.zoom, MIN_ZOOM, MAX_ZOOM);
 
-			ImVec2 new_texture_pos = (io.MousePos / zoom - mouse_pos_in_texture) * zoom;
-			scrolling += new_texture_pos - texture_pos;
+			ImVec2 new_texture_pos = (io.MousePos / view.zoom - mouse_pos_in_texture) * view.zoom;
+			view.scrolling += new_texture_pos - texture_pos;
 		}
 	}
 
-	ImGui::SetCursorScreenPos(canvas_p0);
+	ImGui::SetCursorScreenPos(canvas_p0); // restore cursor pos
+}
+
+static void AddGrid(ImDrawList* list, ImVec2 pos,
+					ImVec2 tile_size, glm::ivec2 grid_size,
+					ImU32 col = IM_COL32(0xff, 0xff, 0xff, 0xff)) {
+	for (int x = 0; x <= grid_size.x; x++) {
+		ImVec2 p = pos + ImVec2(x * tile_size.x, 0);
+		list->AddLine(p, p + ImVec2(0, grid_size.y * tile_size.y), col);
+	}
+
+	for (int y = 0; y <= grid_size.y; y++) {
+		ImVec2 p = pos + ImVec2(0, y * tile_size.y);
+		list->AddLine(p, p + ImVec2(grid_size.x * tile_size.x, 0), col);
+	}
+}
+
+void Editor::clear_state() {
+	if (tileset_texture.ID != 0) {
+		glDeleteTextures(1, &tileset_texture.ID);
+	}
+	tileset_texture = {};
+
+	if (tilemap_tiles.data) {
+		free(tilemap_tiles.data);
+	}
+	tilemap_tiles = {};
+
+	heightmap_view   = {};
+	tilemap_view     = {};
+	tile_select_view = {};
+	tilemap_width    = 0;
+	tilemap_height   = 0;
 }
 
 void Editor::update(float delta) {
@@ -124,33 +156,22 @@ void Editor::update(float delta) {
 			return;
 		}
 
-		if (hmap.texture.ID != 0) {
-			glDeleteTextures(1, &hmap.texture.ID);
-			hmap.texture.ID = 0;
-		}
-
-		if (tmap.tiles.data) {
-			free(tmap.tiles.data);
-			tmap.tiles.data = nullptr;
-		}
-
-		hmap = {};
-		tmap = {};
+		clear_state();
 
 		current_level_dir = path;
 		is_level_open = true;
 
 		update_window_caption();
 
-		tmap.width = 256;
-		tmap.height = 256;
+		tilemap_width = 256;
+		tilemap_height = 256;
 
-		tmap.tiles.count = tmap.width * tmap.height;
-		tmap.tiles.data = (u32*) malloc(tmap.tiles.count * sizeof(tmap.tiles[0]));
+		tilemap_tiles.count = tilemap_width * tilemap_height;
+		tilemap_tiles.data = (u32*) malloc(tilemap_tiles.count * sizeof(tilemap_tiles[0]));
 
-		hmap.texture = load_texture_from_file((current_level_dir / "Tileset.png").string().c_str());
+		tileset_texture = load_texture_from_file((current_level_dir / "Tileset.png").string().c_str());
 
-		hmap.scrolling = (io.DisplaySize - ImVec2(hmap.texture.width, hmap.texture.height)) / 2.0f;
+		heightmap_view.scrolling = (io.DisplaySize - ImVec2(tileset_texture.width, tileset_texture.height)) / 2.0f;
 	};
 
 	if (ImGui::IsKeyPressed(ImGuiKey_N) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
@@ -201,8 +222,6 @@ void Editor::update(float delta) {
 
 	switch (mode) {
 		case MODE_HEIGHTMAP: {
-			int tmap = 0;
-
 			{
 				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{});
 				defer { ImGui::PopStyleVar(); };
@@ -219,7 +238,7 @@ void Editor::update(float delta) {
 					break;
 				}
 
-				if (hmap.texture.ID == 0) {
+				if (tileset_texture.ID == 0) {
 					const char* text = "No tileset loaded.";
 					ImVec2 text_size = ImGui::CalcTextSize(text);
 					ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -228,28 +247,24 @@ void Editor::update(float delta) {
 					break;
 				}
 
-				pan_and_zoom(hmap.scrolling, hmap.zoom);
+				pan_and_zoom(heightmap_view);
 
 				ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
-				ImVec2 texture_size(hmap.texture.width * hmap.zoom, hmap.texture.height * hmap.zoom);
-				ImVec2 texture_pos = ImGui::GetCursorScreenPos() + hmap.scrolling;
+				ImVec2 texture_size(tileset_texture.width * heightmap_view.zoom, tileset_texture.height * heightmap_view.zoom);
+				ImVec2 texture_pos = ImGui::GetCursorScreenPos() + heightmap_view.scrolling;
 
-				draw_list->AddImage(hmap.texture.ID, texture_pos, texture_pos + texture_size);
+				draw_list->AddImage(tileset_texture.ID, texture_pos, texture_pos + texture_size);
 
-				for (int tile_y = 0; tile_y < hmap.texture.height / 16; tile_y++) {
-					for (int tile_x = 0; tile_x < hmap.texture.width / 16; tile_x++) {
-						ImVec2 p_min = texture_pos + ImVec2(tile_x * 16 * hmap.zoom, tile_y * 16 * hmap.zoom);
-						draw_list->AddRect(p_min, p_min + ImVec2(16 * hmap.zoom, 16 * hmap.zoom), IM_COL32(0xff, 0xff, 0xff, 0xff));
-					}
-				}
+				AddGrid(draw_list,
+						texture_pos,
+						ImVec2(16 * heightmap_view.zoom, 16 * heightmap_view.zoom),
+						{tileset_texture.width / 16, tileset_texture.height / 16});
 			}
 			break;
 		}
 
 		case MODE_TILEMAP: {
-			int hmap = 0;
-
 			auto tilemap_editor_window = [&]() {
 				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{});
 				defer { ImGui::PopStyleVar(); };
@@ -266,76 +281,13 @@ void Editor::update(float delta) {
 					return;
 				}
 
-				// TODO: pan_and_zoom
-
-				// Using InvisibleButton() as a convenience 1) it will advance the layout cursor and 2) allows us to use IsItemHovered()/IsItemActive()
-				ImVec2 canvas_p0 = ImGui::GetCursorScreenPos();      // ImDrawList API uses screen coordinates!
-				ImVec2 canvas_sz = ImGui::GetContentRegionAvail();   // Resize canvas to what's available
-				if (canvas_sz.x < 50.0f) canvas_sz.x = 50.0f;
-				if (canvas_sz.y < 50.0f) canvas_sz.y = 50.0f;
-				ImVec2 canvas_p1 = ImVec2(canvas_p0.x + canvas_sz.x, canvas_p0.y + canvas_sz.y);
+				pan_and_zoom(tilemap_view);
 
 				ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
-				// This will catch our interactions
-				ImGui::InvisibleButton("canvas",
-									   canvas_sz,
-									   ImGuiButtonFlags_MouseButtonLeft
-									   | ImGuiButtonFlags_MouseButtonMiddle);
-				const bool is_hovered = ImGui::IsItemHovered(); // Hovered
-				const bool is_active = ImGui::IsItemActive();   // Held
-				const ImVec2 origin(canvas_p0.x + tmap.scrolling.x, canvas_p0.y + tmap.scrolling.y); // Lock scrolled origin
+				ImVec2 tilemap_pos = ImGui::GetCursorScreenPos() + tilemap_view.scrolling;
 
-				const float mouse_threshold_for_pan = 0.0f;
-				if (is_active && ImGui::IsMouseDragging(ImGuiMouseButton_Middle, mouse_threshold_for_pan)) {
-					tmap.scrolling.x += io.MouseDelta.x;
-					tmap.scrolling.y += io.MouseDelta.y;
-				}
-
-				if (ImGui::IsWindowFocused()) {
-					if (ImGui::IsKeyDown(ImGuiKey_UpArrow))    tmap.scrolling.y += 10;
-					if (ImGui::IsKeyDown(ImGuiKey_DownArrow))  tmap.scrolling.y -= 10;
-					if (ImGui::IsKeyDown(ImGuiKey_LeftArrow))  tmap.scrolling.x += 10;
-					if (ImGui::IsKeyDown(ImGuiKey_RightArrow)) tmap.scrolling.x -= 10;
-				}
-
-				ImVec2 tilemap_pos = origin;
-
-				for (int tile_y = 0; tile_y < tmap.height; tile_y++) {
-					for (int tile_x = 0; tile_x < tmap.width; tile_x++) {
-						ImVec2 p_min = tilemap_pos + ImVec2(tile_x * 16 * tmap.zoom, tile_y * 16 * tmap.zoom);
-						draw_list->AddRect(p_min, p_min + ImVec2(16 * tmap.zoom, 16 * tmap.zoom), IM_COL32(0xff, 0xff, 0xff, 0xff));
-					}
-				}
-
-				ImVec2 mouse_pos_in_texture = io.MousePos / tmap.zoom - tilemap_pos / tmap.zoom;
-
-				const float MIN_ZOOM = 0.25f;
-				const float MAX_ZOOM = 50.0f;
-
-				float mouse_wheel = io.MouseWheel;
-				if (is_hovered && mouse_wheel != 0) {
-					if (mouse_wheel > 0) {
-						while (mouse_wheel > 0) {
-							tmap.zoom *= 1.25f;
-							mouse_wheel--;
-						}
-						Clamp(&tmap.zoom, MIN_ZOOM, MAX_ZOOM);
-
-						ImVec2 new_texture_pos = (io.MousePos / tmap.zoom - mouse_pos_in_texture) * tmap.zoom;
-						tmap.scrolling += new_texture_pos - tilemap_pos;
-					} else {
-						mouse_wheel = -mouse_wheel;
-						while (mouse_wheel > 0) {
-							tmap.zoom /= 1.25f;
-							mouse_wheel--;
-						}
-						Clamp(&tmap.zoom, MIN_ZOOM, MAX_ZOOM);
-
-						ImVec2 new_texture_pos = (io.MousePos / tmap.zoom - mouse_pos_in_texture) * tmap.zoom;
-						tmap.scrolling += new_texture_pos - tilemap_pos;
-					}
-				}
+				AddGrid(draw_list, tilemap_pos, ImVec2(16 * tilemap_view.zoom, 16 * tilemap_view.zoom), {tilemap_width, tilemap_height});
 			};
 
 			tilemap_editor_window();
@@ -344,7 +296,14 @@ void Editor::update(float delta) {
 				ImGui::Begin("Tileset##tilemap_editor");
 				defer { ImGui::End(); };
 
+				pan_and_zoom(tile_select_view);
 
+				ImVec2 texture_size(tileset_texture.width * tile_select_view.zoom, tileset_texture.height * tile_select_view.zoom);
+				ImVec2 texture_pos = ImGui::GetCursorScreenPos() + tile_select_view.scrolling;
+
+				ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+				draw_list->AddImage(tileset_texture.ID, texture_pos, texture_pos + texture_size);
 			}
 			break;
 		}
@@ -406,35 +365,24 @@ void Editor::update(float delta) {
 				if (cnl_tileset[0] == 0) return;
 				if (!std::filesystem::is_regular_file(cnl_tileset, ec)) return;
 
-				if (hmap.texture.ID != 0) {
-					glDeleteTextures(1, &hmap.texture.ID);
-					hmap.texture.ID = 0;
-				}
-
-				if (tmap.tiles.data) {
-					free(tmap.tiles.data);
-					tmap.tiles.data = nullptr;
-				}
-
-				hmap = {};
-				tmap = {};
+				clear_state();
 
 				current_level_dir = cnl_folder;
 				is_level_open = true;
 
 				update_window_caption();
 
-				tmap.width = 256;
-				tmap.height = 256;
+				tilemap_width = 256;
+				tilemap_height = 256;
 
-				tmap.tiles.count = tmap.width * tmap.height;
-				tmap.tiles.data = (u32*) malloc(tmap.tiles.count * sizeof(tmap.tiles[0]));
+				tilemap_tiles.count = tilemap_width * tilemap_height;
+				tilemap_tiles.data = (u32*) malloc(tilemap_tiles.count * sizeof(tilemap_tiles[0]));
 
 				std::filesystem::copy_file(cnl_tileset, current_level_dir / "Tileset.png");
 
-				hmap.texture = load_texture_from_file((current_level_dir / "Tileset.png").string().c_str());
+				tileset_texture = load_texture_from_file((current_level_dir / "Tileset.png").string().c_str());
 
-				hmap.scrolling = (io.DisplaySize - ImVec2(hmap.texture.width, hmap.texture.height)) / 2.0f;
+				heightmap_view.scrolling = (io.DisplaySize - ImVec2(tileset_texture.width, tileset_texture.height)) / 2.0f;
 
 				ImGui::CloseCurrentPopup();
 			};
