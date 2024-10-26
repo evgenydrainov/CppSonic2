@@ -27,8 +27,10 @@ struct Editor {
 	View tile_select_view;
 
 	array<u32> tilemap_tiles;
-	int tilemap_width = 0;
-	int tilemap_height = 0;
+	int tilemap_width;
+	int tilemap_height;
+
+	int selected_tile_index;
 
 	bool is_level_open;
 	std::filesystem::path current_level_dir;

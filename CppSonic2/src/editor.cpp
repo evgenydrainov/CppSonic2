@@ -100,6 +100,25 @@ static void pan_and_zoom(View& view) {
 	ImGui::SetCursorScreenPos(canvas_p0); // restore cursor pos
 }
 
+static ImVec2 get_mouse_pos_in_view(View& view) {
+	ImVec2 pos = ImGui::GetMousePos();
+
+	ImVec2 canvas_p0 = ImGui::GetCursorScreenPos();
+	ImVec2 texture_pos = canvas_p0 + view.scrolling;
+
+	pos -= texture_pos;
+	pos /= view.zoom;
+
+	return pos;
+}
+
+static bool pos_in_rect(ImVec2 pos, ImVec2 rect_pos, ImVec2 rect_size) {
+	ImVec2 p1 = rect_pos;
+	ImVec2 p2 = rect_pos + rect_size;
+	return (p1.x <= pos.x && pos.x < p2.x)
+		&& (p1.y <= pos.y && pos.y < p2.y);
+}
+
 static void AddGrid(ImDrawList* list, ImVec2 pos,
 					ImVec2 tile_size, glm::ivec2 grid_size,
 					ImU32 col = IM_COL32(0xff, 0xff, 0xff, 0xff)) {
@@ -130,6 +149,7 @@ void Editor::clear_state() {
 	tile_select_view = {};
 	tilemap_width    = 0;
 	tilemap_height   = 0;
+	selected_tile_index = 0;
 }
 
 void Editor::update(float delta) {
@@ -167,7 +187,7 @@ void Editor::update(float delta) {
 		tilemap_height = 256;
 
 		tilemap_tiles.count = tilemap_width * tilemap_height;
-		tilemap_tiles.data = (u32*) malloc(tilemap_tiles.count * sizeof(tilemap_tiles[0]));
+		tilemap_tiles.data = (u32*) calloc(tilemap_tiles.count, sizeof(tilemap_tiles[0]));
 
 		tileset_texture = load_texture_from_file((current_level_dir / "Tileset.png").string().c_str());
 
@@ -219,6 +239,9 @@ void Editor::update(float delta) {
 	}
 
 	ImGui::ShowDemoWindow();
+
+	int tileset_width  = tileset_texture.width  / 16;
+	int tileset_height = tileset_texture.height / 16;
 
 	switch (mode) {
 		case MODE_HEIGHTMAP: {
@@ -287,24 +310,81 @@ void Editor::update(float delta) {
 
 				ImVec2 tilemap_pos = ImGui::GetCursorScreenPos() + tilemap_view.scrolling;
 
+				for (int y = 0; y < tilemap_height; y++) {
+					for (int x = 0; x < tilemap_width; x++) {
+						u32 tile = tilemap_tiles[x + y * tilemap_width];
+
+						if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
+							ImVec2 tilemap_size(tilemap_width * 16 * tilemap_view.zoom, tilemap_height * 16 * tilemap_view.zoom);
+							if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
+								ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
+
+								int tile_x = clamp((int)(pos.x / 16), 0, tilemap_width  - 1);
+								int tile_y = clamp((int)(pos.y / 16), 0, tilemap_height - 1);
+
+								if (tile_x == x && tile_y == y) {
+									tile = selected_tile_index;
+								}
+							}
+						}
+
+						if (tile == 0) {
+							continue;
+						}
+
+						int tile_u = (tile % tileset_width) * 16;
+						int tile_v = (tile / tileset_width) * 16;
+						ImVec2 tileset_texture_size(tileset_texture.width, tileset_texture.height);
+
+						ImVec2 p = tilemap_pos + ImVec2(x * 16 * tilemap_view.zoom, y * 16 * tilemap_view.zoom);
+						draw_list->AddImage(tileset_texture.ID, p, p + ImVec2(16, 16) * tilemap_view.zoom,
+											ImVec2(tile_u, tile_v) / tileset_texture_size,
+											ImVec2(tile_u + 16, tile_v + 16) / tileset_texture_size);
+					}
+				}
+
 				AddGrid(draw_list, tilemap_pos, ImVec2(16 * tilemap_view.zoom, 16 * tilemap_view.zoom), {tilemap_width, tilemap_height});
 			};
 
 			tilemap_editor_window();
 
-			{
+			auto tile_select_window = [&]() {
 				ImGui::Begin("Tileset##tilemap_editor");
 				defer { ImGui::End(); };
+
+				if (!is_level_open) {
+					return;
+				}
 
 				pan_and_zoom(tile_select_view);
 
 				ImVec2 texture_size(tileset_texture.width * tile_select_view.zoom, tileset_texture.height * tile_select_view.zoom);
 				ImVec2 texture_pos = ImGui::GetCursorScreenPos() + tile_select_view.scrolling;
 
+				// item = invisible button
+				if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
+					if (pos_in_rect(ImGui::GetMousePos(), texture_pos, texture_size)) {
+						ImVec2 pos = get_mouse_pos_in_view(tile_select_view);
+
+						int tile_x = clamp((int)(pos.x / 16), 0, tileset_width  - 1);
+						int tile_y = clamp((int)(pos.y / 16), 0, tileset_height - 1);
+						selected_tile_index = tile_x + tile_y * tileset_width;
+					}
+				}
+
 				ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
 				draw_list->AddImage(tileset_texture.ID, texture_pos, texture_pos + texture_size);
-			}
+
+				{
+					int tile_x = selected_tile_index % tileset_width;
+					int tile_y = selected_tile_index / tileset_width;
+					ImVec2 p = texture_pos + ImVec2(tile_x * 16 * tile_select_view.zoom, tile_y * 16 * tile_select_view.zoom);
+					draw_list->AddRect(p, p + ImVec2(16 * tile_select_view.zoom, 16 * tile_select_view.zoom), IM_COL32(255, 255, 255, 255), 0, 0, 2);
+				}
+			};
+
+			tile_select_window();
 			break;
 		}
 	}
@@ -376,7 +456,7 @@ void Editor::update(float delta) {
 				tilemap_height = 256;
 
 				tilemap_tiles.count = tilemap_width * tilemap_height;
-				tilemap_tiles.data = (u32*) malloc(tilemap_tiles.count * sizeof(tilemap_tiles[0]));
+				tilemap_tiles.data = (u32*) calloc(tilemap_tiles.count, sizeof(tilemap_tiles[0]));
 
 				std::filesystem::copy_file(cnl_tileset, current_level_dir / "Tileset.png");
 
