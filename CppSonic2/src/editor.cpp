@@ -49,6 +49,7 @@ static void pan_and_zoom(View& view) {
 	ImGui::InvisibleButton("canvas",
 						   canvas_sz,
 						   ImGuiButtonFlags_MouseButtonLeft
+						   | ImGuiButtonFlags_MouseButtonRight
 						   | ImGuiButtonFlags_MouseButtonMiddle);
 	const bool is_hovered = ImGui::IsItemHovered(); // Hovered
 	const bool is_active = ImGui::IsItemActive();   // Held
@@ -309,20 +310,43 @@ void Editor::update(float delta) {
 				ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
 				ImVec2 tilemap_pos = ImGui::GetCursorScreenPos() + tilemap_view.scrolling;
+				ImVec2 tilemap_size(tilemap_width * 16 * tilemap_view.zoom, tilemap_height * 16 * tilemap_view.zoom);
+
+				// item = invisible button
+				if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
+					if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
+						ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
+
+						int tile_x = clamp((int)(pos.x / 16), 0, tilemap_width  - 1);
+						int tile_y = clamp((int)(pos.y / 16), 0, tilemap_height - 1);
+						tilemap_tiles[tile_x + tile_y * tilemap_width] = selected_tile_index;
+					}
+				}
+
+				bool is_erasing = false;
+				if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0)) {
+					if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
+						ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
+
+						int tile_x = clamp((int)(pos.x / 16), 0, tilemap_width  - 1);
+						int tile_y = clamp((int)(pos.y / 16), 0, tilemap_height - 1);
+						tilemap_tiles[tile_x + tile_y * tilemap_width] = 0;
+						is_erasing = true;
+					}
+				}
 
 				for (int y = 0; y < tilemap_height; y++) {
 					for (int x = 0; x < tilemap_width; x++) {
 						u32 tile = tilemap_tiles[x + y * tilemap_width];
 
 						if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
-							ImVec2 tilemap_size(tilemap_width * 16 * tilemap_view.zoom, tilemap_height * 16 * tilemap_view.zoom);
 							if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
 								ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
 
 								int tile_x = clamp((int)(pos.x / 16), 0, tilemap_width  - 1);
 								int tile_y = clamp((int)(pos.y / 16), 0, tilemap_height - 1);
 
-								if (tile_x == x && tile_y == y) {
+								if (tile_x == x && tile_y == y && !is_erasing) {
 									tile = selected_tile_index;
 								}
 							}
@@ -405,15 +429,6 @@ void Editor::update(float delta) {
 		ImGui::SameLine();
 		ImGui::InputText("Folder", cnl_folder, sizeof(cnl_folder));
 
-		if (cnl_folder[0] != 0) {
-			std::error_code ec;
-			if (!std::filesystem::exists(cnl_folder, ec)) {
-				ImGui::Text(ICON_FA_EXCLAMATION_TRIANGLE " Folder must exist.");
-			} else if (!std::filesystem::is_empty(cnl_folder, ec)) {
-				ImGui::Text(ICON_FA_EXCLAMATION_TRIANGLE " Folder must be empty.");
-			}
-		}
-
 		if (ImGui::Button("Open...##tileset")) {
 			char* path = nullptr;
 			nfdresult_t res = NFD_OpenDialog("png", nullptr, &path);
@@ -427,23 +442,58 @@ void Editor::update(float delta) {
 		ImGui::SameLine();
 		ImGui::InputText("Tileset", cnl_tileset, sizeof(cnl_tileset));
 
-		if (cnl_tileset[0] != 0) {
-			std::error_code ec;
-			if (!std::filesystem::is_regular_file(cnl_tileset, ec)) {
-				ImGui::Text(ICON_FA_EXCLAMATION_TRIANGLE " File must exist.");
+		bool error = false;
+		const char* error_msg = nullptr;
+
+		auto check_for_errors = [&]() {
+			if (is_level_open) {
+				error = true;
+				error_msg = "programmer error";
+				return;
 			}
+
+			if (cnl_folder[0] == 0) {
+				error = true;
+				return;
+			}
+
+			std::error_code ec;
+
+			if (!std::filesystem::exists(cnl_folder, ec)) {
+				error = true;
+				error_msg = "Folder must exist.";
+				return;
+			}
+
+			if (!std::filesystem::is_empty(cnl_folder, ec)) {
+				error = true;
+				error_msg = "Folder must be empty.";
+				return;
+			}
+
+			if (cnl_tileset[0] == 0) {
+				error = true;
+				return;
+			}
+
+			if (!std::filesystem::is_regular_file(cnl_tileset, ec)) {
+				error = true;
+				error_msg = "Tileset file doesn't exist.";
+				return;
+			}
+		};
+
+		check_for_errors();
+
+		if (error_msg) {
+			ImGui::Text(ICON_FA_EXCLAMATION_TRIANGLE " %s", error_msg);
 		}
+
+		ImGui::BeginDisabled(error);
 
 		if (ButtonCentered("Create")) {
 			auto try_create_new_level = [&]() {
-				std::error_code ec;
-
-				if (cnl_folder[0] == 0) return;
-				if (!std::filesystem::exists(cnl_folder, ec)) return;
-				if (!std::filesystem::is_empty(cnl_folder, ec)) return;
-
-				if (cnl_tileset[0] == 0) return;
-				if (!std::filesystem::is_regular_file(cnl_tileset, ec)) return;
+				if (error) return false;
 
 				clear_state();
 
@@ -464,11 +514,15 @@ void Editor::update(float delta) {
 
 				heightmap_view.scrolling = (io.DisplaySize - ImVec2(tileset_texture.width, tileset_texture.height)) / 2.0f;
 
-				ImGui::CloseCurrentPopup();
+				return true;
 			};
 
-			try_create_new_level();
+			if (try_create_new_level()) {
+				ImGui::CloseCurrentPopup();
+			}
 		}
+
+		ImGui::EndDisabled();
 
 		if (ButtonCentered("Cancel")) {
 			ImGui::CloseCurrentPopup();
