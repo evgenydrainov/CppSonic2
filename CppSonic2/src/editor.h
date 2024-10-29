@@ -20,6 +20,8 @@ struct Editor {
 
 	enum Tool {
 		TOOL_BRUSH,
+		TOOL_LINE,
+		TOOL_RECT,
 		TOOL_SELECT,
 	};
 

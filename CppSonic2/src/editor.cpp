@@ -138,7 +138,7 @@ static bool ButtonActive(const char* label, bool active) {
 	if (active) {
 		ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
 	}
-	bool res = ImGui::Button(label);
+	bool res = ImGui::Button(label, ImVec2(24, 0));
 	if (active) {
 		ImGui::PopStyleColor();
 	}
@@ -363,18 +363,21 @@ void Editor::update(float delta) {
 					}
 				}
 
+				static bool dragging = false;
+				static int drag_start_x = 0;
+				static int drag_start_y = 0;
+
 				if (tool == TOOL_SELECT) {
-					if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
+					if (ImGui::IsItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
 						if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
 							ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
 
 							int tile_x = clamp((int)(pos.x / 16), 0, tilemap_width  - 1);
 							int tile_y = clamp((int)(pos.y / 16), 0, tilemap_height - 1);
 
-							select_x = tile_x;
-							select_y = tile_y;
-							select_w = 1;
-							select_h = 1;
+							dragging = true;
+							drag_start_x = tile_x;
+							drag_start_y = tile_y;
 						} else {
 							select_x = 0;
 							select_y = 0;
@@ -383,11 +386,28 @@ void Editor::update(float delta) {
 						}
 					}
 
-					if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0)) {
+					if (dragging) {
+						ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
+
+						int tile_x = clamp((int)(pos.x / 16), 0, tilemap_width  - 1);
+						int tile_y = clamp((int)(pos.y / 16), 0, tilemap_height - 1);
+
+						select_x = min(tile_x, drag_start_x);
+						select_y = min(tile_y, drag_start_y);
+						select_w = ImAbs(tile_x - drag_start_x) + 1;
+						select_h = ImAbs(tile_y - drag_start_y) + 1;
+
+						if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+							dragging = false;
+						}
+					}
+
+					if (ImGui::IsItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Right, 0)) {
 						select_x = 0;
 						select_y = 0;
 						select_w = 0;
 						select_h = 0;
+						dragging = false;
 					}
 				}
 
@@ -512,10 +532,14 @@ void Editor::update(float delta) {
 							 | ImGuiWindowFlags_NoMove);
 				defer { ImGui::End(); };
 
-				if (ButtonActive(ICON_FA_PEN, tool == TOOL_BRUSH)) {
-					tool = TOOL_BRUSH;
-				}
+				if (ButtonActive(ICON_FA_PEN, tool == TOOL_BRUSH)) tool = TOOL_BRUSH;
 				ImGui::SetItemTooltip("Brush");
+
+				if (ButtonActive(ICON_FA_SLASH, tool == TOOL_LINE)) tool = TOOL_LINE;
+				ImGui::SetItemTooltip("Line");
+
+				if (ButtonActive(ICON_FA_SQUARE_FULL, tool == TOOL_RECT)) tool = TOOL_RECT;
+				ImGui::SetItemTooltip("Rectangle");
 
 				if (ButtonActive(ICON_FA_OBJECT_GROUP, tool == TOOL_SELECT)) {
 					tool = TOOL_SELECT;
@@ -528,6 +552,10 @@ void Editor::update(float delta) {
 			};
 
 			tool_select_window();
+
+			/*ImGui::Begin("foo");
+			ImGui::Text(ICON_FA_SMOKING "%s", u8" Это просто полный пиздец...");
+			ImGui::End();*/
 			break;
 		}
 	}
