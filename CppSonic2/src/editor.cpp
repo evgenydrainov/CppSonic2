@@ -134,6 +134,17 @@ static void AddGrid(ImDrawList* list, ImVec2 pos,
 	}
 }
 
+static bool ButtonActive(const char* label, bool active) {
+	if (active) {
+		ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
+	}
+	bool res = ImGui::Button(label);
+	if (active) {
+		ImGui::PopStyleColor();
+	}
+	return res;
+}
+
 void Editor::clear_state() {
 	if (tileset_texture.ID != 0) {
 		glDeleteTextures(1, &tileset_texture.ID);
@@ -151,6 +162,11 @@ void Editor::clear_state() {
 	tilemap_width    = 0;
 	tilemap_height   = 0;
 	selected_tile_index = 0;
+	tool = (Tool) 0;
+	select_x = 0;
+	select_y = 0;
+	select_w = 0;
+	select_h = 0;
 }
 
 void Editor::update(float delta) {
@@ -239,7 +255,12 @@ void Editor::update(float delta) {
 		ImGui::EndMainMenuBar();
 	}
 
-	ImGui::ShowDemoWindow();
+	if (ImGui::IsKeyPressed(ImGuiKey_F1)) {
+		show_demo_window ^= true;
+	}
+	if (show_demo_window) {
+		ImGui::ShowDemoWindow(&show_demo_window);
+	}
 
 	int tileset_width  = tileset_texture.width  / 16;
 	int tileset_height = tileset_texture.height / 16;
@@ -312,42 +333,81 @@ void Editor::update(float delta) {
 				ImVec2 tilemap_pos = ImGui::GetCursorScreenPos() + tilemap_view.scrolling;
 				ImVec2 tilemap_size(tilemap_width * 16 * tilemap_view.zoom, tilemap_height * 16 * tilemap_view.zoom);
 
-				// item = invisible button
-				if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
-					if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
-						ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
+				bool is_drawing = false;
+				bool is_erasing = false;
 
-						int tile_x = clamp((int)(pos.x / 16), 0, tilemap_width  - 1);
-						int tile_y = clamp((int)(pos.y / 16), 0, tilemap_height - 1);
-						tilemap_tiles[tile_x + tile_y * tilemap_width] = selected_tile_index;
+				if (tool == TOOL_BRUSH) {
+					// item = invisible button from pan_and_zoom
+					if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
+						if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
+							ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
+
+							int tile_x = clamp((int)(pos.x / 16), 0, tilemap_width  - 1);
+							int tile_y = clamp((int)(pos.y / 16), 0, tilemap_height - 1);
+
+							tilemap_tiles[tile_x + tile_y * tilemap_width] = selected_tile_index;
+							is_drawing = true;
+						}
+					}
+
+					if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0)) {
+						if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
+							ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
+
+							int tile_x = clamp((int)(pos.x / 16), 0, tilemap_width  - 1);
+							int tile_y = clamp((int)(pos.y / 16), 0, tilemap_height - 1);
+
+							tilemap_tiles[tile_x + tile_y * tilemap_width] = 0;
+							is_erasing = true;
+						}
 					}
 				}
 
-				bool is_erasing = false;
-				if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0)) {
-					if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
-						ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
+				if (tool == TOOL_SELECT) {
+					if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
+						if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
+							ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
 
-						int tile_x = clamp((int)(pos.x / 16), 0, tilemap_width  - 1);
-						int tile_y = clamp((int)(pos.y / 16), 0, tilemap_height - 1);
-						tilemap_tiles[tile_x + tile_y * tilemap_width] = 0;
-						is_erasing = true;
+							int tile_x = clamp((int)(pos.x / 16), 0, tilemap_width  - 1);
+							int tile_y = clamp((int)(pos.y / 16), 0, tilemap_height - 1);
+
+							select_x = tile_x;
+							select_y = tile_y;
+							select_w = 1;
+							select_h = 1;
+						} else {
+							select_x = 0;
+							select_y = 0;
+							select_w = 0;
+							select_h = 0;
+						}
+					}
+
+					if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0)) {
+						select_x = 0;
+						select_y = 0;
+						select_w = 0;
+						select_h = 0;
 					}
 				}
 
 				for (int y = 0; y < tilemap_height; y++) {
 					for (int x = 0; x < tilemap_width; x++) {
 						u32 tile = tilemap_tiles[x + y * tilemap_width];
+						ImU32 col = IM_COL32(255, 255, 255, 255);
 
-						if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
-							if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
-								ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
+						if (tool == TOOL_BRUSH) {
+							if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
+								if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
+									ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
 
-								int tile_x = clamp((int)(pos.x / 16), 0, tilemap_width  - 1);
-								int tile_y = clamp((int)(pos.y / 16), 0, tilemap_height - 1);
+									int tile_x = clamp((int)(pos.x / 16), 0, tilemap_width  - 1);
+									int tile_y = clamp((int)(pos.y / 16), 0, tilemap_height - 1);
 
-								if (tile_x == x && tile_y == y && !is_erasing) {
-									tile = selected_tile_index;
+									if (tile_x == x && tile_y == y && !is_erasing) {
+										tile = selected_tile_index;
+										if (!is_drawing) col = IM_COL32(255, 255, 255, 180);
+									}
 								}
 							}
 						}
@@ -363,11 +423,44 @@ void Editor::update(float delta) {
 						ImVec2 p = tilemap_pos + ImVec2(x * 16 * tilemap_view.zoom, y * 16 * tilemap_view.zoom);
 						draw_list->AddImage(tileset_texture.ID, p, p + ImVec2(16, 16) * tilemap_view.zoom,
 											ImVec2(tile_u, tile_v) / tileset_texture_size,
-											ImVec2(tile_u + 16, tile_v + 16) / tileset_texture_size);
+											ImVec2(tile_u + 16, tile_v + 16) / tileset_texture_size,
+											col);
 					}
 				}
 
-				AddGrid(draw_list, tilemap_pos, ImVec2(16 * tilemap_view.zoom, 16 * tilemap_view.zoom), {tilemap_width, tilemap_height});
+				// draw selection
+				if (tool == TOOL_SELECT) {
+					if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
+						if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
+							ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
+
+							int tile_x = clamp((int)(pos.x / 16), 0, tilemap_width  - 1);
+							int tile_y = clamp((int)(pos.y / 16), 0, tilemap_height - 1);
+
+							ImVec2 p = tilemap_pos + ImVec2(tile_x, tile_y) * 16.0f * tilemap_view.zoom;
+							draw_list->AddRectFilled(p, p + ImVec2(16, 16) * tilemap_view.zoom, IM_COL32(100, 100, 255, 100));
+						}
+					}
+
+					if (select_w > 0) {
+						Assert(select_h > 0);
+
+						ImVec2 p = tilemap_pos + ImVec2(select_x, select_y) * 16.0f * tilemap_view.zoom;
+						draw_list->AddRectFilled(p, p + ImVec2(select_w, select_h) * 16.0f * tilemap_view.zoom, IM_COL32(100, 100, 255, 100));
+						draw_list->AddRect(p, p + ImVec2(select_w, select_h) * 16.0f * tilemap_view.zoom, IM_COL32(255, 255, 255, 255), 0, 0, 2);
+					}
+				}
+
+				// draw grids
+				{
+					draw_list->AddRect(tilemap_pos, tilemap_pos + tilemap_size, IM_COL32(255, 255, 255, 255));
+
+					if (tilemap_view.zoom > 2) {
+						AddGrid(draw_list, tilemap_pos, ImVec2(16, 16) * tilemap_view.zoom, {tilemap_width, tilemap_height}, IM_COL32(255, 255, 255, 128));
+					}
+
+					AddGrid(draw_list, tilemap_pos, ImVec2(256, 256) * tilemap_view.zoom, {tilemap_width / 16, tilemap_height / 16});
+				}
 			};
 
 			tilemap_editor_window();
@@ -409,6 +502,32 @@ void Editor::update(float delta) {
 			};
 
 			tile_select_window();
+
+			auto tool_select_window = [&]() {
+				ImGui::SetNextWindowPos(ImVec2(0, io.DisplaySize.y / 2.0f), ImGuiCond_Always, ImVec2(0, 0.5f));
+
+				ImGui::Begin("Tool select##tilemap_editor", nullptr,
+							 ImGuiWindowFlags_AlwaysAutoResize
+							 | ImGuiWindowFlags_NoDecoration
+							 | ImGuiWindowFlags_NoMove);
+				defer { ImGui::End(); };
+
+				if (ButtonActive(ICON_FA_PEN, tool == TOOL_BRUSH)) {
+					tool = TOOL_BRUSH;
+				}
+				ImGui::SetItemTooltip("Brush");
+
+				if (ButtonActive(ICON_FA_OBJECT_GROUP, tool == TOOL_SELECT)) {
+					tool = TOOL_SELECT;
+					select_x = 0;
+					select_y = 0;
+					select_w = 0;
+					select_h = 0;
+				}
+				ImGui::SetItemTooltip("Select");
+			};
+
+			tool_select_window();
 			break;
 		}
 	}

@@ -18,6 +18,11 @@ struct Editor {
 		MODE_TILEMAP,
 	};
 
+	enum Tool {
+		TOOL_BRUSH,
+		TOOL_SELECT,
+	};
+
 	Mode mode;
 
 	View heightmap_view;
@@ -31,9 +36,16 @@ struct Editor {
 	int tilemap_height;
 
 	int selected_tile_index;
+	Tool tool;
+	int select_x;
+	int select_y;
+	int select_w;
+	int select_h;
 
 	bool is_level_open;
 	std::filesystem::path current_level_dir;
+
+	bool show_demo_window;
 
 	void init();
 	void deinit();
