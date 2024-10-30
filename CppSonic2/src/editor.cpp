@@ -69,7 +69,10 @@ static void pan_and_zoom(View& view) {
 
 	ImVec2 texture_pos = canvas_p0 + view.scrolling;
 
+	ImVec2 window_center_pos = ImGui::GetWindowPos() + ImGui::GetWindowSize() / 2.0f;
+
 	ImVec2 mouse_pos_in_texture = io.MousePos / view.zoom - texture_pos / view.zoom;
+	ImVec2 window_center_pos_in_texture = window_center_pos / view.zoom - texture_pos / view.zoom;
 
 	const float MIN_ZOOM = 0.25f;
 	const float MAX_ZOOM = 50.0f;
@@ -94,6 +97,24 @@ static void pan_and_zoom(View& view) {
 			Clamp(&view.zoom, MIN_ZOOM, MAX_ZOOM);
 
 			ImVec2 new_texture_pos = (io.MousePos / view.zoom - mouse_pos_in_texture) * view.zoom;
+			view.scrolling += new_texture_pos - texture_pos;
+		}
+	}
+
+	if (ImGui::IsWindowFocused()) {
+		if (ImGui::IsKeyPressed(ImGuiKey_Equal)) {
+			view.zoom *= 1.25f;
+			Clamp(&view.zoom, MIN_ZOOM, MAX_ZOOM);
+
+			ImVec2 new_texture_pos = (window_center_pos / view.zoom - window_center_pos_in_texture) * view.zoom;
+			view.scrolling += new_texture_pos - texture_pos;
+		}
+
+		if (ImGui::IsKeyPressed(ImGuiKey_Minus)) {
+			view.zoom /= 1.25f;
+			Clamp(&view.zoom, MIN_ZOOM, MAX_ZOOM);
+
+			ImVec2 new_texture_pos = (window_center_pos / view.zoom - window_center_pos_in_texture) * view.zoom;
 			view.scrolling += new_texture_pos - texture_pos;
 		}
 	}
@@ -554,7 +575,7 @@ void Editor::update(float delta) {
 			tool_select_window();
 
 			/*ImGui::Begin("foo");
-			ImGui::Text(ICON_FA_SMOKING "%s", u8" Это просто полный пиздец...");
+			ImGui::Text(ICON_FA_SMOKING "%s", u8" пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ...");
 			ImGui::End();*/
 			break;
 		}
