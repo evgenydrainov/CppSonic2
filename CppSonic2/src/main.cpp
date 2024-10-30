@@ -14,9 +14,9 @@ int main(int /*argc*/, char* /*argv*/[]) {
 	init_window_and_opengl("CppSonic2", 424, 240, 2, false);
 	defer { deinit_window_and_opengl(); };
 
-	#ifdef EDITOR
-		SDL_MaximizeWindow(window.handle);
-	#endif
+#ifdef EDITOR
+	SDL_MaximizeWindow(window.handle);
+#endif
 
 	init_package();
 	defer { deinit_package(); };
@@ -24,46 +24,42 @@ int main(int /*argc*/, char* /*argv*/[]) {
 	init_renderer();
 	defer { deinit_renderer(); };
 
+#ifdef EDITOR
+	init_imgui();
+	defer { deinit_imgui(); };
+
+	editor.init();
+	defer { editor.deinit(); };
+#else
 	game.init();
 	defer { game.deinit(); };
-
-	#ifdef EDITOR
-		init_imgui();
-		defer { deinit_imgui(); };
-
-		editor.init();
-		defer { editor.deinit(); };
-	#endif
+#endif
 
 	while (!window.should_quit) {
 		begin_frame();
 
-		#ifdef EDITOR
-			imgui_begin_frame();
-		#endif
-
 		// update
-		{
-			game.update(window.delta);
+#ifdef EDITOR
+		imgui_begin_frame();
 
-			#ifdef EDITOR
-				editor.update(window.delta);
-			#endif
-		}
+		editor.update(window.delta);
+#else
+		game.update(window.delta);
+#endif
 
 		// render
-		{
-			vec4 clear_color = color_cornflower_blue;
-			render_begin_frame(clear_color);
+		vec4 clear_color = color_cornflower_blue;
+		render_begin_frame(clear_color);
 
-			game.draw(window.delta);
+#ifndef EDITOR
+		game.draw(window.delta);
+#endif
 
-			render_end_frame();
+		render_end_frame();
 
-			#ifdef EDITOR
-				imgui_render();
-			#endif
-		}
+#ifdef EDITOR
+		imgui_render();
+#endif
 
 		swap_buffers();
 	}
