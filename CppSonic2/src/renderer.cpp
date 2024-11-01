@@ -1,10 +1,10 @@
-#include "batch_renderer.h"
+#include "renderer.h"
 
 #include "package.h"
 #include "window_creation.h"
 #include "util.h"
 
-Batch_Renderer renderer = {};
+Renderer renderer = {};
 
 
 static char texture_vert_shader_src[] = R"(
@@ -154,8 +154,8 @@ void init_renderer() {
 
 		glBindVertexArray(0);
 
-		renderer.batch_vertices.data = (Vertex*) malloc(BATCH_MAX_VERTICES * sizeof(Vertex));
-		renderer.batch_vertices.capacity = BATCH_MAX_VERTICES;
+		renderer.vertices.data = (Vertex*) malloc(BATCH_MAX_VERTICES * sizeof(Vertex));
+		renderer.vertices.capacity = BATCH_MAX_VERTICES;
 
 		// stub texture
 		glGenTextures(1, &renderer.stub_texture);
@@ -214,11 +214,11 @@ void init_renderer() {
 }
 
 void deinit_renderer() {
-	free(renderer.batch_vertices.data);
+	free(renderer.vertices.data);
 }
 
 void render_begin_frame(vec4 clear_color) {
-	Assert(renderer.batch_vertices.count == 0);
+	Assert(renderer.vertices.count == 0);
 
 	renderer.draw_calls = renderer.curr_draw_calls;
 	renderer.max_batch  = renderer.curr_max_batch;
@@ -268,6 +268,15 @@ void render_end_frame() {
 		int y = (backbuffer_height - h) / 2;
 
 		{
+			int mouse_x;
+			int mouse_y;
+			SDL_GetMouseState(&mouse_x, &mouse_y);
+
+			renderer.mouse_pos.x = ((mouse_x - x) / (float)w) * (float)window.game_width;
+			renderer.mouse_pos.y = ((mouse_y - y) / (float)h) * (float)window.game_height;
+		}
+
+		{
 			int u_SourceSize = glGetUniformLocation(program, "u_SourceSize");
 			glUniform2f(u_SourceSize, (float)window.game_width, (float)window.game_height);
 		}
@@ -292,7 +301,7 @@ void render_end_frame() {
 }
 
 void break_batch() {
-	if (renderer.batch_vertices.count == 0) {
+	if (renderer.vertices.count == 0) {
 		return;
 	}
 
@@ -301,7 +310,7 @@ void break_batch() {
 
 	{
 		glBindBuffer(GL_ARRAY_BUFFER, renderer.batch_vbo);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, renderer.batch_vertices.count * sizeof(Vertex), renderer.batch_vertices.data);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, renderer.vertices.count * sizeof(Vertex), renderer.vertices.data);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 
@@ -323,11 +332,11 @@ void break_batch() {
 			glBindVertexArray(renderer.batch_vao);
 			defer { glBindVertexArray(0); };
 
-			Assert(renderer.batch_vertices.count % 4 == 0);
+			Assert(renderer.vertices.count % 4 == 0);
 
-			glDrawElements(GL_TRIANGLES, (GLsizei)renderer.batch_vertices.count / 4 * 6, GL_UNSIGNED_INT, 0);
+			glDrawElements(GL_TRIANGLES, (GLsizei)renderer.vertices.count / 4 * 6, GL_UNSIGNED_INT, 0);
 			renderer.curr_draw_calls++;
-			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.batch_vertices.count);
+			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
 			break;
 		}
 
@@ -348,16 +357,16 @@ void break_batch() {
 			glBindVertexArray(renderer.batch_vao);
 			defer { glBindVertexArray(0); };
 
-			Assert(renderer.batch_vertices.count % 3 == 0);
+			Assert(renderer.vertices.count % 3 == 0);
 
-			glDrawArrays(GL_TRIANGLES, 0, (GLsizei)renderer.batch_vertices.count);
+			glDrawArrays(GL_TRIANGLES, 0, (GLsizei)renderer.vertices.count);
 			renderer.curr_draw_calls++;
-			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.batch_vertices.count);
+			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
 			break;
 		}
 	}
 
-	renderer.batch_vertices.count = 0;
+	renderer.vertices.count = 0;
 	renderer.current_texture = 0;
 	renderer.current_mode = MODE_NONE;
 }
@@ -376,7 +385,10 @@ void draw_texture(Texture t, Rect src,
 		src.h = t.height;
 	}
 
-	if (t.ID != renderer.current_texture || renderer.current_mode != MODE_QUADS) {
+	if (t.ID != renderer.current_texture
+		|| renderer.current_mode != MODE_QUADS
+		|| renderer.vertices.count + VERTICES_PER_QUAD > BATCH_MAX_VERTICES)
+	{
 		break_batch();
 
 		renderer.current_texture = t.ID;
@@ -423,10 +435,10 @@ void draw_texture(Texture t, Rect src,
 		vertices[2].pos = model * vec4{vertices[2].pos, 1.0f};
 		vertices[3].pos = model * vec4{vertices[3].pos, 1.0f};
 
-		array_add(&renderer.batch_vertices, vertices[0]);
-		array_add(&renderer.batch_vertices, vertices[1]);
-		array_add(&renderer.batch_vertices, vertices[2]);
-		array_add(&renderer.batch_vertices, vertices[3]);
+		array_add(&renderer.vertices, vertices[0]);
+		array_add(&renderer.vertices, vertices[1]);
+		array_add(&renderer.vertices, vertices[2]);
+		array_add(&renderer.vertices, vertices[3]);
 	}
 }
 
@@ -459,7 +471,10 @@ void draw_rectangle(Rectf rect, vec2 scale,
 }
 
 void draw_triangle(vec2 p1, vec2 p2, vec2 p3, vec4 color) {
-	if (renderer.current_texture != renderer.stub_texture || renderer.current_mode != MODE_TRIANGLES) {
+	if (renderer.current_texture != renderer.stub_texture
+		|| renderer.current_mode != MODE_TRIANGLES
+		|| renderer.vertices.count + 3 > BATCH_MAX_VERTICES)
+	{
 		break_batch();
 
 		renderer.current_texture = renderer.stub_texture;
@@ -473,9 +488,9 @@ void draw_triangle(vec2 p1, vec2 p2, vec2 p3, vec4 color) {
 			{{p3.x, p3.y, 0.0f}, {}, color, {}},
 		};
 
-		array_add(&renderer.batch_vertices, vertices[0]);
-		array_add(&renderer.batch_vertices, vertices[1]);
-		array_add(&renderer.batch_vertices, vertices[2]);
+		array_add(&renderer.vertices, vertices[0]);
+		array_add(&renderer.vertices, vertices[1]);
+		array_add(&renderer.vertices, vertices[2]);
 	}
 }
 

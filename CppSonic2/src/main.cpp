@@ -1,7 +1,7 @@
 #include "common.h"
 #include "window_creation.h"
 #include "game.h"
-#include "batch_renderer.h"
+#include "renderer.h"
 #include "package.h"
 
 #ifdef EDITOR

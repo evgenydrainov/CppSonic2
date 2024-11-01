@@ -28,10 +28,10 @@ enum RenderMode {
 	MODE_TRIANGLES,
 };
 
-struct Batch_Renderer {
+struct Renderer {
 	u32 current_texture;
 	RenderMode current_mode;
-	bump_array<Vertex> batch_vertices;
+	bump_array<Vertex> vertices;
 
 	u32 texture_shader;  // These shaders should be handled by an asset system maybe
 	u32 sharp_bilinear_shader;
@@ -55,9 +55,11 @@ struct Batch_Renderer {
 
 	int curr_draw_calls;  // These values change during the frame, use draw_calls and max_batch for metrics
 	size_t curr_max_batch;
+
+	vec2 mouse_pos;
 };
 
-extern Batch_Renderer renderer;
+extern Renderer renderer;
 
 void init_renderer(); // assumes opengl is initialized
 void deinit_renderer();

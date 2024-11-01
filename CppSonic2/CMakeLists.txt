@@ -41,7 +41,7 @@ endif()
 include_directories(${PROJECT_NAME} /usr/include/freetype2)
 
 set(SOURCES
-	src/batch_renderer.cpp
+	src/renderer.cpp
 	src/font.cpp
 	src/game.cpp
 	src/main.cpp

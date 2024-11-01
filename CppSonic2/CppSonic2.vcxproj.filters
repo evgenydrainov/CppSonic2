@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\batch_renderer.cpp">
+    <ClCompile Include="src\renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\font.cpp">
@@ -48,9 +48,15 @@
     <ClCompile Include="src\imgui\imgui_single_file.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\nfd\nfd_common.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\nfd\nfd_win.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\batch_renderer.h">
+    <ClInclude Include="src\renderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\common.h">
