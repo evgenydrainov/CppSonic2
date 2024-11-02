@@ -94,8 +94,6 @@ void Game::deinit() {
 }
 
 void Game::update(float delta) {
-	mouse_world_pos = glm::floor(renderer.mouse_pos + camera_pos);
-
 	// update player
 	{
 		switch (player.state) {
@@ -124,6 +122,18 @@ void Game::update(float delta) {
 
 	camera_pos.x = player.pos.x - window.game_width / 2.0f;
 	camera_pos.y = player.pos.y - window.game_height / 2.0f;
+
+	{
+		int mouse_x;
+		int mouse_y;
+		SDL_GetMouseState(&mouse_x, &mouse_y);
+
+		vec2 mouse_pos_rel;
+		mouse_pos_rel.x = ((mouse_x - renderer.game_texture_rect.x) / (float)renderer.game_texture_rect.w) * (float)window.game_width;
+		mouse_pos_rel.y = ((mouse_y - renderer.game_texture_rect.y) / (float)renderer.game_texture_rect.h) * (float)window.game_height;
+
+		mouse_world_pos = glm::floor(mouse_pos_rel + camera_pos);
+	}
 }
 
 void Game::draw(float delta) {

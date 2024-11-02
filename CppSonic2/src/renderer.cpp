@@ -262,19 +262,10 @@ void render_end_frame() {
 		float yscale = backbuffer_height / (float)window.game_height;
 		float scale = min(xscale, yscale);
 
-		int w = (int) (window.game_width  * scale);
-		int h = (int) (window.game_height * scale);
-		int x = (backbuffer_width  - w) / 2;
-		int y = (backbuffer_height - h) / 2;
-
-		{
-			int mouse_x;
-			int mouse_y;
-			SDL_GetMouseState(&mouse_x, &mouse_y);
-
-			renderer.mouse_pos.x = ((mouse_x - x) / (float)w) * (float)window.game_width;
-			renderer.mouse_pos.y = ((mouse_y - y) / (float)h) * (float)window.game_height;
-		}
+		renderer.game_texture_rect.w = (int) (window.game_width  * scale);
+		renderer.game_texture_rect.h = (int) (window.game_height * scale);
+		renderer.game_texture_rect.x = (backbuffer_width  - renderer.game_texture_rect.w) / 2;
+		renderer.game_texture_rect.y = (backbuffer_height - renderer.game_texture_rect.h) / 2;
 
 		{
 			int u_SourceSize = glGetUniformLocation(program, "u_SourceSize");
@@ -292,7 +283,7 @@ void render_end_frame() {
 		t.ID = renderer.game_texture;
 		t.width  = window.game_width;
 		t.height = window.game_height;
-		draw_texture(t, {}, {(float)x, (float)y}, {scale, scale}, {}, 0, color_white, {false, true});
+		draw_texture(t, {}, {(float)renderer.game_texture_rect.x, (float)renderer.game_texture_rect.y}, {scale, scale}, {}, 0, color_white, {false, true});
 
 		break_batch();
 

@@ -45,6 +45,7 @@ struct Renderer {
 
 	u32 game_texture;      // Game is renderer to a framebuffer, and then the framebuffer is
 	u32 game_framebuffer;  // rendered to the screen.
+	Rect game_texture_rect;
 
 	mat4 proj_mat = {1};
 	mat4 view_mat = {1};
@@ -55,8 +56,6 @@ struct Renderer {
 
 	int curr_draw_calls;  // These values change during the frame, use draw_calls and max_batch for metrics
 	size_t curr_max_batch;
-
-	vec2 mouse_pos;
 };
 
 extern Renderer renderer;
