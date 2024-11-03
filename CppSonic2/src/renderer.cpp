@@ -355,6 +355,54 @@ void break_batch() {
 			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
 			break;
 		}
+
+		case MODE_LINES: {
+			u32 program = renderer.current_shader;
+
+			glUseProgram(program);
+			defer { glUseProgram(0); };
+
+			mat4 MVP = (renderer.proj_mat * renderer.view_mat) * renderer.model_mat;
+
+			int u_MVP = glGetUniformLocation(program, "u_MVP");
+			glUniformMatrix4fv(u_MVP, 1, GL_FALSE, &MVP[0][0]);
+
+			glBindTexture(GL_TEXTURE_2D, renderer.current_texture);
+			defer { glBindTexture(GL_TEXTURE_2D, 0); };
+
+			glBindVertexArray(renderer.batch_vao);
+			defer { glBindVertexArray(0); };
+
+			Assert(renderer.vertices.count % 2 == 0);
+
+			glDrawArrays(GL_LINES, 0, (GLsizei)renderer.vertices.count);
+			renderer.curr_draw_calls++;
+			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
+			break;
+		}
+
+		case MODE_POINTS: {
+			u32 program = renderer.current_shader;
+
+			glUseProgram(program);
+			defer { glUseProgram(0); };
+
+			mat4 MVP = (renderer.proj_mat * renderer.view_mat) * renderer.model_mat;
+
+			int u_MVP = glGetUniformLocation(program, "u_MVP");
+			glUniformMatrix4fv(u_MVP, 1, GL_FALSE, &MVP[0][0]);
+
+			glBindTexture(GL_TEXTURE_2D, renderer.current_texture);
+			defer { glBindTexture(GL_TEXTURE_2D, 0); };
+
+			glBindVertexArray(renderer.batch_vao);
+			defer { glBindVertexArray(0); };
+
+			glDrawArrays(GL_POINTS, 0, (GLsizei)renderer.vertices.count);
+			renderer.curr_draw_calls++;
+			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
+			break;
+		}
 	}
 
 	renderer.vertices.count = 0;
@@ -493,4 +541,46 @@ void draw_circle(vec2 pos, float radius, vec4 color, int precision) {
 		vec2 p2 = pos + vec2{cosf(angle2), -sinf(angle2)} * radius;
 		draw_triangle(p1, p2, pos, color);
 	}
+}
+
+void draw_line(vec2 p1, vec2 p2, vec4 color) {
+	if (renderer.current_texture != renderer.stub_texture
+		|| renderer.current_mode != MODE_LINES
+		|| renderer.vertices.count + 2 > BATCH_MAX_VERTICES)
+	{
+		break_batch();
+
+		renderer.current_texture = renderer.stub_texture;
+		renderer.current_mode = MODE_LINES;
+	}
+
+	Vertex vertices[] = {
+		{{p1.x, p1.y, 0.0f}, {}, color, {}},
+		{{p2.x, p2.y, 0.0f}, {}, color, {}},
+	};
+
+	array_add(&renderer.vertices, vertices[0]);
+	array_add(&renderer.vertices, vertices[1]);
+}
+
+void draw_point(vec2 point, vec4 color) {
+	if (renderer.current_texture != renderer.stub_texture
+		|| renderer.current_mode != MODE_POINTS
+		|| renderer.vertices.count + 1 > BATCH_MAX_VERTICES)
+	{
+		break_batch();
+
+		renderer.current_texture = renderer.stub_texture;
+		renderer.current_mode = MODE_POINTS;
+	}
+
+	array_add(&renderer.vertices, {{point.x, point.y, 0.0f}, {}, color, {}});
+}
+
+void draw_rectangle_outline(Rectf rect, vec4 color) {
+	draw_line({rect.x, rect.y}, {rect.x + rect.w, rect.y}, color);
+	draw_line({rect.x, rect.y + rect.h - 1}, {rect.x + rect.w, rect.y + rect.h - 1}, color);
+
+	draw_line({rect.x + 1, rect.y}, {rect.x + 1, rect.y + rect.h}, color);
+	draw_line({rect.x + rect.w, rect.y}, {rect.x + rect.w, rect.y + rect.h}, color);
 }

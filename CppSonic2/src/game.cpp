@@ -756,7 +756,7 @@ void Game::draw(float delta) {
 			}
 		}
 
-		draw_rectangle(rect, get_color(128, 128, 255, 255));
+		draw_rectangle_outline(rect, get_color(128, 128, 255, 255));
 	}
 
 	// draw sensors
@@ -773,8 +773,8 @@ void Game::draw(float delta) {
 			vec2 sensor_b;
 			get_ground_sensors_pos(p, &sensor_a, &sensor_b);
 
-			draw_rectangle({floorf(sensor_a.x), floorf(sensor_a.y), 1.0f, 1.0f}, SENSOR_A_COLOR);
-			draw_rectangle({floorf(sensor_b.x), floorf(sensor_b.y), 1.0f, 1.0f}, SENSOR_B_COLOR);
+			draw_point({floorf(sensor_a.x), floorf(sensor_a.y)}, SENSOR_A_COLOR);
+			draw_point({floorf(sensor_b.x), floorf(sensor_b.y)}, SENSOR_B_COLOR);
 		}
 	}
 #endif
@@ -782,18 +782,19 @@ void Game::draw(float delta) {
 #ifdef DEVELOPER
 	{
 		SensorResult res;
-		
-		res = sensor_check_down(mouse_world_pos, p->layer);
-		draw_rectangle({mouse_world_pos.x, mouse_world_pos.y, 1, (float)res.dist}, color_red);
+		vec2 pos = mouse_world_pos;
 
-		res = sensor_check_right(mouse_world_pos, p->layer);
-		draw_rectangle({mouse_world_pos.x, mouse_world_pos.y, (float)res.dist, 1}, color_red);
+		res = sensor_check_up(pos, p->layer);
+		draw_line(pos, pos + vec2{0, -res.dist}, color_blue);
 
-		res = sensor_check_up(mouse_world_pos, p->layer);
-		draw_rectangle({mouse_world_pos.x, mouse_world_pos.y, 1, (float)-res.dist}, color_blue);
+		res = sensor_check_left(pos, p->layer);
+		draw_line(pos, pos + vec2{-res.dist, 0}, color_blue);
 
-		res = sensor_check_left(mouse_world_pos, p->layer);
-		draw_rectangle({mouse_world_pos.x, mouse_world_pos.y, (float)-res.dist, 1}, color_blue);
+		res = sensor_check_down(pos, p->layer);
+		draw_line(pos, pos + vec2{0, res.dist}, color_red);
+
+		res = sensor_check_right(pos, p->layer);
+		draw_line(pos, pos + vec2{res.dist, 0}, color_red);
 	}
 #endif
 }

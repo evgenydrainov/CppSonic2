@@ -26,6 +26,8 @@ enum RenderMode {
 	MODE_NONE,
 	MODE_QUADS,
 	MODE_TRIANGLES,
+	MODE_LINES,
+	MODE_POINTS,
 };
 
 struct Renderer {
@@ -84,3 +86,9 @@ void draw_rectangle(Rectf rect, vec2 scale,
 void draw_triangle(vec2 p1, vec2 p2, vec2 p3, vec4 color);
 
 void draw_circle(vec2 pos, float radius, vec4 color, int precision = 12);
+
+void draw_line(vec2 p1, vec2 p2, vec4 color);
+
+void draw_point(vec2 point, vec4 color);
+
+void draw_rectangle_outline(Rectf rect, vec4 color);
