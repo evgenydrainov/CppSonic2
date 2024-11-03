@@ -203,21 +203,24 @@ inline const char* format_size_string(size_t bytes) {
 
 
 inline constexpr vec4 get_color(u32 rgba) {
-	return {
-		((rgba >> 24) & 0xFF) / 255.0f,
-		((rgba >> 16) & 0xFF) / 255.0f,
-		((rgba >>  8) & 0xFF) / 255.0f,
-		((rgba >>  0) & 0xFF) / 255.0f
-	};
+	return {((rgba >> 24) & 0xFF) / 255.0f,
+			((rgba >> 16) & 0xFF) / 255.0f,
+			((rgba >>  8) & 0xFF) / 255.0f,
+			((rgba >>  0) & 0xFF) / 255.0f};
+}
+
+inline constexpr vec4 get_color(u8 r, u8 g, u8 b, u8 a) {
+	return {r / 255.0f,
+			g / 255.0f,
+			b / 255.0f,
+			a / 255.0f};
 }
 
 inline constexpr vec4 get_color_4bit(u16 rgba) {
-	return {
-		((rgba >> 12) & 0xF) / 15.0f,
-		((rgba >>  8) & 0xF) / 15.0f,
-		((rgba >>  4) & 0xF) / 15.0f,
-		((rgba >>  0) & 0xF) / 15.0f
-	};
+	return {((rgba >> 12) & 0xF) / 15.0f,
+			((rgba >>  8) & 0xF) / 15.0f,
+			((rgba >>  4) & 0xF) / 15.0f,
+			((rgba >>  0) & 0xF) / 15.0f};
 }
 
 
@@ -354,6 +357,18 @@ inline float angle_difference(float dest, float src) {
 	float res = dest - src;
 	res = angle_wrap(res + 180.0f) - 180.0f;
 	return res;
+}
+
+inline float signf(float x) {
+	if (x > 0) return 1;
+	if (x == 0) return 0;
+	return -1;
+}
+
+inline int sign_int(float x) {
+	if (x > 0) return 1;
+	if (x == 0) return 0;
+	return -1;
 }
 
 // 

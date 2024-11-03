@@ -6,9 +6,28 @@
 #include "texture.h"
 
 enum PlayerState {
-	PLAYER_STATE_GROUND,
-	PLAYER_STATE_ROLL,
-	PLAYER_STATE_AIR,
+	STATE_GROUND,
+	STATE_ROLL,
+	STATE_AIR,
+};
+
+enum PlayerMode {
+	MODE_FLOOR,
+	MODE_RIGHT_WALL,
+	MODE_CEILING,
+	MODE_LEFT_WALL,
+};
+
+enum anim_index {
+	anim_crouch,
+	anim_idle,
+	anim_look_up,
+	anim_peelout,
+	anim_roll,
+	anim_run,
+	anim_skid,
+	anim_spindash,
+	anim_walk,
 };
 
 struct Player {
@@ -21,6 +40,11 @@ struct Player {
 	vec2 radius = {9, 19};
 
 	PlayerState state;
+
+	int layer;
+
+	anim_index anim;
+	anim_index next_anim;
 };
 
 struct Tile {
@@ -44,8 +68,8 @@ struct SensorResult {
 
 struct Game {
 	Player player;
-
 	vec2 camera_pos;
+	bool debug_mode;
 
 	Font font;
 
@@ -87,52 +111,50 @@ struct Game {
 
 	void load_tilemap_old_format(const char* fname);
 	void load_tileset_old_format(const char* fname);
-
-	Tile get_tile_a(int tile_x, int tile_y) {
-		if ((0 <= tile_x && tile_x < tilemap_width) && (0 <= tile_y && tile_y < tilemap_height)) {
-			return tiles_a[tile_x + tile_y * tilemap_width];
-		}
-		return {};
-	}
-
-	Tile get_tile_b(int tile_x, int tile_y) {
-		if ((0 <= tile_x && tile_x < tilemap_width) && (0 <= tile_y && tile_y < tilemap_height)) {
-			return tiles_b[tile_x + tile_y * tilemap_width];
-		}
-		return {};
-	}
-
-	Tile get_tile(int tile_x, int tile_y, int layer) {
-		if (layer == 0) {
-			return get_tile_a(tile_x, tile_y);
-		} else if (layer == 1) {
-			return get_tile_b(tile_x, tile_y);
-		}
-		return {};
-	}
-
-	array<u8> get_tile_heights(int tile_index) {
-		Assert(tile_index < tileset_width * tileset_height);
-		array<u8> result;
-		result.data = &tile_heights[tile_index * 16];
-		result.count = 16;
-		return result;
-	}
-
-	array<u8> get_tile_widths(int tile_index) {
-		Assert(tile_index < tileset_width * tileset_height);
-		array<u8> result;
-		result.data = &tile_widths[tile_index * 16];
-		result.count = 16;
-		return result;
-	}
-
-	float get_tile_angle(int tile_index) {
-		Assert(tile_index < tileset_width * tileset_height);
-		return tile_angles[tile_index];
-	}
-
-	SensorResult sensor_check_down(float x, float y, int layer);
 };
 
 extern Game game;
+
+inline Tile get_tile_a(int tile_x, int tile_y) {
+	if ((0 <= tile_x && tile_x < game.tilemap_width) && (0 <= tile_y && tile_y < game.tilemap_height)) {
+		return game.tiles_a[tile_x + tile_y * game.tilemap_width];
+	}
+	return {};
+}
+
+inline Tile get_tile_b(int tile_x, int tile_y) {
+	if ((0 <= tile_x && tile_x < game.tilemap_width) && (0 <= tile_y && tile_y < game.tilemap_height)) {
+		return game.tiles_b[tile_x + tile_y * game.tilemap_width];
+	}
+	return {};
+}
+
+inline Tile get_tile(int tile_x, int tile_y, int layer) {
+	if (layer == 0) {
+		return get_tile_a(tile_x, tile_y);
+	} else if (layer == 1) {
+		return get_tile_b(tile_x, tile_y);
+	}
+	return {};
+}
+
+inline array<u8> get_tile_heights(int tile_index) {
+	Assert(tile_index < game.tileset_width * game.tileset_height);
+	array<u8> result;
+	result.data = &game.tile_heights[tile_index * 16];
+	result.count = 16;
+	return result;
+}
+
+inline array<u8> get_tile_widths(int tile_index) {
+	Assert(tile_index < game.tileset_width * game.tileset_height);
+	array<u8> result;
+	result.data = &game.tile_widths[tile_index * 16];
+	result.count = 16;
+	return result;
+}
+
+inline float get_tile_angle(int tile_index) {
+	Assert(tile_index < game.tileset_width * game.tileset_height);
+	return game.tile_angles[tile_index];
+}
