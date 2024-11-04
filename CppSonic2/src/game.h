@@ -55,6 +55,7 @@ struct Player {
 	float spinrev;
 	float control_lock;
 	bool jumped;
+	bool peelout;
 };
 
 struct Tile {

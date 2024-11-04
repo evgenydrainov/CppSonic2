@@ -868,8 +868,6 @@ static void player_state_ground(Player* p, float delta) {
 		if (is_key_held(SDL_SCANCODE_LEFT))  input_h--;
 	}
 
-	p->jumped = false;
-
 	// TODO: Check for special animations that prevent control (such as balancing).
 
 	// Adjust Ground Speed based on current Ground Angle (Slope Factor).
@@ -877,8 +875,9 @@ static void player_state_ground(Player* p, float delta) {
 
 	// Update Ground Speed based on directional input and apply friction/deceleration.
 	if (p->anim != anim_spindash
-		&& /*p->anim != anim_crouch*/1
-		&& /*p->anim != anim_look_up*/1)
+		&& !p->peelout
+		&& p->anim != anim_crouch
+		&& p->anim != anim_look_up)
 	{
 		if (input_h == 0) {
 			Approach(&p->ground_speed, 0.0f, PLAYER_FRICTION * delta);
@@ -910,7 +909,7 @@ static void player_state_ground(Player* p, float delta) {
 	// Grounded Ground Sensor collision occurs.
 	ground_sensor_collision(p);
 
-	if (p->anim != anim_spindash) {
+	if (p->anim != anim_spindash && !p->peelout) {
 		if (p->ground_speed == 0.0f) {
 			if (is_key_held(SDL_SCANCODE_DOWN)) {
 				p->next_anim = anim_crouch;
@@ -923,16 +922,18 @@ static void player_state_ground(Player* p, float delta) {
 				p->frame_duration = 1;
 			}
 		} else {
-			if (fabsf(p->ground_speed) >= PLAYER_TOP_SPEED) {
+			if (fabsf(p->ground_speed) >= 12) {
+				p->next_anim = anim_peelout;
+			} else if (fabsf(p->ground_speed) >= PLAYER_TOP_SPEED) {
 				p->next_anim = anim_run;
 			} else {
 				p->next_anim = anim_walk;
 			}
-			p->frame_duration = fmaxf(0.0f, 8.0f - fabsf(p->ground_speed));
+			p->frame_duration = fmaxf(0, 8 - fabsf(p->ground_speed));
 		}
 	}
 
-	if (p->ground_speed != 0.0f) {
+	if (p->ground_speed != 0) {
 		p->facing = sign_int(p->ground_speed);
 	}
 
@@ -944,18 +945,24 @@ static void player_state_ground(Player* p, float delta) {
 	// Check for starting a jump.
 	if (is_key_pressed(SDL_SCANCODE_Z)) {
 		if (p->anim == anim_crouch) {
+			// start spindash
 			p->next_anim = anim_spindash;
 			p->frame_duration = 1;
-			p->spinrev = 0.0f;
+			p->spinrev = 0;
 		} else if (p->anim == anim_look_up) {
-
+			// start peelout
+			p->peelout = true;
+			p->spinrev = 0;
 		} else if (p->anim == anim_spindash) {
-			p->spinrev += 2.0f;
-			p->spinrev = fminf(p->spinrev, 8.0f);
+			// charge up spindash
+			p->spinrev += 2;
+			p->spinrev = fminf(p->spinrev, 8);
 			p->frame_index = 0;
 		} else {
-			if (player_try_jump(p)) {
-				return;
+			if (!p->peelout) {
+				if (player_try_jump(p)) {
+					return;
+				}
 			}
 		}
 	}
@@ -969,6 +976,32 @@ static void player_state_ground(Player* p, float delta) {
 			p->next_anim = anim_roll;
 			p->frame_duration = fmaxf(0, 4 - fabsf(p->ground_speed));
 			game.camera_lock = 24 - floorf(fabsf(p->ground_speed));
+			return;
+		}
+	}
+
+	if (p->peelout) {
+		p->spinrev += delta;
+		p->spinrev = fminf(p->spinrev, 30);
+
+		float speed = (4.5f + floorf(p->spinrev) / 4.0f) * p->facing;
+
+		if (fabsf(speed) >= 12) {
+			p->next_anim = anim_peelout;
+		} else if (fabsf(speed) >= PLAYER_TOP_SPEED) {
+			p->next_anim = anim_run;
+		} else {
+			p->next_anim = anim_walk;
+		}
+		p->frame_duration = fmaxf(0, 8 - fabsf(speed));
+
+		if (!is_key_held(SDL_SCANCODE_UP)) {
+			p->state = STATE_GROUND;
+			if (p->spinrev >= 15) {
+				p->ground_speed = speed;
+				game.camera_lock = 24 - floorf(fabsf(p->ground_speed));
+			}
+			p->peelout = false;
 			return;
 		}
 	}
@@ -988,8 +1021,6 @@ static void player_state_roll(Player* p, float delta) {
 		if (is_key_held(SDL_SCANCODE_RIGHT)) input_h++;
 		if (is_key_held(SDL_SCANCODE_LEFT))  input_h--;
 	}
-
-	p->jumped = false;
 
 	apply_slope_factor(p, delta);
 
@@ -1085,6 +1116,14 @@ static void player_state_air(Player* p, float delta) {
 }
 
 static void player_update(Player* p, float delta) {
+	// clear flags
+	if (p->state != STATE_AIR) {
+		p->jumped = false;
+	}
+	if (p->state != STATE_GROUND) {
+		p->peelout = false;
+	}
+
 	switch (p->state) {
 		case STATE_GROUND: {
 			player_state_ground(p, delta);
