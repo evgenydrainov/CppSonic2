@@ -11,7 +11,7 @@
 
 
 int main(int /*argc*/, char* /*argv*/[]) {
-	init_window_and_opengl("CppSonic2", 424, 240, 2, false);
+	init_window_and_opengl("CppSonic2", 424, 240, 2, true);
 	defer { deinit_window_and_opengl(); };
 
 #ifdef EDITOR

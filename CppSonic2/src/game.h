@@ -9,6 +9,7 @@ enum PlayerState {
 	STATE_GROUND,
 	STATE_ROLL,
 	STATE_AIR,
+	STATE_DEBUG,
 };
 
 enum PlayerMode {
@@ -28,6 +29,8 @@ enum anim_index {
 	anim_skid,
 	anim_spindash,
 	anim_walk,
+
+	NUM_ANIMS,
 };
 
 struct Player {
@@ -37,14 +40,21 @@ struct Player {
 	float ground_speed;
 	float ground_angle;
 
-	vec2 radius = {9, 19};
-
 	PlayerState state;
 
 	int layer;
 
 	anim_index anim;
 	anim_index next_anim;
+	int frame_index;
+	int frame_duration;
+	float frame_timer;
+
+	int facing = 1;
+
+	float spinrev;
+	float control_lock;
+	bool jumped;
 };
 
 struct Tile {
@@ -68,8 +78,9 @@ struct SensorResult {
 
 struct Game {
 	Player player;
+
 	vec2 camera_pos;
-	bool debug_mode;
+	float camera_lock;
 
 	Font font;
 
@@ -89,15 +100,7 @@ struct Game {
 	int tilemap_width;
 	int tilemap_height;
 
-	Texture texture_crouch;
-	Texture texture_idle;
-	Texture texture_look_up;
-	Texture texture_peelout;
-	Texture texture_roll;
-	Texture texture_run;
-	Texture texture_skid;
-	Texture texture_spindash;
-	Texture texture_walk;
+	Texture anim_textures[NUM_ANIMS];
 
 	vec2 mouse_world_pos;
 

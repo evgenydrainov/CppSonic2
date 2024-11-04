@@ -67,7 +67,7 @@ void begin_frame();
 void swap_buffers();
 
 bool is_key_held(SDL_Scancode key);
-bool is_key_pressed(SDL_Scancode key, bool repeat = true);
+bool is_key_pressed(SDL_Scancode key, bool repeat = false);
 
 SDL_Window* get_window_handle(); // for common.h
 

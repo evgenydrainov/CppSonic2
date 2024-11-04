@@ -173,6 +173,13 @@ vec2 draw_text(Font font, string text, vec2 text_pos,
 	return {ch_x, ch_y};
 }
 
+vec2 draw_text_shadow(Font font, string text, vec2 text_pos,
+					  HAlign halign, VAlign valign, vec4 color) {
+	draw_text(font, text, {text_pos.x + 1, text_pos.y + 1}, halign, valign, color_black);
+	vec2 result = draw_text(font, text, text_pos, halign, valign, color);
+	return result;
+}
+
 vec2 measure_text(Font font, string text, bool only_one_line) {
 	if (font.glyphs.count == 0) return {};
 

@@ -371,6 +371,18 @@ inline int sign_int(float x) {
 	return -1;
 }
 
+inline float floor_to(float a, float b) {
+	return floorf(a / b) * b;
+}
+
+inline float round_to(float a, float b) {
+	return roundf(a / b) * b;
+}
+
+inline float ceil_to(float a, float b) {
+	return ceilf(a / b) * b;
+}
+
 // 
 // One-Liners
 // 
