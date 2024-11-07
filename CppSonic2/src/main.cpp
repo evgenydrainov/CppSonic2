@@ -11,7 +11,7 @@
 
 
 int main(int /*argc*/, char* /*argv*/[]) {
-	init_window_and_opengl("CppSonic2", 424, 240, 2, true);
+	init_window_and_opengl("CppSonic2", 424, 240, 2, true, true);
 	defer { deinit_window_and_opengl(); };
 
 #ifdef EDITOR
@@ -37,6 +37,15 @@ int main(int /*argc*/, char* /*argv*/[]) {
 
 	while (!window.should_quit) {
 		begin_frame();
+
+		SDL_Event ev;
+		while (SDL_PollEvent(&ev)) {
+			handle_event(ev);
+
+#ifdef EDITOR
+			imgui_handle_event(ev);
+#endif
+		}
 
 		// update
 #ifdef EDITOR

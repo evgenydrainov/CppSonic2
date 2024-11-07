@@ -1,7 +1,5 @@
 #include "window_creation.h"
 
-#include "imgui_glue.h"
-
 Window window;
 
 
@@ -64,7 +62,7 @@ static void GLAPIENTRY gl_debug_callback(GLenum source,
 
 void init_window_and_opengl(const char* title,
 							int width, int height, int init_window_scale,
-							bool prefer_vsync) {
+							bool prefer_vsync, bool prefer_borderless_fullscreen) {
 	// SDL_LogSetAllPriority(SDL_LOG_PRIORITY_VERBOSE);
 
 	SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "system");
@@ -137,6 +135,8 @@ void init_window_and_opengl(const char* title,
 		}
 	}
 
+	window.prefer_borderless_fullscreen = prefer_borderless_fullscreen;
+
 	SDL_GL_SetSwapInterval(window.vsync ? 1 : 0);
 
 	glDisable(GL_CULL_FACE);
@@ -157,26 +157,26 @@ void deinit_window_and_opengl() {
 	SDL_Quit();
 }
 
-static void handle_event(SDL_Event* ev) {
-	switch (ev->type) {
+void handle_event(const SDL_Event& ev) {
+	switch (ev.type) {
 		case SDL_QUIT: {
 			window.should_quit = true;
 			break;
 		}
 
 		case SDL_KEYDOWN: {
-			SDL_Scancode scancode = ev->key.keysym.scancode;
+			SDL_Scancode scancode = ev.key.keysym.scancode;
 
 			if (scancode >= 0 && scancode < window.NUM_KEYS) {
 				bool ignore = false;
 
 				// ignore alt+f4
-				if (scancode == SDL_SCANCODE_F4 && (ev->key.keysym.mod & KMOD_ALT)) {
+				if (scancode == SDL_SCANCODE_F4 && (ev.key.keysym.mod & KMOD_ALT)) {
 					ignore = true;
 				}
 
 				if (!ignore) {
-					if (ev->key.repeat) {
+					if (ev.key.repeat) {
 						window.key_repeat[scancode / 32] |= 1 << (scancode % 32);
 					} else {
 						window.key_pressed[scancode / 32] |= 1 << (scancode % 32);
@@ -207,7 +207,7 @@ void begin_frame() {
 		// Don't go below 30 fps. No upper limit for now.
 		// 
 		float max_delta = 2.0f;
-		window.delta = min(window.delta, max_delta);
+		window.delta = fminf(window.delta, max_delta);
 	}
 
 	window.fps = (float)(1.0 / (time - window.prev_time));
@@ -216,16 +216,6 @@ void begin_frame() {
 
 	memset(window.key_pressed, 0, sizeof(window.key_pressed));
 	memset(window.key_repeat,  0, sizeof(window.key_repeat));
-
-	SDL_Event ev;
-	while (SDL_PollEvent(&ev)) {
-		#ifdef EDITOR
-			// @Cleanup
-			imgui_handle_event(&ev);
-		#endif
-
-		handle_event(&ev);
-	}
 }
 
 void swap_buffers() {
@@ -283,11 +273,15 @@ SDL_Window* get_window_handle() {
 
 void set_fullscreen(bool fullscreen) {
 	if (fullscreen) {
-		SDL_DisplayMode mode;
-		int display = SDL_GetWindowDisplayIndex(window.handle);
-		SDL_GetDesktopDisplayMode(display, &mode);
-		SDL_SetWindowDisplayMode(window.handle, &mode);
-		SDL_SetWindowFullscreen(window.handle, SDL_WINDOW_FULLSCREEN);
+		if (window.prefer_borderless_fullscreen) {
+			SDL_SetWindowFullscreen(window.handle, SDL_WINDOW_FULLSCREEN_DESKTOP);
+		} else {
+			SDL_DisplayMode mode;
+			int display = SDL_GetWindowDisplayIndex(window.handle);
+			SDL_GetDesktopDisplayMode(display, &mode);
+			SDL_SetWindowDisplayMode(window.handle, &mode);
+			SDL_SetWindowFullscreen(window.handle, SDL_WINDOW_FULLSCREEN);
+		}
 	} else {
 		SDL_SetWindowFullscreen(window.handle, 0);
 	}

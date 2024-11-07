@@ -260,7 +260,7 @@ void render_end_frame() {
 
 		float xscale = backbuffer_width  / (float)window.game_width;
 		float yscale = backbuffer_height / (float)window.game_height;
-		float scale = min(xscale, yscale);
+		float scale = fminf(xscale, yscale);
 
 		renderer.game_texture_rect.w = (int) (window.game_width  * scale);
 		renderer.game_texture_rect.h = (int) (window.game_height * scale);

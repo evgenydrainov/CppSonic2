@@ -249,15 +249,15 @@ static bool is_push_sensor_f_active(Player* p) {
 }
 
 static bool player_is_small_radius(Player* p) {
-	switch (p->state) {
-		case STATE_GROUND:
-			return false;
-		case STATE_ROLL:
-			return true;
-		case STATE_AIR:
-			return p->anim == anim_roll;
+	if (p->state == STATE_GROUND) {
+		return false;
 	}
-	return {};
+
+	if (p->state == STATE_ROLL) {
+		return true;
+	}
+
+	return p->anim == anim_roll;
 }
 
 static vec2 player_get_radius(Player* p) {
@@ -773,7 +773,7 @@ static void ground_sensor_collision(Player* p) {
 			if (player_is_moving_mostly_right(p) || player_is_moving_mostly_left(p)) {
 				p->ground_speed = p->speed.x;
 			} else {
-				p->ground_speed = p->speed.x * 0.5f * -signf(dsin(p->ground_angle));
+				p->ground_speed = p->speed.y * 0.5f * -signf(dsin(p->ground_angle));
 			}
 		} else {
 			// steep
@@ -1124,6 +1124,9 @@ static void player_update(Player* p, float delta) {
 		p->peelout = false;
 	}
 
+	p->prev_mode = player_get_mode(p);
+	p->prev_radius = player_get_radius(p);
+
 	switch (p->state) {
 		case STATE_GROUND: {
 			player_state_ground(p, delta);
@@ -1138,7 +1141,7 @@ static void player_update(Player* p, float delta) {
 			break;
 		}
 		case STATE_DEBUG: {
-			float spd = 4;
+			float spd = 8;
 
 			if (is_key_held(SDL_SCANCODE_UP))    { p->pos.y -= spd * delta; }
 			if (is_key_held(SDL_SCANCODE_DOWN))  { p->pos.y += spd * delta; }
@@ -1194,36 +1197,33 @@ void Game::update(float delta) {
 	// update camera
 	{
 		Player* p = &player;
-		vec2 radius = player_get_radius(p);
+		vec2 radius = p->prev_radius;
 
 		if (camera_lock == 0.0f) {
 			float cam_target_x = p->pos.x - window.game_width / 2;
 			float cam_target_y = p->pos.y + radius.y - 19 - window.game_height / 2;
 
-			if (p->state == STATE_DEBUG) {
-				Approach(&camera_pos.x, cam_target_x, 16 * delta);
-				Approach(&camera_pos.y, cam_target_y, 16 * delta);
-			} else {
-				if (camera_pos.x < cam_target_x - 8) {
-					camera_pos.x = fminf(camera_pos.x + 16 * delta, cam_target_x - 8);
-				}
-				if (camera_pos.x > cam_target_x + 8) {
-					camera_pos.x = fmaxf(camera_pos.x - 16 * delta, cam_target_x + 8);
+			if (camera_pos.x < cam_target_x - 8) {
+				camera_pos.x = fminf(camera_pos.x + 16 * delta, cam_target_x - 8);
+			}
+			if (camera_pos.x > cam_target_x + 8) {
+				camera_pos.x = fmaxf(camera_pos.x - 16 * delta, cam_target_x + 8);
+			}
+
+			if (player_is_grounded(p)) {
+				float camera_speed = 16;
+
+				if (fabsf(p->ground_speed) < 8) {
+					camera_speed = 6;
 				}
 
-				if (player_is_grounded(p)) {
-					float camera_speed = 16;
-					if (fabsf(p->ground_speed) < 8) {
-						camera_speed = 6;
-					}
-					Approach(&camera_pos.y, cam_target_y, camera_speed * delta);
-				} else {
-					if (camera_pos.y < cam_target_y - 32) {
-						camera_pos.y = min(camera_pos.y + 16 * delta, cam_target_y - 32);
-					}
-					if (camera_pos.y > cam_target_y + 32) {
-						camera_pos.y = max(camera_pos.y - 16 * delta, cam_target_y + 32);
-					}
+				Approach(&camera_pos.y, cam_target_y, camera_speed * delta);
+			} else {
+				if (camera_pos.y < cam_target_y - 32) {
+					camera_pos.y = fminf(camera_pos.y + 16 * delta, cam_target_y - 32);
+				}
+				if (camera_pos.y > cam_target_y + 32) {
+					camera_pos.y = fmaxf(camera_pos.y - 16 * delta, cam_target_y + 32);
 				}
 			}
 
@@ -1330,10 +1330,10 @@ void Game::draw(float delta) {
 #ifdef DEVELOPER
 	// draw player hitbox
 	{
-		vec2 radius = player_get_radius(p);
+		vec2 radius = p->prev_radius;
 
 		Rectf rect;
-		switch (player_get_mode(p)) {
+		switch (p->prev_mode) {
 			case MODE_FLOOR:
 			case MODE_CEILING: {
 				rect.x = floorf(p->pos.x - radius.x);
@@ -1369,8 +1369,8 @@ void Game::draw(float delta) {
 			vec2 sensor_b;
 			get_ground_sensors_pos(p, &sensor_a, &sensor_b);
 
-			draw_point({floorf(sensor_a.x), floorf(sensor_a.y)}, SENSOR_A_COLOR);
-			draw_point({floorf(sensor_b.x), floorf(sensor_b.y)}, SENSOR_B_COLOR);
+			draw_point(glm::floor(sensor_a), SENSOR_A_COLOR);
+			draw_point(glm::floor(sensor_b), SENSOR_B_COLOR);
 		}
 
 		vec2 sensor_e;

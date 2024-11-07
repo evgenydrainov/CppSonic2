@@ -9,9 +9,12 @@
 struct Window {
 	static constexpr int NUM_KEYS = SDL_SCANCODE_UP + 1;
 
-	// 
-	// Read-only
-	// 
+	/*   modify these   */
+
+	bool should_quit;  // Set this to true when game should terminate.
+	double target_fps = 60; // Used if vsync is off. See "init_window_and_opengl".
+
+	/*   read-only   */
 
 	SDL_Window* handle;
 	SDL_GLContext gl_context;
@@ -23,17 +26,8 @@ struct Window {
 
 	float fps; // For metrics
 	float delta; // NOTE: multiplied by 60
-
-	// 
-	// Modify these
-	// 
-
-	bool should_quit;  // Set this to true when game should terminate.
-	double target_fps = 60; // Used if vsync is off. See "init_window_and_opengl".
 	
-	// 
-	// Don't touch
-	// 
+	/*   don't touch   */
 
 	u32 key_pressed[(NUM_KEYS + 31) / 32];
 	u32 key_repeat [(NUM_KEYS + 31) / 32];
@@ -42,6 +36,7 @@ struct Window {
 	double frame_end_time;
 
 	bool prev_time_is_initialized;
+	bool prefer_borderless_fullscreen;
 };
 
 extern Window window;
@@ -59,12 +54,14 @@ extern Window window;
 */
 void init_window_and_opengl(const char* title,
 							int width, int height, int init_window_scale,
-							bool prefer_vsync);
+							bool prefer_vsync, bool prefer_borderless_fullscreen);
 
 void deinit_window_and_opengl();
 
 void begin_frame();
 void swap_buffers();
+
+void handle_event(const SDL_Event& ev);
 
 bool is_key_held(SDL_Scancode key);
 bool is_key_pressed(SDL_Scancode key, bool repeat = false);

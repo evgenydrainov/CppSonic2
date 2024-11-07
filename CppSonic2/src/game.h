@@ -56,6 +56,9 @@ struct Player {
 	float control_lock;
 	bool jumped;
 	bool peelout;
+
+	PlayerMode prev_mode;
+	vec2 prev_radius;
 };
 
 struct Tile {

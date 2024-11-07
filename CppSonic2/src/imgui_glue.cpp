@@ -55,8 +55,8 @@ void deinit_imgui() {
 	ImGui::DestroyContext();
 }
 
-void imgui_handle_event(SDL_Event* ev) {
-	ImGui_ImplSDL2_ProcessEvent(ev);
+void imgui_handle_event(const SDL_Event& ev) {
+	ImGui_ImplSDL2_ProcessEvent(&ev);
 }
 
 void imgui_begin_frame() {
