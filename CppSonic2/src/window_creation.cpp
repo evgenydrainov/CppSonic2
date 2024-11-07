@@ -236,35 +236,32 @@ void swap_buffers() {
 
 
 bool is_key_pressed(SDL_Scancode key, bool repeat) {
-	bool result = false;
-
-	if (!(key >= 0 && key < window.NUM_KEYS)) return result;
-
-	/*if (!g->console.show)*/
-	{
-		result |= (window.key_pressed[key / 32] & (1 << (key % 32))) != 0;
-
-		if (repeat) {
-			result |= (window.key_repeat[key / 32] & (1 << (key % 32))) != 0;
-		}
+	if (!(key >= 0 && key < window.NUM_KEYS)) {
+		return false;
 	}
 
+	if (window.disable_input) {
+		return false;
+	}
+
+	bool result = (window.key_pressed[key / 32] & (1 << (key % 32))) != 0;
+	if (repeat) {
+		result |= (window.key_repeat[key / 32] & (1 << (key % 32))) != 0;
+	}
 	return result;
 }
 
 bool is_key_held(SDL_Scancode key) {
-	bool result = false;
-
-	if (!(key >= 0 && key < SDL_NUM_SCANCODES)) return result;
-
-	/*if (!g->console.show)*/
-	{
-		const u8* state = SDL_GetKeyboardState(nullptr);
-
-		result |= (state[key] != 0);
+	if (!(key >= 0 && key < SDL_NUM_SCANCODES)) {
+		return false;
 	}
 
-	return result;
+	if (window.disable_input) {
+		return false;
+	}
+
+	const u8* state = SDL_GetKeyboardState(nullptr);
+	return (state[key] != 0);
 }
 
 SDL_Window* get_window_handle() {

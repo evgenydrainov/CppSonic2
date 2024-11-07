@@ -491,11 +491,16 @@ struct array {
 	T* end()   const { return data + count; }
 };
 
+template <typename T>
+inline array<T> calloc_array(size_t count) {
+	array<T> arr = {};
+	arr.data  = (T*) calloc(count, sizeof(T));
+	arr.count = count;
+	return arr;
+}
 
-// 
-// A dynamic array that doesn't grow when it runs out of capacity, but
-// replaces the last element.
-// 
+
+// Standard linear bump array
 template <typename T>
 struct bump_array {
 	T*     data;
@@ -503,13 +508,13 @@ struct bump_array {
 	size_t capacity;
 
 	T& operator[](size_t i) {
-		Assert(i >= 0);
+		// Assert(i >= 0);
 		Assert(i < count);
 		return data[i];
 	}
 
 	T operator[](size_t i) const {
-		Assert(i >= 0);
+		// Assert(i >= 0);
 		Assert(i < count);
 		return data[i];
 	}
@@ -521,19 +526,22 @@ struct bump_array {
 template <typename T>
 inline bump_array<T> bump_array_from_arena(Arena* a, size_t capacity) {
 	bump_array<T> arr = {};
-	arr.data      = (T*) arena_push(a, capacity * sizeof(T));
+	arr.data     = (T*) arena_push(a, capacity * sizeof(T));
 	arr.capacity = capacity;
+	return arr;
+}
 
+template <typename T>
+inline bump_array<T> malloc_bump_array(size_t capacity) {
+	bump_array<T> arr = {};
+	arr.data     = (T*) malloc(capacity * sizeof(T));
+	arr.capacity = capacity;
 	return arr;
 }
 
 template <typename T>
 inline T* array_add(bump_array<T>* arr, const T& val) {
-	Assert(arr->count <= arr->capacity);
-
-	if (arr->count == arr->capacity) {
-		arr->count--;
-	}
+	Assert(arr->count < arr->capacity);
 
 	T* result = &arr->data[arr->count];
 	*result = val;
@@ -544,39 +552,46 @@ inline T* array_add(bump_array<T>* arr, const T& val) {
 
 template <typename T>
 inline T* array_remove(bump_array<T>* arr, T* it) {
+	Assert(arr->count > 0);
+
 	Assert(it >= arr->begin());
 	Assert(it <  arr->end());
 
-	for (T* i = it; i < arr->end() - 1; i++) {
-		*i = *(i + 1);
-	}
+	memmove(it, it + 1, (size_t)arr->end() - (size_t)it - sizeof(T));
 	arr->count--;
 
 	return it;
 }
 
 template <typename T>
-inline T* array_insert(bump_array<T>* arr, size_t index, const T& val) {
-	Assert(arr->count <= arr->capacity);
+inline T* array_remove(bump_array<T>* arr, size_t index) {
+	// Assert(index >= 0);
+	Assert(index < arr->count);
 
-	Assert(index >= 0); // for when I switch to signed sizes
-	Assert(index <= arr->count);
+	return array_remove(arr, arr->begin() + index);
+}
 
-	if (arr->count == arr->capacity) {
-		arr->count--;
-	}
+template <typename T>
+inline T* array_insert(bump_array<T>* arr, T* it, const T& val) {
+	Assert(arr->count < arr->capacity);
 
-	index = min(index, arr->capacity - 1);
+	Assert(it >= arr->begin());
+	Assert(it <= arr->end());
 
-	for (size_t i = arr->count; i-- > index;) {
-		arr->data[i + 1] = arr->data[i];
-	}
+	memmove(it + 1, it, (size_t)arr->end() - (size_t)it);
 
-	T* result = &arr->data[index];
-	*result = val;
+	*it = val;
 	arr->count++;
 
-	return result;
+	return it;
+}
+
+template <typename T>
+inline T* array_insert(bump_array<T>* arr, size_t index, const T& val) {
+	// Assert(index >= 0); // for when I switch to signed sizes
+	Assert(index <= arr->count);
+
+	return array_insert(arr, arr->begin() + index, val);
 }
 
 
@@ -804,7 +819,9 @@ inline string Sprintf(char (&buf)[N], const char* fmt, ...) {
 	va_end(va);
 
 	Assert(result > 0);
-	return {buf, (size_t)result};
+	size_t count = min((size_t)result, N - 1);
+
+	return {buf, count};
 }
 
 

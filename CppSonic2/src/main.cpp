@@ -9,14 +9,14 @@
 #include "editor.h"
 #endif
 
+#if defined(DEVELOPER) && !defined(EDITOR)
+#include "console.h"
+#endif
+
 
 int main(int /*argc*/, char* /*argv*/[]) {
 	init_window_and_opengl("CppSonic2", 424, 240, 2, true, true);
 	defer { deinit_window_and_opengl(); };
-
-#ifdef EDITOR
-	SDL_MaximizeWindow(window.handle);
-#endif
 
 	init_package();
 	defer { deinit_package(); };
@@ -35,6 +35,11 @@ int main(int /*argc*/, char* /*argv*/[]) {
 	defer { game.deinit(); };
 #endif
 
+#if defined(DEVELOPER) && !defined(EDITOR)
+	console.init(console_callback, nullptr, game.font_consolas);
+	defer { console.deinit(); };
+#endif
+
 	while (!window.should_quit) {
 		begin_frame();
 
@@ -45,6 +50,10 @@ int main(int /*argc*/, char* /*argv*/[]) {
 #ifdef EDITOR
 			imgui_handle_event(ev);
 #endif
+
+#if defined(DEVELOPER) && !defined(EDITOR)
+			console.handle_event(ev);
+#endif
 		}
 
 		// update
@@ -54,6 +63,10 @@ int main(int /*argc*/, char* /*argv*/[]) {
 		editor.update(window.delta);
 #else
 		game.update(window.delta);
+#endif
+
+#if defined(DEVELOPER) && !defined(EDITOR)
+		console.update(window.delta);
 #endif
 
 		// render
@@ -68,6 +81,10 @@ int main(int /*argc*/, char* /*argv*/[]) {
 
 #ifdef EDITOR
 		imgui_render();
+#endif
+
+#if defined(DEVELOPER) && !defined(EDITOR)
+		console.draw(window.delta);
 #endif
 
 		swap_buffers();

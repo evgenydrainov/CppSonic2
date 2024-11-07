@@ -2,6 +2,7 @@
 
 #include "renderer.h"
 #include "window_creation.h"
+#include "console.h"
 
 Game game;
 
@@ -23,7 +24,8 @@ void Game::load_level(const char* path) {
 }
 
 void Game::init() {
-	font = load_bmfont_file("fonts/ms_gothic.fnt", "fonts/ms_gothic_0.png");
+	font          = load_bmfont_file("fonts/ms_gothic.fnt", "fonts/ms_gothic_0.png");
+	font_consolas = load_bmfont_file("fonts/consolas.fnt",  "fonts/consolas_0.png");
 
 	load_level("levels/GHZ_Act1");
 
@@ -32,33 +34,63 @@ void Game::init() {
 
 	// generate heightmap texture
 	{
-		heightmap.width = tileset_width * 16;
+		heightmap.width  = tileset_width * 16;
 		heightmap.height = tileset_height * 16;
+
+		widthmap.width  = tileset_width * 16;
+		widthmap.height = tileset_height * 16;
 
 		SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, heightmap.width, heightmap.height, 32, SDL_PIXELFORMAT_RGBA8888);
 		defer { SDL_FreeSurface(surf); };
 
-		SDL_FillRect(surf, nullptr, 0x00000000);
+		SDL_Surface* wsurf = SDL_CreateRGBSurfaceWithFormat(0, widthmap.width, widthmap.height, 32, SDL_PIXELFORMAT_RGBA8888);
+		defer { SDL_FreeSurface(wsurf); };
+
+		SDL_FillRect(surf,  nullptr, 0x00000000);
+		SDL_FillRect(wsurf, nullptr, 0x00000000);
 
 		for (int tile_index = 0; tile_index < tileset_width * tileset_height; tile_index++) {
 			array<u8> heights = get_tile_heights(tile_index);
+			array<u8> widths  = get_tile_widths(tile_index);
 
 			for (int i = 0; i < 16; i++) {
 				if (heights[i] != 0) {
 					if (heights[i] <= 0x10) {
-						SDL_Rect line;
-						line.x = (tile_index % 16) * 16 + i;
-						line.y = (tile_index / 16) * 16 + (16 - heights[i]);
-						line.w = 1;
-						line.h = heights[i];
+						SDL_Rect line = {
+							(tile_index % 16) * 16 + i,
+							(tile_index / 16) * 16 + (16 - heights[i]),
+							1,
+							heights[i]
+						};
 						SDL_FillRect(surf, &line, 0xffffffff);
 					} else if (heights[i] >= 0xF0) {
-						SDL_Rect line;
-						line.x = (tile_index % 16) * 16 + i;
-						line.y = (tile_index / 16) * 16;
-						line.w = 1;
-						line.h = 16 - (heights[i] - 0xF0);
+						SDL_Rect line = {
+							(tile_index % 16) * 16 + i,
+							(tile_index / 16) * 16,
+							1,
+							16 - (heights[i] - 0xF0)
+						};
 						SDL_FillRect(surf, &line, 0xff0000ff);
+					}
+				}
+
+				if (widths[i] != 0) {
+					if (widths[i] <= 0x10) {
+						SDL_Rect line = {
+							(tile_index % 16) * 16 + 16 - widths[i],
+							(tile_index / 16) * 16 + i,
+							widths[i],
+							1
+						};
+						SDL_FillRect(wsurf, &line, 0xffffffff);
+					} else {
+						SDL_Rect line = {
+							(tile_index % 16) * 16,
+							(tile_index / 16) * 16 + i,
+							16 - (widths[i] - 0xF0),
+							1
+						};
+						SDL_FillRect(wsurf, &line, 0xffff0000);
 					}
 				}
 			}
@@ -71,6 +103,15 @@ void Game::init() {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, heightmap.width, heightmap.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, surf->pixels);
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+		glGenTextures(1, &widthmap.ID); // @Leak
+		glBindTexture(GL_TEXTURE_2D, widthmap.ID);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, widthmap.width, widthmap.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, wsurf->pixels);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
@@ -784,11 +825,18 @@ static void ground_sensor_collision(Player* p) {
 			}
 		}
 
-		if (player_roll_condition(p)) { // @Cleanup: Why is this here?
-			p->state = STATE_ROLL;
-		} else {
-			p->state = STATE_GROUND;
-		}
+		// TODO: falling on a slope while down is held
+		// if (p->ground_speed != 0) {
+		// 	p->facing = sign_int(p->ground_speed);
+		// }
+
+		// if (player_roll_condition(p)) { // @Cleanup: Why is this here?
+		// 	p->state = STATE_ROLL;
+		// } else {
+		// 	p->state = STATE_GROUND;
+		// }
+
+		p->state = STATE_GROUND;
 	}
 }
 
@@ -861,6 +909,21 @@ static bool player_try_jump(Player* p) {
 	return true;
 }
 
+static void player_keep_in_bounds(Player* p) {
+	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
+	vec2 radius = player_get_radius(p);
+
+	float left = radius.x + 2;
+	float top  = radius.y + 2;
+	float right  = game.tilemap_width  * 16 - 3 - radius.x;
+	float bottom = game.tilemap_height * 16 - 3 - radius.y;
+
+	if (p->pos.x < left)   {p->pos.x = left;  p->ground_speed = 0; p->speed.x = 0;}
+	if (p->pos.x > right)  {p->pos.x = right; p->ground_speed = 0; p->speed.x = 0;}
+	// if (p->pos.y < top)    {p->pos.y = top;}
+	if (p->pos.y > bottom) {p->pos.y = bottom;}
+}
+
 static void player_state_ground(Player* p, float delta) {
 	int input_h = 0;
 	if (p->control_lock == 0) {
@@ -895,8 +958,6 @@ static void player_state_ground(Player* p, float delta) {
 
 	// TODO: Check for starting crouching, balancing on ledges, etc.
 
-	// TODO: Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
-
 	// Move the Player object
 	p->speed.x =  dcos(p->ground_angle) * p->ground_speed;
 	p->speed.y = -dsin(p->ground_angle) * p->ground_speed;
@@ -908,6 +969,9 @@ static void player_state_ground(Player* p, float delta) {
 
 	// Grounded Ground Sensor collision occurs.
 	ground_sensor_collision(p);
+
+	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
+	player_keep_in_bounds(p);
 
 	if (p->anim != anim_spindash && !p->peelout) {
 		if (p->ground_speed == 0.0f) {
@@ -1009,8 +1073,6 @@ static void player_state_ground(Player* p, float delta) {
 	// Check for starting a roll.
 	if (player_roll_condition(p)) {
 		p->state = STATE_ROLL;
-		p->next_anim = anim_roll;
-		p->frame_duration = fmaxf(0, 4 - fabsf(p->ground_speed));
 		return;
 	}
 }
@@ -1028,7 +1090,7 @@ static void player_state_roll(Player* p, float delta) {
 	const float roll_friction_speed = 0.0234375f;
 	const float roll_deceleration_speed = 0.125f;
 
-	p->ground_speed = approach(p->ground_speed, 0.0f, roll_friction_speed * delta);
+	Approach(&p->ground_speed, 0.0f, roll_friction_speed * delta);
 
 	if (input_h == -sign_int(p->ground_speed)) {
 		p->ground_speed += input_h * roll_deceleration_speed * delta;
@@ -1045,6 +1107,9 @@ static void player_state_roll(Player* p, float delta) {
 
 	// Grounded Ground Sensor collision occurs.
 	ground_sensor_collision(p);
+
+	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
+	player_keep_in_bounds(p);
 
 	p->next_anim = anim_roll;
 	p->frame_duration = fmaxf(0, 4 - fabsf(p->ground_speed));
@@ -1106,6 +1171,9 @@ static void player_state_air(Player* p, float delta) {
 	// All air collision checks occur here.
 	push_sensor_collision(p);
 	ground_sensor_collision(p);
+
+	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
+	player_keep_in_bounds(p);
 
 	// Rotate Ground Angle back to 0.
 	p->ground_angle -= clamp(angle_difference(p->ground_angle, 0.0f), -2.8125f * delta, 2.8125f * delta);
@@ -1192,48 +1260,61 @@ static void player_update(Player* p, float delta) {
 }
 
 void Game::update(float delta) {
-	player_update(&player, delta);
+	skip_frame = frame_advance;
 
-	// update camera
-	{
-		Player* p = &player;
-		vec2 radius = p->prev_radius;
+	if (is_key_pressed(SDL_SCANCODE_F5, true)) {
+		frame_advance = true;
+		skip_frame = false;
+	}
 
-		if (camera_lock == 0.0f) {
-			float cam_target_x = p->pos.x - window.game_width / 2;
-			float cam_target_y = p->pos.y + radius.y - 19 - window.game_height / 2;
+	if (is_key_pressed(SDL_SCANCODE_F6)) {
+		frame_advance = false;
+	}
 
-			if (camera_pos.x < cam_target_x - 8) {
-				camera_pos.x = fminf(camera_pos.x + 16 * delta, cam_target_x - 8);
-			}
-			if (camera_pos.x > cam_target_x + 8) {
-				camera_pos.x = fmaxf(camera_pos.x - 16 * delta, cam_target_x + 8);
-			}
+	if (!skip_frame) {
+		player_update(&player, delta);
 
-			if (player_is_grounded(p)) {
-				float camera_speed = 16;
+		// update camera
+		{
+			Player* p = &player;
+			vec2 radius = p->prev_radius;
 
-				if (fabsf(p->ground_speed) < 8) {
-					camera_speed = 6;
+			if (camera_lock == 0.0f) {
+				float cam_target_x = p->pos.x - window.game_width / 2;
+				float cam_target_y = p->pos.y + radius.y - 19 - window.game_height / 2;
+
+				if (camera_pos.x < cam_target_x - 8) {
+					camera_pos.x = fminf(camera_pos.x + 16 * delta, cam_target_x - 8);
+				}
+				if (camera_pos.x > cam_target_x + 8) {
+					camera_pos.x = fmaxf(camera_pos.x - 16 * delta, cam_target_x + 8);
 				}
 
-				Approach(&camera_pos.y, cam_target_y, camera_speed * delta);
-			} else {
-				if (camera_pos.y < cam_target_y - 32) {
-					camera_pos.y = fminf(camera_pos.y + 16 * delta, cam_target_y - 32);
+				if (player_is_grounded(p)) {
+					float camera_speed = 16;
+
+					if (fabsf(p->ground_speed) < 8) {
+						camera_speed = 6;
+					}
+
+					Approach(&camera_pos.y, cam_target_y, camera_speed * delta);
+				} else {
+					if (camera_pos.y < cam_target_y - 32) {
+						camera_pos.y = fminf(camera_pos.y + 16 * delta, cam_target_y - 32);
+					}
+					if (camera_pos.y > cam_target_y + 32) {
+						camera_pos.y = fmaxf(camera_pos.y - 16 * delta, cam_target_y + 32);
+					}
 				}
-				if (camera_pos.y > cam_target_y + 32) {
-					camera_pos.y = fmaxf(camera_pos.y - 16 * delta, cam_target_y + 32);
-				}
+
+				camera_pos = glm::floor(camera_pos);
+
+				Clamp(&camera_pos.x, 0.0f, (float) (tilemap_width  * 16 - window.game_width));
+				Clamp(&camera_pos.y, 0.0f, (float) (tilemap_height * 16 - window.game_height));
 			}
 
-			camera_pos = glm::floor(camera_pos);
-
-			Clamp(&camera_pos.x, 0.0f, (float) (tilemap_width  * 16 - window.game_width));
-			Clamp(&camera_pos.y, 0.0f, (float) (tilemap_height * 16 - window.game_height));
+			camera_lock = fmaxf(camera_lock - delta, 0);
 		}
-
-		camera_lock = fmaxf(camera_lock - delta, 0);
 	}
 
 	{
@@ -1282,15 +1363,17 @@ void Game::draw(float delta) {
 				draw_texture(tileset_texture, src, {x * 16.0f, y * 16.0f}, {1, 1}, {}, 0, color_white, {tile.hflip, tile.vflip});
 
 #ifdef DEVELOPER
-				tile = get_tile(x, y, player.layer);
+				if (show_height || show_width) {
+					tile = get_tile(x, y, player.layer);
 
-				src.x = (tile.index % tileset_width) * 16;
-				src.y = (tile.index / tileset_width) * 16;
-				src.w = 16;
-				src.h = 16;
+					src.x = (tile.index % tileset_width) * 16;
+					src.y = (tile.index / tileset_width) * 16;
+					src.w = 16;
+					src.h = 16;
 				
-				if (tile.top_solid || tile.lrb_solid) {
-					draw_texture(heightmap, src, {x * 16.0f, y * 16.0f}, {1, 1}, {}, 0, color_white, {tile.hflip, tile.vflip});
+					if (tile.top_solid || tile.lrb_solid) {
+						draw_texture(show_height ? heightmap : widthmap, src, {x * 16.0f, y * 16.0f}, {1, 1}, {}, 0, color_white, {tile.hflip, tile.vflip});
+					}
 				}
 #endif
 			}
@@ -1401,7 +1484,7 @@ void Game::draw(float delta) {
 #endif
 
 #ifdef DEVELOPER
-	{
+	if (collision_test) {
 		SensorResult res;
 		vec2 pos = mouse_world_pos;
 
@@ -1423,15 +1506,27 @@ void Game::draw(float delta) {
 	renderer.proj_mat = glm::ortho<float>(0, window.game_width, window.game_height, 0);
 	renderer.view_mat = {1};
 
-#ifdef DEVELOPER
+	// draw debug text
 	{
-		char buf[256];
-		string str = Sprintf(buf,
-							 "ground angle: %f",
-							 p->ground_angle);
-		draw_text_shadow(font, str, {});
-	}
+		vec2 pos = {};
+
+#ifdef DEVELOPER
+		{
+			char buf[64];
+			string str = Sprintf(buf,
+								 "state: %s\n"
+								 "ground angle: %f\n",
+								 GetPlayerStateName(p->state),
+								 p->ground_angle);
+			pos = draw_text_shadow(font, str, pos);
+		}
 #endif
+
+		if (frame_advance) {
+			string str = "F5 - Next Frame\nF6 - Disable Frame Advance Mode\n";
+			pos = draw_text_shadow(font, str, pos);
+		}
+	}
 }
 
 void Game::load_tilemap_old_format(const char* fname) {
@@ -1479,11 +1574,8 @@ void Game::load_tilemap_old_format(const char* fname) {
 	SDL_RWread(f, old_tiles_a, sizeof(old_tiles_a[0]), tilemap_width * tilemap_height);
 	SDL_RWread(f, old_tiles_b, sizeof(old_tiles_b[0]), tilemap_width * tilemap_height);
 
-	tiles_a.count = tilemap_width * tilemap_height;
-	tiles_a.data = (Tile*)calloc(tiles_a.count, sizeof(tiles_a[0]));
-
-	tiles_b.count = tilemap_width * tilemap_height;
-	tiles_b.data = (Tile*)calloc(tiles_b.count, sizeof(tiles_b[0]));
+	tiles_a = calloc_array<Tile>(tilemap_width * tilemap_height);
+	tiles_b = calloc_array<Tile>(tilemap_width * tilemap_height);
 
 	for (int i = 0; i < tilemap_width * tilemap_height; i++) {
 		tiles_a[i].index = old_tiles_a[i].index;
@@ -1518,16 +1610,44 @@ void Game::load_tileset_old_format(const char* fname) {
 	tileset_width = 16; // @Temp
 	tileset_height = 28;
 
-	tile_heights.count = tileset_width * tileset_height * 16;
-	tile_heights.data = (u8*)calloc(tile_heights.count, sizeof(tile_heights[0]));
-
-	tile_widths.count = tileset_width * tileset_height * 16;
-	tile_widths.data = (u8*)calloc(tile_widths.count, sizeof(tile_widths[0]));
-
-	tile_angles.count = tileset_width * tileset_height;
-	tile_angles.data = (float*)calloc(tile_angles.count, sizeof(tile_angles[0]));
+	tile_heights = calloc_array<u8>(tileset_width * tileset_height * 16);
+	tile_widths  = calloc_array<u8>(tileset_width * tileset_height * 16);
+	tile_angles  = calloc_array<float>(tileset_width * tileset_height);
 
 	SDL_RWread(f, tile_heights.data, 16 * sizeof(tile_heights[0]), tile_count_);
 	SDL_RWread(f, tile_widths.data,  16 * sizeof(tile_widths[0]), tile_count_);
 	SDL_RWread(f, tile_angles.data,  sizeof(tile_angles[0]), tile_count_);
 }
+
+#if defined(DEVELOPER) && !defined(EDITOR)
+
+bool console_callback(string str, void* userdata) {
+	eat_whitespace(&str);
+	string command = eat_non_whitespace(&str);
+
+	if (command == "h" || command == "help") {
+		console.write("Commands: collision_test show_width show_height\n");
+		return true;
+	}
+
+	if (command == "collision_test") {
+		game.collision_test ^= true;
+		return true;
+	}
+
+	if (command == "show_height") {
+		game.show_height ^= true;
+		if (game.show_height) game.show_width = false;
+		return true;
+	}
+
+	if (command == "show_width") {
+		game.show_width ^= true;
+		if (game.show_width) game.show_height = false;
+		return true;
+	}
+
+	return false;
+}
+
+#endif

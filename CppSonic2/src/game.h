@@ -5,12 +5,13 @@
 #include "font.h"
 #include "texture.h"
 
-enum PlayerState {
-	STATE_GROUND,
-	STATE_ROLL,
-	STATE_AIR,
-	STATE_DEBUG,
-};
+#define PLAYER_STATE_ENUM(X) \
+	X(STATE_GROUND) \
+	X(STATE_ROLL) \
+	X(STATE_AIR) \
+	X(STATE_DEBUG)
+
+DEFINE_NAMED_ENUM(PlayerState, PLAYER_STATE_ENUM)
 
 enum PlayerMode {
 	MODE_FLOOR,
@@ -87,6 +88,7 @@ struct Game {
 	float camera_lock;
 
 	Font font;
+	Font font_consolas;
 
 	Texture tileset_texture;
 	int tileset_width;
@@ -108,6 +110,13 @@ struct Game {
 
 	vec2 mouse_world_pos;
 
+	bool collision_test;
+	bool show_height;
+	bool show_width;
+
+	bool skip_frame;
+	bool frame_advance;
+
 	void init();
 	void deinit();
 
@@ -121,6 +130,10 @@ struct Game {
 };
 
 extern Game game;
+
+#if defined(DEVELOPER) && !defined(EDITOR)
+bool console_callback(string str, void* userdata);
+#endif
 
 inline Tile get_tile_a(int tile_x, int tile_y) {
 	if ((0 <= tile_x && tile_x < game.tilemap_width) && (0 <= tile_y && tile_y < game.tilemap_height)) {

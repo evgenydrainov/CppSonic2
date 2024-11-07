@@ -154,8 +154,7 @@ void init_renderer() {
 
 		glBindVertexArray(0);
 
-		renderer.vertices.data = (Vertex*) malloc(BATCH_MAX_VERTICES * sizeof(Vertex));
-		renderer.vertices.capacity = BATCH_MAX_VERTICES;
+		renderer.vertices = malloc_bump_array<Vertex>(BATCH_MAX_VERTICES);
 
 		// stub texture
 		glGenTextures(1, &renderer.stub_texture);
@@ -554,6 +553,25 @@ void draw_line(vec2 p1, vec2 p2, vec4 color) {
 		renderer.current_mode = MODE_LINES;
 	}
 
+	p1 += vec2(0.5f, 0.5f);
+	p2 += vec2(0.5f, 0.5f);
+
+	{
+		/* stolen from SDL2 */
+		/* still not pixel perfect */
+
+		const GLfloat xstart = p1.x;
+		const GLfloat ystart = p1.y;
+		const GLfloat xend = p2.x;
+		const GLfloat yend = p2.y;
+		/* bump a little in the direction we are moving in. */
+		const GLfloat deltax = xend - xstart;
+		const GLfloat deltay = yend - ystart;
+		const GLfloat angle = atan2f(deltay, deltax);
+		p2.x = xend + (cosf(angle) * 0.25f);
+		p2.y = yend + (sinf(angle) * 0.25f);
+	}
+
 	Vertex vertices[] = {
 		{{p1.x, p1.y, 0.0f}, {}, color, {}},
 		{{p2.x, p2.y, 0.0f}, {}, color, {}},
@@ -574,13 +592,20 @@ void draw_point(vec2 point, vec4 color) {
 		renderer.current_mode = MODE_POINTS;
 	}
 
+	point += vec2(0.5f, 0.5f);
+
 	array_add(&renderer.vertices, {{point.x, point.y, 0.0f}, {}, color, {}});
 }
 
 void draw_rectangle_outline(Rectf rect, vec4 color) {
-	draw_line({rect.x, rect.y}, {rect.x + rect.w, rect.y}, color);
-	draw_line({rect.x, rect.y + rect.h - 1}, {rect.x + rect.w, rect.y + rect.h - 1}, color);
+	rect.w -= 1;
+	rect.h -= 1;
 
-	draw_line({rect.x + 1, rect.y}, {rect.x + 1, rect.y + rect.h}, color);
-	draw_line({rect.x + rect.w, rect.y}, {rect.x + rect.w, rect.y + rect.h}, color);
+	vec2 pos = vec2(rect.x, rect.y);
+
+	draw_line(pos, pos + vec2(rect.w, 0), color);
+	draw_line(pos + vec2(0, rect.h), pos + vec2(rect.w, rect.h), color);
+
+	draw_line(pos, pos + vec2(0, rect.h), color);
+	draw_line(pos + vec2(rect.w, 0), pos + vec2(rect.w, rect.h), color);
 }

@@ -13,6 +13,7 @@ struct Window {
 
 	bool should_quit;  // Set this to true when game should terminate.
 	double target_fps = 60; // Used if vsync is off. See "init_window_and_opengl".
+	bool disable_input;
 
 	/*   read-only   */
 

@@ -13,10 +13,13 @@ void deinit_package() {
 
 u8* get_file(const char* fname, size_t* out_filesize) {
 	SDL_RWops* f = SDL_RWFromFile(fname, "rb");
+
 	if (!f) {
 		log_error("Couldn't open file \"%s\"", fname);
 		return nullptr;
 	}
+
+	defer { SDL_RWclose(f); };
 
 	SDL_RWseek(f, 0, RW_SEEK_END);
 	size_t filesize = (size_t) SDL_RWtell(f);

@@ -50,8 +50,9 @@ set(SOURCES
 	src/texture.cpp
 	src/window_creation.cpp
 	src/imgui_glue.cpp
-	src/imgui/imgui_single_file.cpp
 	src/editor.cpp
+	src/console.cpp
+	src/imgui/imgui_single_file.cpp
 	src/nfd/nfd_zenity.c
 	src/nfd/nfd_common.c)
 

@@ -11,6 +11,8 @@
 Editor editor;
 
 void Editor::init() {
+	SDL_MaximizeWindow(get_window_handle());
+
 	update_window_caption();
 }
 
@@ -224,8 +226,7 @@ void Editor::update(float delta) {
 		tilemap_width = 256;
 		tilemap_height = 256;
 
-		tilemap_tiles.count = tilemap_width * tilemap_height;
-		tilemap_tiles.data = (u32*) calloc(tilemap_tiles.count, sizeof(tilemap_tiles[0]));
+		tilemap_tiles = calloc_array<u32>(tilemap_width * tilemap_height);
 
 		tileset_texture = load_texture_from_file((current_level_dir / "Tileset.png").string().c_str());
 
@@ -673,8 +674,7 @@ void Editor::update(float delta) {
 				tilemap_width = 256;
 				tilemap_height = 256;
 
-				tilemap_tiles.count = tilemap_width * tilemap_height;
-				tilemap_tiles.data = (u32*) calloc(tilemap_tiles.count, sizeof(tilemap_tiles[0]));
+				tilemap_tiles = calloc_array<u32>(tilemap_width * tilemap_height);
 
 				std::filesystem::copy_file(cnl_tileset, current_level_dir / "Tileset.png");
 

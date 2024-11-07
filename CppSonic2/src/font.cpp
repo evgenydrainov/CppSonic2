@@ -58,8 +58,7 @@ Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath) {
 	line = eat_line(&text); // page
 	line = eat_line(&text); // chars
 
-	font.glyphs.count = 95;
-	font.glyphs.data  = (Glyph*) malloc(font.glyphs.count * sizeof(font.glyphs[0]));
+	font.glyphs = calloc_array<Glyph>(95);
 
 	for (int i = 0; i < 95; i++) {
 		line = eat_line(&text);

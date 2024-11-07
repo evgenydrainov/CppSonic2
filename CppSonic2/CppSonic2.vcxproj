@@ -191,6 +191,7 @@ copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll"
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\console.cpp" />
     <ClCompile Include="src\renderer.cpp" />
     <ClCompile Include="src\editor.cpp" />
     <ClCompile Include="src\font.cpp" />
@@ -211,6 +212,7 @@ copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll"
     <ClCompile Include="src\window_creation.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\console.h" />
     <ClInclude Include="src\renderer.h" />
     <ClInclude Include="src\common.h" />
     <ClInclude Include="src\editor.h" />
