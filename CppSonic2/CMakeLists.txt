@@ -14,7 +14,7 @@ add_compile_definitions($<$<CONFIG:Debug>:_DEBUG>)
 add_compile_definitions($<$<CONFIG:Debug>:DEBUG>)
 add_compile_definitions($<$<NOT:$<CONFIG:Debug>>:NDEBUG>)
 
-add_compile_definitions(EDITOR)
+#add_compile_definitions(EDITOR)
 add_compile_definitions(DEVELOPER)
 
 include_directories(${PROJECT_NAME} ../external/glad/include)

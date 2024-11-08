@@ -24,6 +24,8 @@ u8* get_file(const char* fname, size_t* out_filesize) {
 	SDL_RWseek(f, 0, RW_SEEK_END);
 	size_t filesize = (size_t) SDL_RWtell(f);
 
+	Assert(filesize <= package.MAX_FILESIZE);
+
 	SDL_RWseek(f, 0, RW_SEEK_SET);
 	SDL_RWread(f, package.filedata, filesize, 1);
 

@@ -291,7 +291,7 @@ void Editor::update(float delta) {
 
 	switch (mode) {
 		case MODE_HEIGHTMAP: {
-			{
+			auto heightmap_editor_window = [&]() {
 				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{});
 				defer { ImGui::PopStyleVar(); };
 
@@ -304,7 +304,7 @@ void Editor::update(float delta) {
 					ImVec2 avail = ImGui::GetContentRegionAvail();
 					ImGui::SetCursorPos((avail - text_size) / 2.0f);
 					ImGui::TextUnformatted(text);
-					break;
+					return;
 				}
 
 				if (tileset_texture.ID == 0) {
@@ -313,7 +313,7 @@ void Editor::update(float delta) {
 					ImVec2 avail = ImGui::GetContentRegionAvail();
 					ImGui::SetCursorPos((avail - text_size) / 2.0f);
 					ImGui::TextUnformatted(text);
-					break;
+					return;
 				}
 
 				pan_and_zoom(heightmap_view);
@@ -325,11 +325,19 @@ void Editor::update(float delta) {
 
 				draw_list->AddImage(tileset_texture.ID, texture_pos, texture_pos + texture_size);
 
+				for (int y = 0; y < tileset_texture.height / 16; y++) {
+					for (int x = 0; x < tileset_texture.width / 16; x++) {
+						
+					}
+				}
+
 				AddGrid(draw_list,
 						texture_pos,
 						ImVec2(16 * heightmap_view.zoom, 16 * heightmap_view.zoom),
 						{tileset_texture.width / 16, tileset_texture.height / 16});
-			}
+			};
+
+			heightmap_editor_window();
 			break;
 		}
 

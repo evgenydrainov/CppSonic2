@@ -81,6 +81,22 @@ struct SensorResult {
 	bool found;
 };
 
+struct Tileset {
+	int count;
+
+	array<u8> heights;
+	array<u8> widths;
+	array<float> angles;
+};
+
+struct Tilemap {
+	int width;
+	int height;
+
+	array<Tile> tiles_a;
+	array<Tile> tiles_b;
+};
+
 struct Game {
 	Player player;
 
@@ -90,21 +106,15 @@ struct Game {
 	Font font;
 	Font font_consolas;
 
+	Tileset ts;
 	Texture tileset_texture;
 	int tileset_width;
 	int tileset_height;
 
-	array<u8> tile_heights;
-	array<u8> tile_widths;
-	array<float> tile_angles;
-
 	Texture heightmap;
 	Texture widthmap;
 
-	array<Tile> tiles_a;
-	array<Tile> tiles_b;
-	int tilemap_width;
-	int tilemap_height;
+	Tilemap tm;
 
 	Texture anim_textures[NUM_ANIMS];
 
@@ -124,9 +134,6 @@ struct Game {
 	void draw(float delta);
 
 	void load_level(const char* path);
-
-	void load_tilemap_old_format(const char* fname);
-	void load_tileset_old_format(const char* fname);
 };
 
 extern Game game;
@@ -135,16 +142,30 @@ extern Game game;
 bool console_callback(string str, void* userdata);
 #endif
 
+void free_tilemap(Tilemap* tm);
+void free_tileset(Tileset* ts);
+
+void load_tilemap_old_format(Tilemap* tm, const char* fname);
+void load_tileset_old_format(Tileset* ts, const char* fname);
+
+void write_tilemap(Tilemap* tm, const char* fname);
+void write_tileset(Tileset* ts, const char* fname);
+
+void read_tilemap(Tilemap* tm, const char* fname);
+void read_tileset(Tileset* ts, const char* fname);
+
 inline Tile get_tile_a(int tile_x, int tile_y) {
-	if ((0 <= tile_x && tile_x < game.tilemap_width) && (0 <= tile_y && tile_y < game.tilemap_height)) {
-		return game.tiles_a[tile_x + tile_y * game.tilemap_width];
+	Tilemap* tm = &game.tm;
+	if ((0 <= tile_x && tile_x < tm->width) && (0 <= tile_y && tile_y < tm->height)) {
+		return tm->tiles_a[tile_x + tile_y * tm->width];
 	}
 	return {};
 }
 
 inline Tile get_tile_b(int tile_x, int tile_y) {
-	if ((0 <= tile_x && tile_x < game.tilemap_width) && (0 <= tile_y && tile_y < game.tilemap_height)) {
-		return game.tiles_b[tile_x + tile_y * game.tilemap_width];
+	Tilemap* tm = &game.tm;
+	if ((0 <= tile_x && tile_x < tm->width) && (0 <= tile_y && tile_y < tm->height)) {
+		return tm->tiles_b[tile_x + tile_y * tm->width];
 	}
 	return {};
 }
@@ -159,22 +180,25 @@ inline Tile get_tile(int tile_x, int tile_y, int layer) {
 }
 
 inline array<u8> get_tile_heights(int tile_index) {
-	Assert(tile_index < game.tileset_width * game.tileset_height);
+	Tileset* ts = &game.ts;
+	Assert(tile_index < ts->count);
 	array<u8> result;
-	result.data = &game.tile_heights[tile_index * 16];
+	result.data = &ts->heights[tile_index * 16];
 	result.count = 16;
 	return result;
 }
 
 inline array<u8> get_tile_widths(int tile_index) {
-	Assert(tile_index < game.tileset_width * game.tileset_height);
+	Tileset* ts = &game.ts;
+	Assert(tile_index < ts->count);
 	array<u8> result;
-	result.data = &game.tile_widths[tile_index * 16];
+	result.data = &ts->widths[tile_index * 16];
 	result.count = 16;
 	return result;
 }
 
 inline float get_tile_angle(int tile_index) {
-	Assert(tile_index < game.tileset_width * game.tileset_height);
-	return game.tile_angles[tile_index];
+	Tileset* ts = &game.ts;
+	Assert(tile_index < ts->count);
+	return ts->angles[tile_index];
 }

@@ -2,25 +2,31 @@
 
 #include "renderer.h"
 #include "window_creation.h"
+#include "package.h"
 #include "console.h"
 
 Game game;
 
 void Game::load_level(const char* path) {
-	{
-		char buf[512];
-		stb_snprintf(buf, sizeof(buf), "%s/Tileset.png", path);
+	// load tileset texture
+	char buf[512];
+	stb_snprintf(buf, sizeof(buf), "%s/Tileset.png", path);
 
-		tileset_texture = load_texture_from_file(buf);
+	tileset_texture = load_texture_from_file(buf);
 
-		Assert(tileset_texture.width % 16 == 0);
-		Assert(tileset_texture.height % 16 == 0);
+	Assert(tileset_texture.width  % 16 == 0);
+	Assert(tileset_texture.height % 16 == 0);
 
-		tileset_width  = tileset_texture.width  / 16;
-		tileset_height = tileset_texture.height / 16;
-	}
+	tileset_width  = tileset_texture.width  / 16;
+	tileset_height = tileset_texture.height / 16;
 
-	
+	// load tilemap data
+	stb_snprintf(buf, sizeof(buf), "%s/Tilemap.bin", path);
+	//read_tilemap(&tm, buf);
+
+	// load tileset data
+	stb_snprintf(buf, sizeof(buf), "%s/Tileset.bin", path);
+	//read_tileset(&ts, buf);
 }
 
 void Game::init() {
@@ -29,8 +35,8 @@ void Game::init() {
 
 	load_level("levels/GHZ_Act1");
 
-	load_tilemap_old_format("levels/tilemap.bin"); // @Temp
-	load_tileset_old_format("levels/tileset.bin");
+	load_tilemap_old_format(&tm, "levels/tilemap.bin"); // @Temp
+	load_tileset_old_format(&ts, "levels/tileset.bin");
 
 	// generate heightmap texture
 	{
@@ -919,8 +925,8 @@ static void player_keep_in_bounds(Player* p) {
 
 	float left = radius.x + 2;
 	float top  = radius.y + 2;
-	float right  = game.tilemap_width  * 16 - 3 - radius.x;
-	float bottom = game.tilemap_height * 16 - 3 - radius.y;
+	float right  = game.tm.width  * 16 - 3 - radius.x;
+	float bottom = game.tm.height * 16 - 3 - radius.y;
 
 	if (p->pos.x < left)   {p->pos.x = left;  p->ground_speed = 0; p->speed.x = 0;}
 	if (p->pos.x > right)  {p->pos.x = right; p->ground_speed = 0; p->speed.x = 0;}
@@ -1313,8 +1319,8 @@ void Game::update(float delta) {
 
 				camera_pos = glm::floor(camera_pos);
 
-				Clamp(&camera_pos.x, 0.0f, (float) (tilemap_width  * 16 - window.game_width));
-				Clamp(&camera_pos.y, 0.0f, (float) (tilemap_height * 16 - window.game_height));
+				Clamp(&camera_pos.x, 0.0f, (float) (tm.width  * 16 - window.game_width));
+				Clamp(&camera_pos.y, 0.0f, (float) (tm.height * 16 - window.game_height));
 			}
 
 			camera_lock = fmaxf(camera_lock - delta, 0);
@@ -1344,11 +1350,11 @@ void Game::draw(float delta) {
 
 	// draw tilemap
 	{
-		int xfrom = clamp((int)camera_pos.x / 16, 0, tilemap_width  - 1);
-		int yfrom = clamp((int)camera_pos.y / 16, 0, tilemap_height - 1);
+		int xfrom = clamp((int)camera_pos.x / 16, 0, tm.width  - 1);
+		int yfrom = clamp((int)camera_pos.y / 16, 0, tm.height - 1);
 
-		int xto = clamp((int)(camera_pos.x + window.game_width  + 15) / 16, 0, tilemap_width);
-		int yto = clamp((int)(camera_pos.y + window.game_height + 15) / 16, 0, tilemap_height);
+		int xto = clamp((int)(camera_pos.x + window.game_width  + 15) / 16, 0, tm.width);
+		int yto = clamp((int)(camera_pos.y + window.game_height + 15) / 16, 0, tm.height);
 
 		for (int y = yfrom; y < yto; y++) {
 			for (int x = xfrom; x < xto; x++) {
@@ -1535,7 +1541,33 @@ void Game::draw(float delta) {
 	}
 }
 
-void Game::load_tilemap_old_format(const char* fname) {
+void free_tilemap(Tilemap* tm) {
+	tm->width = 0;
+	tm->height = 0;
+
+	if (tm->tiles_a.data) free(tm->tiles_a.data);
+	tm->tiles_a = {};
+
+	if (tm->tiles_b.data) free(tm->tiles_b.data);
+	tm->tiles_b = {};
+}
+
+void free_tileset(Tileset* ts) {
+	ts->count = 0;
+
+	if (ts->heights.data) free(ts->heights.data);
+	ts->heights = {};
+
+	if (ts->widths.data) free(ts->widths.data);
+	ts->widths = {};
+
+	if (ts->angles.data) free(ts->angles.data);
+	ts->angles = {};
+}
+
+void load_tilemap_old_format(Tilemap* tm, const char* fname) {
+	free_tilemap(tm);
+
 	SDL_RWops* f = SDL_RWFromFile(fname, "rb");
 
 	if (!f) {
@@ -1545,10 +1577,10 @@ void Game::load_tilemap_old_format(const char* fname) {
 
 	defer { SDL_RWclose(f); };
 
-	SDL_RWread(f, &tilemap_width,  sizeof(tilemap_width),  1);
-	SDL_RWread(f, &tilemap_height, sizeof(tilemap_height), 1);
+	SDL_RWread(f, &tm->width,  sizeof(tm->width),  1);
+	SDL_RWread(f, &tm->height, sizeof(tm->height), 1);
 
-	if (tilemap_width <= 0 || tilemap_height <= 0) {
+	if (tm->width <= 0 || tm->height <= 0) {
 		log_error("Tilemap \"%s\" size is invalid.", fname);
 		return;
 	}
@@ -1571,36 +1603,38 @@ void Game::load_tilemap_old_format(const char* fname) {
 		bool left_right_bottom_solid : 1;
 	};
 
-	OldTile* old_tiles_a = (OldTile*) calloc(tilemap_width * tilemap_height, sizeof(old_tiles_a[0]));
+	OldTile* old_tiles_a = (OldTile*) calloc(tm->width * tm->height, sizeof(old_tiles_a[0]));
 	defer { free(old_tiles_a); };
 
-	OldTile* old_tiles_b = (OldTile*) calloc(tilemap_width * tilemap_height, sizeof(old_tiles_b[0]));
+	OldTile* old_tiles_b = (OldTile*) calloc(tm->width * tm->height, sizeof(old_tiles_b[0]));
 	defer { free(old_tiles_b); };
 
-	SDL_RWread(f, old_tiles_a, sizeof(old_tiles_a[0]), tilemap_width * tilemap_height);
-	SDL_RWread(f, old_tiles_b, sizeof(old_tiles_b[0]), tilemap_width * tilemap_height);
+	SDL_RWread(f, old_tiles_a, sizeof(old_tiles_a[0]), tm->width * tm->height);
+	SDL_RWread(f, old_tiles_b, sizeof(old_tiles_b[0]), tm->width * tm->height);
 
-	tiles_a = calloc_array<Tile>(tilemap_width * tilemap_height);
-	tiles_b = calloc_array<Tile>(tilemap_width * tilemap_height);
+	tm->tiles_a = calloc_array<Tile>(tm->width * tm->height);
+	tm->tiles_b = calloc_array<Tile>(tm->width * tm->height);
 
-	for (int i = 0; i < tilemap_width * tilemap_height; i++) {
-		tiles_a[i].index = old_tiles_a[i].index;
-		tiles_a[i].hflip = old_tiles_a[i].hflip;
-		tiles_a[i].vflip = old_tiles_a[i].vflip;
-		tiles_a[i].top_solid = old_tiles_a[i].top_solid;
-		tiles_a[i].lrb_solid = old_tiles_a[i].left_right_bottom_solid;
+	for (int i = 0; i < tm->width * tm->height; i++) {
+		tm->tiles_a[i].index = old_tiles_a[i].index;
+		tm->tiles_a[i].hflip = old_tiles_a[i].hflip;
+		tm->tiles_a[i].vflip = old_tiles_a[i].vflip;
+		tm->tiles_a[i].top_solid = old_tiles_a[i].top_solid;
+		tm->tiles_a[i].lrb_solid = old_tiles_a[i].left_right_bottom_solid;
 	}
 
-	for (int i = 0; i < tilemap_width * tilemap_height; i++) {
-		tiles_b[i].index = old_tiles_b[i].index;
-		tiles_b[i].hflip = old_tiles_b[i].hflip;
-		tiles_b[i].vflip = old_tiles_b[i].vflip;
-		tiles_b[i].top_solid = old_tiles_b[i].top_solid;
-		tiles_b[i].lrb_solid = old_tiles_b[i].left_right_bottom_solid;
+	for (int i = 0; i < tm->width * tm->height; i++) {
+		tm->tiles_b[i].index = old_tiles_b[i].index;
+		tm->tiles_b[i].hflip = old_tiles_b[i].hflip;
+		tm->tiles_b[i].vflip = old_tiles_b[i].vflip;
+		tm->tiles_b[i].top_solid = old_tiles_b[i].top_solid;
+		tm->tiles_b[i].lrb_solid = old_tiles_b[i].left_right_bottom_solid;
 	}
 }
 
-void Game::load_tileset_old_format(const char* fname) {
+void load_tileset_old_format(Tileset* ts, const char* fname) {
+	free_tileset(ts);
+
 	SDL_RWops* f = SDL_RWFromFile(fname, "rb");
 
 	if (!f) {
@@ -1613,16 +1647,164 @@ void Game::load_tileset_old_format(const char* fname) {
 	int tile_count_;
 	SDL_RWread(f, &tile_count_, sizeof(tile_count_), 1);
 
-	tileset_width = 16; // @Temp
-	tileset_height = 28;
+	game.tileset_width = 16; // @Temp
+	game.tileset_height = 28;
 
-	tile_heights = calloc_array<u8>(tileset_width * tileset_height * 16);
-	tile_widths  = calloc_array<u8>(tileset_width * tileset_height * 16);
-	tile_angles  = calloc_array<float>(tileset_width * tileset_height);
+	ts->heights = calloc_array<u8>(game.tileset_width * game.tileset_height * 16);
+	ts->widths  = calloc_array<u8>(game.tileset_width * game.tileset_height * 16);
+	ts->angles  = calloc_array<float>(game.tileset_width * game.tileset_height);
 
-	SDL_RWread(f, tile_heights.data, 16 * sizeof(tile_heights[0]), tile_count_);
-	SDL_RWread(f, tile_widths.data,  16 * sizeof(tile_widths[0]), tile_count_);
-	SDL_RWread(f, tile_angles.data,  sizeof(tile_angles[0]), tile_count_);
+	SDL_RWread(f, ts->heights.data, 16 * sizeof(ts->heights[0]), tile_count_);
+	SDL_RWread(f, ts->widths.data,  16 * sizeof(ts->widths[0]), tile_count_);
+	SDL_RWread(f, ts->angles.data,  sizeof(ts->angles[0]), tile_count_);
+
+	ts->count = tile_count_;
+}
+
+void write_tilemap(Tilemap* tm, const char* fname) {
+	SDL_RWops* f = SDL_RWFromFile(fname, "wb");
+
+	if (!f) {
+		log_error("Couldn't open file \"%s\" for writing.", fname);
+		return;
+	}
+
+	defer { SDL_RWclose(f); };
+
+	char magic[4] = {'T', 'M', 'A', 'P'};
+	SDL_RWwrite(f, magic, sizeof magic, 1);
+
+	u32 version = 1;
+	SDL_RWwrite(f, &version, sizeof version, 1);
+
+	int width = tm->width;
+	SDL_RWwrite(f, &width, sizeof width, 1);
+
+	int height = tm->height;
+	SDL_RWwrite(f, &height, sizeof height, 1);
+
+	auto tiles_a = tm->tiles_a;
+	Assert(tiles_a.count == width * height);
+	SDL_RWwrite(f, tiles_a.data, sizeof(tiles_a[0]), tiles_a.count);
+
+	auto tiles_b = tm->tiles_b;
+	Assert(tiles_b.count == width * height);
+	SDL_RWwrite(f, tiles_b.data, sizeof(tiles_b[0]), tiles_b.count);
+}
+
+void write_tileset(Tileset* ts, const char* fname) {
+	SDL_RWops* f = SDL_RWFromFile(fname, "wb");
+
+	if (!f) {
+		log_error("Couldn't open file \"%s\" for writing.", fname);
+		return;
+	}
+
+	defer { SDL_RWclose(f); };
+
+	char magic[4] = {'T', 'S', 'E', 'T'};
+	SDL_RWwrite(f, magic, sizeof magic, 1);
+
+	u32 version = 1;
+	SDL_RWwrite(f, &version, sizeof version, 1);
+
+	int count = ts->count;
+	SDL_RWwrite(f, &count, sizeof count, 1);
+
+	auto heights = ts->heights;
+	Assert(heights.count == count * 16);
+	SDL_RWwrite(f, heights.data, sizeof(heights[0]), heights.count);
+
+	auto widths = ts->widths;
+	Assert(widths.count == count * 16);
+	SDL_RWwrite(f, widths.data, sizeof(widths[0]), widths.count);
+
+	auto angles = ts->angles;
+	Assert(angles.count == count);
+	SDL_RWwrite(f, angles.data, sizeof(angles[0]), angles.count);
+}
+
+void read_tilemap(Tilemap* tm, const char* fname) {
+	free_tilemap(tm);
+
+	size_t filesize;
+	u8* filedata = get_file(fname, &filesize);
+
+	if (!filedata) return;
+
+	SDL_RWops* f = SDL_RWFromConstMem(filedata, filesize);
+	defer { SDL_RWclose(f); };
+
+	char magic[4];
+	SDL_RWread(f, magic, sizeof magic, 1);
+	Assert(magic[0] == 'T'
+		   && magic[1] == 'M'
+		   && magic[2] == 'A'
+		   && magic[3] == 'P');
+	
+	u32 version;
+	SDL_RWread(f, &version, sizeof version, 1);
+	Assert(version == 1);
+
+	int width;
+	SDL_RWread(f, &width, sizeof width, 1);
+	Assert(width > 0);
+
+	int height;
+	SDL_RWread(f, &height, sizeof height, 1);
+	Assert(height > 0);
+
+	auto tiles_a = calloc_array<Tile>(width * height); // TODO: add some kind of validation and free this if there's an error.
+	SDL_RWread(f, tiles_a.data, sizeof(tiles_a[0]), tiles_a.count);
+
+	auto tiles_b = calloc_array<Tile>(width * height); // TODO
+	SDL_RWread(f, tiles_b.data, sizeof(tiles_b[0]), tiles_b.count);
+
+	tm->width = width;
+	tm->height = height;
+	tm->tiles_a = tiles_a;
+	tm->tiles_b = tiles_b;
+}
+
+void read_tileset(Tileset* ts, const char* fname) {
+	free_tileset(ts);
+
+	size_t filesize;
+	u8* filedata = get_file(fname, &filesize);
+
+	if (!filedata) return;
+
+	SDL_RWops* f = SDL_RWFromConstMem(filedata, filesize);
+	defer { SDL_RWclose(f); };
+
+	char magic[4];
+	SDL_RWread(f, magic, sizeof magic, 1);
+	Assert(magic[0] == 'T'
+				&& magic[1] == 'S'
+				&& magic[2] == 'E'
+				&& magic[3] == 'T');
+
+	u32 version;
+	SDL_RWread(f, &version, sizeof version, 1);
+	Assert(version == 1);
+
+	int count;
+	SDL_RWread(f, &count, sizeof count, 1);
+	Assert(count > 0);
+
+	auto heights = calloc_array<u8>(count * 16); // TODO: add some kind of validation and free this if there's an error.
+	SDL_RWread(f, heights.data, sizeof(heights[0]), heights.count);
+
+	auto widths = calloc_array<u8>(count * 16); // TODO
+	SDL_RWread(f, widths.data, sizeof(widths[0]), widths.count);
+
+	auto angles = calloc_array<float>(count); // TODO
+	SDL_RWread(f, angles.data, sizeof(angles[0]), angles.count);
+
+	ts->count = count;
+	ts->heights = heights;
+	ts->widths = widths;
+	ts->angles = angles;
 }
 
 #if defined(DEVELOPER) && !defined(EDITOR)
