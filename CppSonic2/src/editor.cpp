@@ -1,5 +1,7 @@
 #include "editor.h"
 
+#ifdef EDITOR
+
 #undef Remove
 
 #include "IconsFontAwesome5.h"
@@ -713,3 +715,5 @@ void Editor::update_window_caption() {
 		SDL_SetWindowTitle(get_window_handle(), buf);
 	}
 }
+
+#endif

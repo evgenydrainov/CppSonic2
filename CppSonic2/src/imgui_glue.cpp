@@ -1,5 +1,7 @@
 #include "imgui_glue.h"
 
+#ifndef IMGUI_DISABLE
+
 #include "window_creation.h"
 
 #include "imgui/imgui.h"
@@ -76,3 +78,5 @@ void imgui_render() {
 	//glClear(GL_COLOR_BUFFER_BIT);
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
+
+#endif

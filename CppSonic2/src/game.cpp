@@ -756,8 +756,15 @@ static void ground_sensor_collision(Player* p) {
 		res = res_b;
 	}
 
-	float check_speed = player_is_on_a_wall(p) ? p->speed.y : p->speed.x;
-	if (res.dist > fminf(fabsf(check_speed) + 4, 14)) {
+	float check_dist;
+	if (player_is_grounded(p)) {
+		check_dist = 14;
+	} else {
+		float check_speed = player_is_on_a_wall(p) ? p->speed.y : p->speed.x;
+		check_dist = fminf(fabsf(check_speed) + 4, 14);
+	}
+
+	if (res.dist > check_dist) {
 		p->state = STATE_AIR;
 		return;
 	}
@@ -825,18 +832,15 @@ static void ground_sensor_collision(Player* p) {
 			}
 		}
 
-		// TODO: falling on a slope while down is held
-		// if (p->ground_speed != 0) {
-		// 	p->facing = sign_int(p->ground_speed);
-		// }
+		if (p->ground_speed != 0) {
+			p->facing = sign_int(p->ground_speed);
+		}
 
-		// if (player_roll_condition(p)) { // @Cleanup: Why is this here?
-		// 	p->state = STATE_ROLL;
-		// } else {
-		// 	p->state = STATE_GROUND;
-		// }
-
-		p->state = STATE_GROUND;
+		if (player_roll_condition(p)) {
+			p->state = STATE_ROLL;
+		} else {
+			p->state = STATE_GROUND;
+		}
 	}
 }
 
@@ -1512,11 +1516,13 @@ void Game::draw(float delta) {
 
 #ifdef DEVELOPER
 		{
-			char buf[64];
+			char buf[128];
 			string str = Sprintf(buf,
 								 "state: %s\n"
+								 "ground speed: %f\n"
 								 "ground angle: %f\n",
 								 GetPlayerStateName(p->state),
+								 p->ground_speed,
 								 p->ground_angle);
 			pos = draw_text_shadow(font, str, pos);
 		}

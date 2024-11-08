@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef EDITOR
+
 #include "common.h"
 #include "texture.h"
 
@@ -60,3 +62,5 @@ struct Editor {
 };
 
 extern Editor editor;
+
+#endif

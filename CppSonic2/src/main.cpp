@@ -30,7 +30,9 @@ int main(int /*argc*/, char* /*argv*/[]) {
 
 	editor.init();
 	defer { editor.deinit(); };
-#else
+#endif
+
+#ifndef EDITOR
 	game.init();
 	defer { game.deinit(); };
 #endif
@@ -59,9 +61,10 @@ int main(int /*argc*/, char* /*argv*/[]) {
 		// update
 #ifdef EDITOR
 		imgui_begin_frame();
-
 		editor.update(window.delta);
-#else
+#endif
+
+#ifndef EDITOR
 		game.update(window.delta);
 #endif
 

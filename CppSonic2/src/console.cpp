@@ -1,9 +1,9 @@
 #include "console.h"
 
+#if defined(DEVELOPER) && !defined(EDITOR)
+
 #include "window_creation.h"
 #include "renderer.h"
-
-#if defined(DEVELOPER) && !defined(EDITOR)
 
 Console console;
 

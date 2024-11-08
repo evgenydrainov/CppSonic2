@@ -1,9 +1,9 @@
 #pragma once
 
+#if defined(DEVELOPER) && !defined(EDITOR)
+
 #include "common.h"
 #include "font.h"
-
-#if defined(DEVELOPER) && !defined(EDITOR)
 
 typedef bool (*ConsoleCallbackFn)(string str, void* userdata);
 
