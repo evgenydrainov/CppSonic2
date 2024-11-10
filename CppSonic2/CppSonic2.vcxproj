@@ -119,7 +119,7 @@ copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll"
       <PreprocessorDefinitions>EDITOR;DEVELOPER;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)external\SDL2\include;$(SolutionDir)external\SDL2_mixer\include;$(SolutionDir)external\glm\include;$(SolutionDir)external\stb\include;$(SolutionDir)external\glad\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)external\SDL2\include;$(SolutionDir)external\SDL2_mixer\include;$(SolutionDir)external\glm\include;$(SolutionDir)external\stb\include;$(SolutionDir)external\glad\include;$(SolutionDir)external\freetype\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>
       </ForcedIncludeFiles>
@@ -130,8 +130,8 @@ copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll"
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)external\SDL2\lib\$(PlatformTarget);$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2main.lib;SDL2.lib;SDL2_mixer.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)external\SDL2\lib\$(PlatformTarget);$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget);$(SolutionDir)external\freetype\lib\$(Platform)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDL2main.lib;SDL2.lib;SDL2_mixer.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.dll" "$(TargetDir)SDL2.dll"
@@ -171,7 +171,7 @@ copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll"
       <PreprocessorDefinitions>EDITOR;DEVELOPER;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)external\SDL2\include;$(SolutionDir)external\SDL2_mixer\include;$(SolutionDir)external\glm\include;$(SolutionDir)external\stb\include;$(SolutionDir)external\glad\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)external\SDL2\include;$(SolutionDir)external\SDL2_mixer\include;$(SolutionDir)external\glm\include;$(SolutionDir)external\stb\include;$(SolutionDir)external\glad\include;$(SolutionDir)external\freetype\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <ForcedIncludeFiles>
       </ForcedIncludeFiles>
@@ -182,8 +182,8 @@ copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll"
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)external\SDL2\lib\$(PlatformTarget);$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>SDL2main.lib;SDL2.lib;SDL2_mixer.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)external\SDL2\lib\$(PlatformTarget);$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget);$(SolutionDir)external\freetype\lib\$(Platform)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>SDL2main.lib;SDL2.lib;SDL2_mixer.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.dll" "$(TargetDir)SDL2.dll"

@@ -4,6 +4,7 @@
 
 #include "common.h"
 #include "texture.h"
+#include "game.h"
 
 #include "imgui/imgui.h"
 
@@ -12,6 +13,17 @@
 struct View {
 	ImVec2 scrolling;
 	float zoom = 1;
+};
+
+struct Selection {
+	bool dragging;
+	int drag_start_x;
+	int drag_start_y;
+
+	int x;
+	int y;
+	int w;
+	int h;
 };
 
 struct Editor {
@@ -30,21 +42,21 @@ struct Editor {
 	Mode mode;
 
 	View heightmap_view;
-	Texture tileset_texture;
-
 	View tilemap_view;
 	View tile_select_view;
 
-	array<u32> tilemap_tiles;
-	int tilemap_width;
-	int tilemap_height;
+	Tileset ts;
+	Texture tileset_texture;
+	Texture heightmap;
+	Texture widthmap;
 
-	int selected_tile_index;
+	Tilemap tm;
+
+	Tile selected_tile;
 	Tool tool;
-	int select_x;
-	int select_y;
-	int select_w;
-	int select_h;
+
+	Selection tilemap_select_tool_selection;
+	Selection tilemap_rect_tool_selection;
 
 	bool is_level_open;
 	std::filesystem::path current_level_dir;

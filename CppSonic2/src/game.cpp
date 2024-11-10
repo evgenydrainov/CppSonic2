@@ -22,11 +22,14 @@ void Game::load_level(const char* path) {
 
 	// load tilemap data
 	stb_snprintf(buf, sizeof(buf), "%s/Tilemap.bin", path);
-	//read_tilemap(&tm, buf);
+	read_tilemap(&tm, buf);
 
 	// load tileset data
 	stb_snprintf(buf, sizeof(buf), "%s/Tileset.bin", path);
-	//read_tileset(&ts, buf);
+	read_tileset(&ts, buf);
+
+	gen_heightmap_texture(&heightmap, ts, tileset_texture);
+	gen_widthmap_texture(&widthmap, ts, tileset_texture);
 }
 
 void Game::init() {
@@ -34,92 +37,6 @@ void Game::init() {
 	font_consolas = load_bmfont_file("fonts/consolas.fnt",  "fonts/consolas_0.png");
 
 	load_level("levels/GHZ_Act1");
-
-	load_tilemap_old_format(&tm, "levels/tilemap.bin"); // @Temp
-	load_tileset_old_format(&ts, "levels/tileset.bin");
-
-	// generate heightmap texture
-	{
-		heightmap.width  = tileset_width * 16;
-		heightmap.height = tileset_height * 16;
-
-		widthmap.width  = tileset_width * 16;
-		widthmap.height = tileset_height * 16;
-
-		SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, heightmap.width, heightmap.height, 32, SDL_PIXELFORMAT_RGBA8888);
-		defer { SDL_FreeSurface(surf); };
-
-		SDL_Surface* wsurf = SDL_CreateRGBSurfaceWithFormat(0, widthmap.width, widthmap.height, 32, SDL_PIXELFORMAT_RGBA8888);
-		defer { SDL_FreeSurface(wsurf); };
-
-		SDL_FillRect(surf,  nullptr, 0x00000000);
-		SDL_FillRect(wsurf, nullptr, 0x00000000);
-
-		for (int tile_index = 0; tile_index < tileset_width * tileset_height; tile_index++) {
-			array<u8> heights = get_tile_heights(tile_index);
-			array<u8> widths  = get_tile_widths(tile_index);
-
-			for (int i = 0; i < 16; i++) {
-				if (heights[i] != 0) {
-					if (heights[i] <= 0x10) {
-						SDL_Rect line = {
-							(tile_index % 16) * 16 + i,
-							(tile_index / 16) * 16 + (16 - heights[i]),
-							1,
-							heights[i]
-						};
-						SDL_FillRect(surf, &line, 0xffffffff);
-					} else if (heights[i] >= 0xF0) {
-						SDL_Rect line = {
-							(tile_index % 16) * 16 + i,
-							(tile_index / 16) * 16,
-							1,
-							16 - (heights[i] - 0xF0)
-						};
-						SDL_FillRect(surf, &line, 0xff0000ff);
-					}
-				}
-
-				if (widths[i] != 0) {
-					if (widths[i] <= 0x10) {
-						SDL_Rect line = {
-							(tile_index % 16) * 16 + 16 - widths[i],
-							(tile_index / 16) * 16 + i,
-							widths[i],
-							1
-						};
-						SDL_FillRect(wsurf, &line, 0xffffffff);
-					} else {
-						SDL_Rect line = {
-							(tile_index % 16) * 16,
-							(tile_index / 16) * 16 + i,
-							16 - (widths[i] - 0xF0),
-							1
-						};
-						SDL_FillRect(wsurf, &line, 0xffff0000);
-					}
-				}
-			}
-		}
-
-		glGenTextures(1, &heightmap.ID); // @Leak
-		glBindTexture(GL_TEXTURE_2D, heightmap.ID);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, heightmap.width, heightmap.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, surf->pixels);
-		glBindTexture(GL_TEXTURE_2D, 0);
-
-		glGenTextures(1, &widthmap.ID); // @Leak
-		glBindTexture(GL_TEXTURE_2D, widthmap.ID);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, widthmap.width, widthmap.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, wsurf->pixels);
-		glBindTexture(GL_TEXTURE_2D, 0);
-	}
 
 	// @Leak
 	anim_textures[anim_crouch]   = load_texture_from_file("textures/crouch.png");
@@ -407,7 +324,7 @@ static SensorResult sensor_check_down(vec2 pos, int layer) {
 		}
 
 		int result = 0;
-		auto heights = get_tile_heights(tile.index);
+		auto heights = get_tile_heights(game.ts, tile.index);
 
 		if (tile.hflip && tile.vflip) {
 			int h = heights[15 - ix % 16];
@@ -436,12 +353,12 @@ static SensorResult sensor_check_down(vec2 pos, int layer) {
 	int tile_x = floorf(pos.x / 16.0f);
 	int tile_y = floorf(pos.y / 16.0f);
 
-	Tile tile = get_tile(tile_x, tile_y, layer);
+	Tile tile = get_tile(game.tm, tile_x, tile_y, layer);
 	int height = get_height(tile, ix, iy);
 
 	if (height == 0) {
 		tile_y++;
-		tile = get_tile(tile_x, tile_y, layer);
+		tile = get_tile(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
 		result.tile = tile;
@@ -453,7 +370,7 @@ static SensorResult sensor_check_down(vec2 pos, int layer) {
 		result.dist = (32 - (iy % 16)) - (height + 1);
 	} else if (height == 16) {
 		tile_y--;
-		tile = get_tile(tile_x, tile_y, layer);
+		tile = get_tile(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
 		result.tile = tile;
@@ -481,7 +398,7 @@ static SensorResult sensor_check_right(vec2 pos, int layer) {
 		}
 
 		int result = 0;
-		auto heights = get_tile_widths(tile.index);
+		auto heights = get_tile_widths(game.ts, tile.index);
 
 		if (tile.hflip && tile.vflip) {
 			int h = heights[15 - iy % 16];
@@ -510,12 +427,12 @@ static SensorResult sensor_check_right(vec2 pos, int layer) {
 	int tile_x = floorf(pos.x / 16.0f);
 	int tile_y = floorf(pos.y / 16.0f);
 
-	Tile tile = get_tile(tile_x, tile_y, layer);
+	Tile tile = get_tile(game.tm, tile_x, tile_y, layer);
 	int height = get_height(tile, ix, iy);
 
 	if (height == 0) {
 		tile_x++;
-		tile = get_tile(tile_x, tile_y, layer);
+		tile = get_tile(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
 		result.tile = tile;
@@ -526,7 +443,7 @@ static SensorResult sensor_check_right(vec2 pos, int layer) {
 		result.dist = (32 - (ix % 16)) - (height + 1);
 	} else if (height == 16) {
 		tile_x--;
-		tile = get_tile(tile_x, tile_y, layer);
+		tile = get_tile(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
 		result.tile = tile;
@@ -554,7 +471,7 @@ static SensorResult sensor_check_up(vec2 pos, int layer) {
 		}
 
 		int result = 0;
-		auto heights = get_tile_heights(tile.index);
+		auto heights = get_tile_heights(game.ts, tile.index);
 
 		if (tile.hflip && tile.vflip) {
 			int h = heights[15 - ix % 16];
@@ -583,12 +500,12 @@ static SensorResult sensor_check_up(vec2 pos, int layer) {
 	int tile_x = floorf(pos.x / 16.0f);
 	int tile_y = floorf(pos.y / 16.0f);
 
-	Tile tile = get_tile(tile_x, tile_y, layer);
+	Tile tile = get_tile(game.tm, tile_x, tile_y, layer);
 	int height = get_height(tile, ix, iy);
 
 	if (height == 0) {
 		tile_y--;
-		tile = get_tile(tile_x, tile_y, layer);
+		tile = get_tile(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
 		result.tile = tile;
@@ -599,7 +516,7 @@ static SensorResult sensor_check_up(vec2 pos, int layer) {
 		result.dist = 16 + (iy % 16) - (height);
 	} else if (height == 16) {
 		tile_y++;
-		tile = get_tile(tile_x, tile_y, layer);
+		tile = get_tile(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
 		result.tile = tile;
@@ -627,7 +544,7 @@ static SensorResult sensor_check_left(vec2 pos, int layer) {
 		}
 
 		int result = 0;
-		auto heights = get_tile_widths(tile.index);
+		auto heights = get_tile_widths(game.ts, tile.index);
 
 		if (tile.hflip && tile.vflip) {
 			int h = heights[15 - iy % 16];
@@ -656,12 +573,12 @@ static SensorResult sensor_check_left(vec2 pos, int layer) {
 	int tile_x = floorf(pos.x / 16.0f);
 	int tile_y = floorf(pos.y / 16.0f);
 
-	Tile tile = get_tile(tile_x, tile_y, layer);
+	Tile tile = get_tile(game.tm, tile_x, tile_y, layer);
 	int height = get_height(tile, ix, iy);
 
 	if (height == 0) {
 		tile_x--;
-		tile = get_tile(tile_x, tile_y, layer);
+		tile = get_tile(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
 		result.tile = tile;
@@ -672,7 +589,7 @@ static SensorResult sensor_check_left(vec2 pos, int layer) {
 		result.dist = 16 + (ix % 16) - (height);
 	} else if (height == 16) {
 		tile_x++;
-		tile = get_tile(tile_x, tile_y, layer);
+		tile = get_tile(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
 		result.tile = tile;
@@ -785,7 +702,7 @@ static void ground_sensor_collision(Player* p) {
 		case MODE_LEFT_WALL:  p->pos.x -= res.dist; break;
 	}
 
-	float angle = get_tile_angle(res.tile.index);
+	float angle = get_tile_angle(game.ts, res.tile.index);
 	if (angle == -1.0f) { // flagged
 		// float a = angle_wrap(p->ground_angle);
 		// if (a <= 45.0f) {
@@ -1358,7 +1275,7 @@ void Game::draw(float delta) {
 
 		for (int y = yfrom; y < yto; y++) {
 			for (int x = xfrom; x < xto; x++) {
-				Tile tile = get_tile_a(x, y);
+				Tile tile = get_tile_a(tm, x, y);
 
 				if (tile.index == 0) {
 					continue;
@@ -1374,7 +1291,7 @@ void Game::draw(float delta) {
 
 #ifdef DEVELOPER
 				if (show_height || show_width) {
-					tile = get_tile(x, y, player.layer);
+					tile = get_tile(tm, x, y, player.layer);
 
 					src.x = (tile.index % tileset_width) * 16;
 					src.y = (tile.index / tileset_width) * 16;
@@ -1805,6 +1722,104 @@ void read_tileset(Tileset* ts, const char* fname) {
 	ts->heights = heights;
 	ts->widths = widths;
 	ts->angles = angles;
+}
+
+void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture& tileset_texture) {
+	free_texture(heightmap);
+
+	heightmap->width  = tileset_texture.width;
+	heightmap->height = tileset_texture.height;
+
+	SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, heightmap->width, heightmap->height, 32, SDL_PIXELFORMAT_RGBA8888);
+	defer { SDL_FreeSurface(surf); };
+
+	SDL_FillRect(surf,  nullptr, 0x00000000);
+
+	for (int tile_index = 0; tile_index < ts.count; tile_index++) {
+		array<u8> heights = get_tile_heights(ts, tile_index);
+
+		for (int i = 0; i < 16; i++) {
+			if (heights[i] != 0) {
+				if (heights[i] <= 0x10) {
+					SDL_Rect line = {
+						(tile_index % 16) * 16 + i,
+						(tile_index / 16) * 16 + (16 - heights[i]),
+						1,
+						heights[i]
+					};
+					SDL_FillRect(surf, &line, 0xffffffff);
+				} else if (heights[i] >= 0xF0) {
+					SDL_Rect line = {
+						(tile_index % 16) * 16 + i,
+						(tile_index / 16) * 16,
+						1,
+						16 - (heights[i] - 0xF0)
+					};
+					SDL_FillRect(surf, &line, 0xff0000ff);
+				}
+			}
+		}
+	}
+
+	glGenTextures(1, &heightmap->ID); // @Leak
+	glBindTexture(GL_TEXTURE_2D, heightmap->ID);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, heightmap->width, heightmap->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, surf->pixels);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& tileset_texture) {
+	widthmap->width  = tileset_texture.width;
+	widthmap->height = tileset_texture.height;
+
+	SDL_Surface* wsurf = SDL_CreateRGBSurfaceWithFormat(0, widthmap->width, widthmap->height, 32, SDL_PIXELFORMAT_RGBA8888);
+	defer { SDL_FreeSurface(wsurf); };
+
+	SDL_FillRect(wsurf, nullptr, 0x00000000);
+
+	for (int tile_index = 0; tile_index < ts.count; tile_index++) {
+		array<u8> widths  = get_tile_widths(ts, tile_index);
+
+		for (int i = 0; i < 16; i++) {
+			if (widths[i] != 0) {
+				if (widths[i] <= 0x10) {
+					SDL_Rect line = {
+						(tile_index % 16) * 16 + 16 - widths[i],
+						(tile_index / 16) * 16 + i,
+						widths[i],
+						1
+					};
+					SDL_FillRect(wsurf, &line, 0xffffffff);
+				} else {
+					SDL_Rect line = {
+						(tile_index % 16) * 16,
+						(tile_index / 16) * 16 + i,
+						16 - (widths[i] - 0xF0),
+						1
+					};
+					SDL_FillRect(wsurf, &line, 0xffff0000);
+				}
+			}
+		}
+	}
+
+	glGenTextures(1, &widthmap->ID); // @Leak
+	glBindTexture(GL_TEXTURE_2D, widthmap->ID);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, widthmap->width, widthmap->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, wsurf->pixels);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 #if defined(DEVELOPER) && !defined(EDITOR)

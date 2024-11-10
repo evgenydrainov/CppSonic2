@@ -88,3 +88,11 @@ Texture load_texture_from_file(const char* fname,
 
 	return result;
 }
+
+void free_texture(Texture* t) {
+	t->width  = 0;
+	t->height = 0;
+
+	if (t->ID) glDeleteTextures(1, &t->ID);
+	t->ID = 0;
+}

@@ -154,51 +154,53 @@ void write_tileset(Tileset* ts, const char* fname);
 void read_tilemap(Tilemap* tm, const char* fname);
 void read_tileset(Tileset* ts, const char* fname);
 
-inline Tile get_tile_a(int tile_x, int tile_y) {
-	Tilemap* tm = &game.tm;
-	if ((0 <= tile_x && tile_x < tm->width) && (0 <= tile_y && tile_y < tm->height)) {
-		return tm->tiles_a[tile_x + tile_y * tm->width];
+void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture& tileset_texture);
+void gen_widthmap_texture (Texture* widthmap,  const Tileset& ts, const Texture& tileset_texture);
+
+inline Tile get_tile_a(const Tilemap& tm, int tile_x, int tile_y) {
+	if ((0 <= tile_x && tile_x < tm.width) && (0 <= tile_y && tile_y < tm.height)) {
+		return tm.tiles_a[tile_x + tile_y * tm.width];
 	}
 	return {};
 }
 
-inline Tile get_tile_b(int tile_x, int tile_y) {
-	Tilemap* tm = &game.tm;
-	if ((0 <= tile_x && tile_x < tm->width) && (0 <= tile_y && tile_y < tm->height)) {
-		return tm->tiles_b[tile_x + tile_y * tm->width];
+inline Tile get_tile_b(const Tilemap& tm, int tile_x, int tile_y) {
+	if ((0 <= tile_x && tile_x < tm.width) && (0 <= tile_y && tile_y < tm.height)) {
+		return tm.tiles_b[tile_x + tile_y * tm.width];
 	}
 	return {};
 }
 
-inline Tile get_tile(int tile_x, int tile_y, int layer) {
+inline Tile get_tile(const Tilemap& tm, int tile_x, int tile_y, int layer) {
 	if (layer == 0) {
-		return get_tile_a(tile_x, tile_y);
+		return get_tile_a(tm, tile_x, tile_y);
 	} else if (layer == 1) {
-		return get_tile_b(tile_x, tile_y);
+		return get_tile_b(tm, tile_x, tile_y);
 	}
 	return {};
 }
 
-inline array<u8> get_tile_heights(int tile_index) {
-	Tileset* ts = &game.ts;
-	Assert(tile_index < ts->count);
-	array<u8> result;
-	result.data = &ts->heights[tile_index * 16];
+inline array<u8> get_tile_heights(const Tileset& ts, int tile_index) {
+	Assert(tile_index < ts.count);
+
+	array<u8> result = {};
+	result.data = ts.heights.data + tile_index * 16;
 	result.count = 16;
+
 	return result;
 }
 
-inline array<u8> get_tile_widths(int tile_index) {
-	Tileset* ts = &game.ts;
-	Assert(tile_index < ts->count);
-	array<u8> result;
-	result.data = &ts->widths[tile_index * 16];
+inline array<u8> get_tile_widths(const Tileset& ts, int tile_index) {
+	Assert(tile_index < ts.count);
+
+	array<u8> result = {};
+	result.data = ts.widths.data + tile_index * 16;
 	result.count = 16;
+
 	return result;
 }
 
-inline float get_tile_angle(int tile_index) {
-	Tileset* ts = &game.ts;
-	Assert(tile_index < ts->count);
-	return ts->angles[tile_index];
+inline float get_tile_angle(const Tileset& ts, int tile_index) {
+	Assert(tile_index < ts.count);
+	return ts.angles[tile_index];
 }
