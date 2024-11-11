@@ -57,6 +57,8 @@ struct Editor {
 
 	Selection tilemap_select_tool_selection;
 	Selection tilemap_rect_tool_selection;
+	bool heightmap_show_collision = true;
+	bool heightmap_show_widths;
 
 	bool is_level_open;
 	std::filesystem::path current_level_dir;

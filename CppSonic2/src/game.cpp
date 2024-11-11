@@ -1735,6 +1735,8 @@ void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture&
 
 	SDL_FillRect(surf,  nullptr, 0x00000000);
 
+	int stride = tileset_texture.width / 16;
+
 	for (int tile_index = 0; tile_index < ts.count; tile_index++) {
 		array<u8> heights = get_tile_heights(ts, tile_index);
 
@@ -1742,16 +1744,16 @@ void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture&
 			if (heights[i] != 0) {
 				if (heights[i] <= 0x10) {
 					SDL_Rect line = {
-						(tile_index % 16) * 16 + i,
-						(tile_index / 16) * 16 + (16 - heights[i]),
+						(tile_index % stride) * 16 + i,
+						(tile_index / stride) * 16 + (16 - heights[i]),
 						1,
 						heights[i]
 					};
 					SDL_FillRect(surf, &line, 0xffffffff);
 				} else if (heights[i] >= 0xF0) {
 					SDL_Rect line = {
-						(tile_index % 16) * 16 + i,
-						(tile_index / 16) * 16,
+						(tile_index % stride) * 16 + i,
+						(tile_index / stride) * 16,
 						1,
 						16 - (heights[i] - 0xF0)
 					};

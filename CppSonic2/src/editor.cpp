@@ -268,6 +268,8 @@ void Editor::clear_state() {
 	tool = (Tool) 0;
 	tilemap_select_tool_selection = {};
 	tilemap_rect_tool_selection = {};
+	heightmap_show_collision = true;
+	heightmap_show_widths = false;
 }
 
 void Editor::update(float delta) {
@@ -365,6 +367,8 @@ void Editor::update(float delta) {
 
 	switch (mode) {
 		case MODE_HEIGHTMAP: {
+			ImVec2 main_window_pos = {};
+
 			auto heightmap_editor_window = [&]() {
 				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{});
 				defer { ImGui::PopStyleVar(); };
@@ -372,12 +376,27 @@ void Editor::update(float delta) {
 				ImGui::Begin("Heightmap Editor##heightmap_editor");
 				defer { ImGui::End(); };
 
+				main_window_pos = ImGui::GetWindowPos();
+
 				if (!is_level_open) {
-					const char* text = "No level loaded.";
-					ImVec2 text_size = ImGui::CalcTextSize(text);
-					ImVec2 avail = ImGui::GetContentRegionAvail();
-					ImGui::SetCursorPos((avail - text_size) / 2.0f);
-					ImGui::TextUnformatted(text);
+					{
+						const char* text = "No level loaded.\n";
+						ImVec2 text_size = ImGui::CalcTextSize(text);
+						ImVec2 avail = ImGui::GetContentRegionAvail();
+						ImGui::SetCursorPos(ImGui::GetCursorPos() + (avail - text_size) / 2.0f);
+						ImGui::TextUnformatted(text);
+					}
+
+					{
+						ImGui::Spacing();
+
+						const char* text = "Ctrl + N - Create New Level\n"
+							"Ctrl + O - Open Level";
+						ImVec2 text_size = ImGui::CalcTextSize(text);
+						ImVec2 avail = ImGui::GetContentRegionAvail();
+						ImGui::SetCursorPosX((ImGui::GetCursorPos() + (avail - text_size) / 2.0f).x);
+						ImGui::TextUnformatted(text);
+					}
 					return;
 				}
 
@@ -392,14 +411,65 @@ void Editor::update(float delta) {
 
 				pan_and_zoom(heightmap_view);
 
-				ImDrawList* draw_list = ImGui::GetWindowDrawList();
-
 				ImVec2 texture_size(tileset_texture.width * heightmap_view.zoom, tileset_texture.height * heightmap_view.zoom);
 				ImVec2 texture_pos = ImGui::GetCursorScreenPos() + heightmap_view.scrolling;
 
-				draw_list->AddImage(tileset_texture.ID, texture_pos, texture_pos + texture_size, {0, 0}, {1, 1}, IM_COL32(255, 255, 255, 128));
+				if (heightmap_show_collision) {
+					// item = invisible button from pan_and_zoom
+					if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
+						if (pos_in_rect(ImGui::GetMousePos(), texture_pos, texture_size)) {
+							ImVec2 pos = get_mouse_pos_in_view(heightmap_view);
 
-				draw_list->AddImage(heightmap.ID, texture_pos, texture_pos + texture_size, {0, 0}, {1, 1}, IM_COL32(255, 255, 255, 128));
+							int tile_x = clamp((int)(pos.x / 16), 0, (tileset_texture.width  / 16) - 1);
+							int tile_y = clamp((int)(pos.y / 16), 0, (tileset_texture.height / 16) - 1);
+
+							int x = clamp((int)pos.x, 0, tileset_texture.width  - 1);
+							int y = clamp((int)pos.y, 0, tileset_texture.height - 1);
+
+							if (heightmap_show_widths) {
+
+							} else {
+								auto heights = get_tile_heights(ts, tile_x + tile_y * (tileset_texture.width / 16));
+								heights[x % 16] = 16 - (y % 16);
+
+								gen_heightmap_texture(&heightmap, ts, tileset_texture);
+							}
+						}
+					}
+
+					if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0)) {
+						if (pos_in_rect(ImGui::GetMousePos(), texture_pos, texture_size)) {
+							ImVec2 pos = get_mouse_pos_in_view(heightmap_view);
+
+							int tile_x = clamp((int)(pos.x / 16), 0, (tileset_texture.width  / 16) - 1);
+							int tile_y = clamp((int)(pos.y / 16), 0, (tileset_texture.height / 16) - 1);
+
+							int x = clamp((int)pos.x, 0, tileset_texture.width  - 1);
+							int y = clamp((int)pos.y, 0, tileset_texture.height - 1);
+
+							if (heightmap_show_widths) {
+
+							} else {
+								auto heights = get_tile_heights(ts, tile_x + tile_y * (tileset_texture.width / 16));
+								heights[x % 16] = 0;
+
+								gen_heightmap_texture(&heightmap, ts, tileset_texture);
+							}
+						}
+					}
+				}
+
+				ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+				{
+					ImU32 col = heightmap_show_collision ? IM_COL32(255, 255, 255, 128) : IM_COL32_WHITE;
+					draw_list->AddImage(tileset_texture.ID, texture_pos, texture_pos + texture_size, {0, 0}, {1, 1}, col);
+				}
+
+				if (heightmap_show_collision) {
+					ImTextureID tex = heightmap_show_widths ? widthmap.ID : heightmap.ID;
+					draw_list->AddImage(tex, texture_pos, texture_pos + texture_size, {0, 0}, {1, 1}, IM_COL32(255, 255, 255, 128));
+				}
 
 				// draw grids
 				{
@@ -416,16 +486,48 @@ void Editor::update(float delta) {
 			};
 
 			heightmap_editor_window();
+
+			auto heightmap_editor_options_window = [&]() {
+				ImGui::Begin("Heightmap Editor Options");
+				defer { ImGui::End(); };
+
+				ImGui::Checkbox("Show Collision", &heightmap_show_collision);
+				ImGui::Checkbox("Show Widths", &heightmap_show_widths);
+			};
+
+			heightmap_editor_options_window();
+
+			auto tool_select_window = [&]() {
+				ImGui::SetNextWindowPos(ImVec2(main_window_pos.x, io.DisplaySize.y / 2.0f), ImGuiCond_Always, ImVec2(0, 0.5f));
+
+				ImGui::Begin("Tool select##heightmap_editor", nullptr,
+							 ImGuiWindowFlags_AlwaysAutoResize
+							 | ImGuiWindowFlags_NoDecoration
+							 | ImGuiWindowFlags_NoMove);
+				defer { ImGui::End(); };
+
+				ButtonActive(ICON_FA_PEN, false);
+				ImGui::SetItemTooltip("Brush\nShortcut: B");
+
+				ButtonActive(ICON_FA_ERASER, false);
+				ImGui::SetItemTooltip("Eraser\nShortcut: E");
+			};
+
+			tool_select_window();
 			break;
 		}
 
 		case MODE_TILEMAP: {
+			ImVec2 main_window_pos = {};
+
 			auto tilemap_editor_window = [&]() {
 				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{});
 				defer { ImGui::PopStyleVar(); };
 
 				ImGui::Begin("Tilemap Editor##tilemap_editor");
 				defer { ImGui::End(); };
+
+				main_window_pos = ImGui::GetWindowPos();
 
 				if (!is_level_open) {
 					const char* text = "No level loaded.";
@@ -631,7 +733,7 @@ void Editor::update(float delta) {
 			tile_select_window();
 
 			auto tool_select_window = [&]() {
-				ImGui::SetNextWindowPos(ImVec2(0, io.DisplaySize.y / 2.0f), ImGuiCond_Always, ImVec2(0, 0.5f));
+				ImGui::SetNextWindowPos(ImVec2(main_window_pos.x, io.DisplaySize.y / 2.0f), ImGuiCond_Always, ImVec2(0, 0.5f));
 
 				ImGui::Begin("Tool select##tilemap_editor", nullptr,
 							 ImGuiWindowFlags_AlwaysAutoResize
