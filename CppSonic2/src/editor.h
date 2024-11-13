@@ -39,6 +39,11 @@ struct Editor {
 		TOOL_SELECT,
 	};
 
+	enum HTool {
+		HTOOL_BRUSH,
+		HTOOL_ERASER,
+	};
+
 	Mode mode;
 
 	View heightmap_view;
@@ -54,6 +59,7 @@ struct Editor {
 
 	Tile selected_tile;
 	Tool tool;
+	HTool htool;
 
 	Selection tilemap_select_tool_selection;
 	Selection tilemap_rect_tool_selection;

@@ -265,7 +265,8 @@ void Editor::clear_state() {
 	tilemap_view     = {};
 	tile_select_view = {};
 	selected_tile = {};
-	tool = (Tool) 0;
+	tool = {};
+	htool = {};
 	tilemap_select_tool_selection = {};
 	tilemap_rect_tool_selection = {};
 	heightmap_show_collision = true;
@@ -427,10 +428,21 @@ void Editor::update(float delta) {
 							int y = clamp((int)pos.y, 0, tileset_texture.height - 1);
 
 							if (heightmap_show_widths) {
+								auto widths = get_tile_widths(ts, tile_x + tile_y * (tileset_texture.width / 16));
+								if (htool == HTOOL_BRUSH) {
+									widths[y % 16] = 16 - (x % 16);
+								} else if (htool == HTOOL_ERASER) {
+									widths[y % 16] = 0;
+								}
 
+								gen_widthmap_texture(&widthmap, ts, tileset_texture);
 							} else {
 								auto heights = get_tile_heights(ts, tile_x + tile_y * (tileset_texture.width / 16));
-								heights[x % 16] = 16 - (y % 16);
+								if (htool == HTOOL_BRUSH) {
+									heights[x % 16] = 16 - (y % 16);
+								} else if (htool == HTOOL_ERASER) {
+									heights[x % 16] = 0;
+								}
 
 								gen_heightmap_texture(&heightmap, ts, tileset_texture);
 							}
@@ -448,10 +460,17 @@ void Editor::update(float delta) {
 							int y = clamp((int)pos.y, 0, tileset_texture.height - 1);
 
 							if (heightmap_show_widths) {
+								auto widths = get_tile_widths(ts, tile_x + tile_y * (tileset_texture.width / 16));
+								if (htool == HTOOL_BRUSH) {
+									widths[y % 16] = 0xF0 + (15 - (x % 16));
+								}
 
+								gen_widthmap_texture(&widthmap, ts, tileset_texture);
 							} else {
 								auto heights = get_tile_heights(ts, tile_x + tile_y * (tileset_texture.width / 16));
-								heights[x % 16] = 0;
+								if (htool == HTOOL_BRUSH) {
+									heights[x % 16] = 0xF0 + (15 - (y % 16));
+								}
 
 								gen_heightmap_texture(&heightmap, ts, tileset_texture);
 							}
@@ -506,11 +525,14 @@ void Editor::update(float delta) {
 							 | ImGuiWindowFlags_NoMove);
 				defer { ImGui::End(); };
 
-				ButtonActive(ICON_FA_PEN, false);
+				if (ButtonActive(ICON_FA_PEN, htool == HTOOL_BRUSH)) htool = HTOOL_BRUSH;
 				ImGui::SetItemTooltip("Brush\nShortcut: B");
 
-				ButtonActive(ICON_FA_ERASER, false);
+				if (ButtonActive(ICON_FA_ERASER, htool == HTOOL_ERASER)) htool = HTOOL_ERASER;
 				ImGui::SetItemTooltip("Eraser\nShortcut: E");
+
+				if (ImGui::IsKeyPressed(ImGuiKey_B)) htool = HTOOL_BRUSH;
+				if (ImGui::IsKeyPressed(ImGuiKey_E)) htool = HTOOL_ERASER;
 			};
 
 			tool_select_window();
@@ -761,10 +783,6 @@ void Editor::update(float delta) {
 			};
 
 			tool_select_window();
-
-			/*ImGui::Begin("foo");
-			ImGui::Text(ICON_FA_SMOKING "%s", u8" ��� ������ ������ ������...");
-			ImGui::End();*/
 			break;
 		}
 	}
