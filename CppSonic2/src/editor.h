@@ -42,6 +42,7 @@ struct Editor {
 	enum HTool {
 		HTOOL_BRUSH,
 		HTOOL_ERASER,
+		HTOOL_AUTO,
 	};
 
 	Mode mode;
@@ -52,6 +53,7 @@ struct Editor {
 
 	Tileset ts;
 	Texture tileset_texture;
+	SDL_Surface* tileset_surface;
 	Texture heightmap;
 	Texture widthmap;
 

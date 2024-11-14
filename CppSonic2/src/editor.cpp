@@ -305,6 +305,7 @@ void Editor::update(float delta) {
 		update_window_caption();
 
 		tileset_texture = load_texture_from_file((current_level_dir / "Tileset.png").string().c_str());
+		tileset_surface = load_surface_from_file((current_level_dir / "Tileset.png").string().c_str());
 
 		read_tilemap(&tm, (current_level_dir / "Tilemap.bin").string().c_str());
 		read_tileset(&ts, (current_level_dir / "Tileset.bin").string().c_str());
@@ -315,12 +316,23 @@ void Editor::update(float delta) {
 		heightmap_view.scrolling = (io.DisplaySize - ImVec2(tileset_texture.width, tileset_texture.height)) / 2.0f;
 	};
 
+	auto try_save_level = [&]() {
+		if (!is_level_open) return;
+
+		write_tilemap(&tm, (current_level_dir / "Tilemap.bin").string().c_str());
+		write_tileset(&ts, (current_level_dir / "Tileset.bin").string().c_str());
+	};
+
 	if (ImGui::IsKeyPressed(ImGuiKey_N) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
 		try_open_cnl_popup();
 	}
 
 	if (ImGui::IsKeyPressed(ImGuiKey_O) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
 		try_open_level();
+	}
+
+	if (ImGui::IsKeyPressed(ImGuiKey_S) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+		try_save_level();
 	}
 
 	if (ImGui::BeginMainMenuBar()) {
@@ -331,6 +343,10 @@ void Editor::update(float delta) {
 
 			if (ImGui::MenuItem("Open Level...", "Ctrl+O")) {
 				try_open_level();
+			}
+
+			if (ImGui::MenuItem("Save Level", "Ctrl+S", nullptr, is_level_open)) {
+				try_save_level();
 			}
 
 			ImGui::EndMenu();
@@ -424,27 +440,70 @@ void Editor::update(float delta) {
 							int tile_x = clamp((int)(pos.x / 16), 0, (tileset_texture.width  / 16) - 1);
 							int tile_y = clamp((int)(pos.y / 16), 0, (tileset_texture.height / 16) - 1);
 
-							int x = clamp((int)pos.x, 0, tileset_texture.width  - 1);
-							int y = clamp((int)pos.y, 0, tileset_texture.height - 1);
+							if (htool == HTOOL_AUTO) {
+								if (heightmap_show_widths) {
 
-							if (heightmap_show_widths) {
-								auto widths = get_tile_widths(ts, tile_x + tile_y * (tileset_texture.width / 16));
-								if (htool == HTOOL_BRUSH) {
-									widths[y % 16] = 16 - (x % 16);
-								} else if (htool == HTOOL_ERASER) {
-									widths[y % 16] = 0;
+								} else {
+									auto heights = get_tile_heights(ts, tile_x + tile_y * (tileset_texture.width / 16));
+									for (int x = 0; x < 16; x++) {
+										int height = 0;
+
+										int pixel_x = tile_x * 16 + x;
+										int pixel_y = tile_y * 16 + 15;
+										vec4 pixel = surface_get_pixel(tileset_surface, pixel_x, pixel_y);
+										if (pixel.a == 0) {
+											// flipped height
+											for (int y = 0; y < 16; y++) {
+												int pixel_x = tile_x * 16 + x;
+												int pixel_y = tile_y * 16 + y;
+												vec4 pixel = surface_get_pixel(tileset_surface, pixel_x, pixel_y);
+												if (pixel.a != 0) {
+													height = 0xFF - y;
+												} else {
+													break;
+												}
+											}
+										} else {
+											// normal height
+											for (int y = 15; y >= 0; y--) {
+												int pixel_x = tile_x * 16 + x;
+												int pixel_y = tile_y * 16 + y;
+												vec4 pixel = surface_get_pixel(tileset_surface, pixel_x, pixel_y);
+												if (pixel.a != 0) {
+													height = 16 - y;
+												} else {
+													break;
+												}
+											}
+										}
+
+										heights[x] = height;
+									}
+									gen_heightmap_texture(&heightmap, ts, tileset_texture);
 								}
-
-								gen_widthmap_texture(&widthmap, ts, tileset_texture);
 							} else {
-								auto heights = get_tile_heights(ts, tile_x + tile_y * (tileset_texture.width / 16));
-								if (htool == HTOOL_BRUSH) {
-									heights[x % 16] = 16 - (y % 16);
-								} else if (htool == HTOOL_ERASER) {
-									heights[x % 16] = 0;
-								}
+								int x = clamp((int)pos.x, 0, tileset_texture.width  - 1);
+								int y = clamp((int)pos.y, 0, tileset_texture.height - 1);
 
-								gen_heightmap_texture(&heightmap, ts, tileset_texture);
+								if (heightmap_show_widths) {
+									auto widths = get_tile_widths(ts, tile_x + tile_y * (tileset_texture.width / 16));
+									if (htool == HTOOL_BRUSH) {
+										widths[y % 16] = 16 - (x % 16);
+									} else if (htool == HTOOL_ERASER) {
+										widths[y % 16] = 0;
+									}
+
+									gen_widthmap_texture(&widthmap, ts, tileset_texture);
+								} else {
+									auto heights = get_tile_heights(ts, tile_x + tile_y * (tileset_texture.width / 16));
+									if (htool == HTOOL_BRUSH) {
+										heights[x % 16] = 16 - (y % 16);
+									} else if (htool == HTOOL_ERASER) {
+										heights[x % 16] = 0;
+									}
+
+									gen_heightmap_texture(&heightmap, ts, tileset_texture);
+								}
 							}
 						}
 					}
@@ -531,8 +590,12 @@ void Editor::update(float delta) {
 				if (ButtonActive(ICON_FA_ERASER, htool == HTOOL_ERASER)) htool = HTOOL_ERASER;
 				ImGui::SetItemTooltip("Eraser\nShortcut: E");
 
+				if (ButtonActive("A", htool == HTOOL_AUTO)) htool = HTOOL_AUTO;
+				ImGui::SetItemTooltip("Auto-Tool\nShortcut: A");
+
 				if (ImGui::IsKeyPressed(ImGuiKey_B)) htool = HTOOL_BRUSH;
 				if (ImGui::IsKeyPressed(ImGuiKey_E)) htool = HTOOL_ERASER;
+				if (ImGui::IsKeyPressed(ImGuiKey_A)) htool = HTOOL_AUTO;
 			};
 
 			tool_select_window();
@@ -680,23 +743,6 @@ void Editor::update(float delta) {
 					}
 				}
 
-				// draw rect tool preview
-				/*
-				if (tool == TOOL_RECT) {
-					if (tilemap_rect_tool_selection.dragging) {
-						auto sel = tilemap_rect_tool_selection;
-						for (int y = sel.y; y < sel.y + sel.h; y++) {
-							for (int x = sel.x; x < sel.x + sel.w; x++) {
-								ImU32 col = IM_COL32(255, 255, 255, 180);
-								AddTile(draw_list, selected_tile,
-										tilemap_pos, tilemap_size, tilemap_view, x, y,
-										tileset_texture, col);
-							}
-						}
-					}
-				}
-				*/
-
 				// draw grids
 				{
 					draw_list->AddRect(tilemap_pos, tilemap_pos + tilemap_size, IM_COL32(255, 255, 255, 255));
@@ -765,9 +811,6 @@ void Editor::update(float delta) {
 
 				if (ButtonActive(ICON_FA_PEN, tool == TOOL_BRUSH)) tool = TOOL_BRUSH;
 				ImGui::SetItemTooltip("Brush");
-
-				if (ButtonActive(ICON_FA_SLASH, tool == TOOL_LINE)) tool = TOOL_LINE;
-				ImGui::SetItemTooltip("Line");
 
 				if (ButtonActive(ICON_FA_SQUARE_FULL, tool == TOOL_RECT)) {
 					tool = TOOL_RECT;
@@ -885,6 +928,7 @@ void Editor::update(float delta) {
 				std::filesystem::copy_file(cnl_tileset, current_level_dir / "Tileset.png");
 
 				tileset_texture = load_texture_from_file((current_level_dir / "Tileset.png").string().c_str());
+				tileset_surface = load_surface_from_file((current_level_dir / "Tileset.png").string().c_str());
 
 				Assert(tileset_texture.width  % 16 == 0);
 				Assert(tileset_texture.height % 16 == 0);

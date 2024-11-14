@@ -1291,7 +1291,11 @@ void Game::draw(float delta) {
 
 #ifdef DEVELOPER
 				if (show_height || show_width) {
-					tile = get_tile(tm, x, y, player.layer);
+					if (is_key_held(SDL_SCANCODE_TAB)) {
+						tile = get_tile(tm, x, y, 1);
+					} else {
+						tile = get_tile(tm, x, y, 0);
+					}
 
 					src.x = (tile.index % tileset_width) * 16;
 					src.y = (tile.index / tileset_width) * 16;

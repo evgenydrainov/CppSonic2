@@ -89,10 +89,49 @@ Texture load_texture_from_file(const char* fname,
 	return result;
 }
 
+SDL_Surface* load_surface_from_file(const char* fname) {
+	SDL_Surface* result = nullptr;
+
+	size_t filesize;
+	u8* filedata = get_file(fname, &filesize);
+
+	if (filedata) {
+		if (is_png(filedata, filesize)) {
+			int width;
+			int height;
+			int num_channels;
+			void* pixel_data = stbi_load_from_memory(filedata, (int)filesize, &width, &height, &num_channels, 4);
+
+			// @Leak: pixel_data must be alive
+			result = SDL_CreateRGBSurfaceWithFormatFrom(pixel_data, width, height, 32, width * 4, SDL_PIXELFORMAT_ABGR8888);
+		} else if (is_qoi(filedata, filesize)) {
+
+		}
+	}
+
+	return result;
+}
+
 void free_texture(Texture* t) {
 	t->width  = 0;
 	t->height = 0;
 
 	if (t->ID) glDeleteTextures(1, &t->ID);
 	t->ID = 0;
+}
+
+vec4 surface_get_pixel(SDL_Surface* surface, int x, int y) {
+	if (x < 0) return {};
+	if (y < 0) return {};
+	if (x >= surface->w) return {};
+	if (y >= surface->h) return {};
+
+	u32* pixels = (u32*) surface->pixels;
+	u8 r, g, b, a;
+	u32* target_pixel = (u32*) ((u8*) surface->pixels
+								+ y * surface->pitch
+								+ x * surface->format->BytesPerPixel);
+	SDL_GetRGBA(*target_pixel, surface->format, &r, &g, &b, &a);
+
+	return get_color(r, g, b, a);
 }
