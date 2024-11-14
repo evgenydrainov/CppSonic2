@@ -76,7 +76,8 @@ void init_window_and_opengl(const char* title,
 									 SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 									 width * init_window_scale, height * init_window_scale,
 									 SDL_WINDOW_OPENGL
-									 | SDL_WINDOW_RESIZABLE);
+									 | SDL_WINDOW_RESIZABLE
+									 | SDL_WINDOW_ALLOW_HIGHDPI /*for Mac*/);
 	window.game_width  = width;
 	window.game_height = height;
 
@@ -148,10 +149,10 @@ void init_window_and_opengl(const char* title,
 }
 
 void deinit_window_and_opengl() {
-	SDL_GL_DeleteContext(window.gl_context);
+	if (window.gl_context) SDL_GL_DeleteContext(window.gl_context);
 	window.gl_context = nullptr;
 
-	SDL_DestroyWindow(window.handle);
+	if (window.handle) SDL_DestroyWindow(window.handle);
 	window.handle = nullptr;
 
 	SDL_Quit();
