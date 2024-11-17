@@ -15,3 +15,4 @@ void deinit_package();
 
 u8* get_file(const char* fname, size_t* out_filesize);
 string get_file_str(const char* fname);
+array<u8> get_file_arr(const char* fname);

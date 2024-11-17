@@ -43,3 +43,14 @@ string get_file_str(const char* fname) {
 		return {}; // Make sure result.count is zero
 	}
 }
+
+array<u8> get_file_arr(const char* fname) {
+	size_t filesize;
+	u8* filedata = get_file(fname, &filesize);
+
+	if (filedata) {
+		return {filedata, filesize};
+	} else {
+		return {}; // Make sure result.count is zero
+	}
+}

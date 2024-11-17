@@ -3,31 +3,8 @@
 #include "package.h"
 #include <stb/stb_image.h>
 
-static bool is_png(u8* filedata, size_t filesize) {
-	static u8 magic[] = {137, 80, 78, 71, 13, 10, 26, 10};
-	if (filesize < sizeof(magic)) {
-		return false;
-	}
-	for (size_t i = 0; i < sizeof(magic); i++) {
-		if (filedata[i] != magic[i]) {
-			return false;
-		}
-	}
-	return true;
-}
-
-static bool is_qoi(u8* filedata, size_t filesize) {
-	static u8 magic[] = {'q', 'o', 'i', 'f'};
-	if (filesize < sizeof(magic)) {
-		return false;
-	}
-	for (size_t i = 0; i < sizeof(magic); i++) {
-		if (filedata[i] != magic[i]) {
-			return false;
-		}
-	}
-	return true;
-}
+static const u8 png_magic[] = {137, 80, 78, 71, 13, 10, 26, 10};
+static const u8 qoi_magic[] = {'q', 'o', 'i', 'f'};
 
 Texture load_texture_from_file(const char* fname,
 							   int filter, int wrap) {
@@ -52,21 +29,20 @@ Texture load_texture_from_file(const char* fname,
 
 	Texture result = {};
 
-	size_t filesize;
-	u8* filedata = get_file(fname, &filesize);
+	auto filedata = get_file_arr(fname);
 
-	if (filedata) {
-		if (is_png(filedata, filesize)) {
+	if (filedata.count != 0) {
+		if (starts_with(filedata, array{png_magic})) {
 			int width;
 			int height;
 			int num_channels;
-			void* pixel_data = stbi_load_from_memory(filedata, (int)filesize, &width, &height, &num_channels, 4);
+			void* pixel_data = stbi_load_from_memory(filedata.data, (int)filedata.count, &width, &height, &num_channels, 4);
 			defer { if (pixel_data) stbi_image_free(pixel_data); };
 
 			result = create_texture(pixel_data, width, height, num_channels);
-		} else if (is_qoi(filedata, filesize)) {
+		} else if (starts_with(filedata, array{qoi_magic})) {
 			//qoi_desc desc;
-			//void* pixel_data = qoi_decode(filedata, (int)filesize, &desc, 4);
+			//void* pixel_data = qoi_decode(filedata.data, (int)filedata.count, &desc, 4);
 			//defer { if (pixel_data) free(pixel_data); };
 
 			//// Assert(desc.colorspace == QOI_SRGB);
@@ -92,19 +68,18 @@ Texture load_texture_from_file(const char* fname,
 SDL_Surface* load_surface_from_file(const char* fname) {
 	SDL_Surface* result = nullptr;
 
-	size_t filesize;
-	u8* filedata = get_file(fname, &filesize);
+	auto filedata = get_file_arr(fname);
 
-	if (filedata) {
-		if (is_png(filedata, filesize)) {
+	if (filedata.count != 0) {
+		if (starts_with(filedata, array{png_magic})) {
 			int width;
 			int height;
 			int num_channels;
-			void* pixel_data = stbi_load_from_memory(filedata, (int)filesize, &width, &height, &num_channels, 4);
+			void* pixel_data = stbi_load_from_memory(filedata.data, (int)filedata.count, &width, &height, &num_channels, 4);
 
 			// @Leak: pixel_data must be alive
 			result = SDL_CreateRGBSurfaceWithFormatFrom(pixel_data, width, height, 32, width * 4, SDL_PIXELFORMAT_ABGR8888);
-		} else if (is_qoi(filedata, filesize)) {
+		} else if (starts_with(filedata, array{qoi_magic})) {
 
 		}
 	}
