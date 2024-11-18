@@ -12,7 +12,7 @@ void Game::load_level(const char* path) {
 	char buf[512];
 	stb_snprintf(buf, sizeof(buf), "%s/Tileset.png", path);
 
-	tileset_texture = load_texture_from_file(buf);
+	load_texture_from_file(&tileset_texture, buf);
 
 	Assert(tileset_texture.width  % 16 == 0);
 	Assert(tileset_texture.height % 16 == 0);
@@ -33,21 +33,21 @@ void Game::load_level(const char* path) {
 }
 
 void Game::init() {
-	font          = load_bmfont_file("fonts/ms_gothic.fnt", "fonts/ms_gothic_0.png");
-	font_consolas = load_bmfont_file("fonts/consolas.fnt",  "fonts/consolas_0.png");
+	load_bmfont_file(&font,          "fonts/ms_gothic.fnt", "fonts/ms_gothic_0.png");
+	load_bmfont_file(&font_consolas, "fonts/consolas.fnt",  "fonts/consolas_0.png");
 
 	load_level("levels/GHZ_Act1");
 
 	// @Leak
-	anim_textures[anim_crouch]   = load_texture_from_file("textures/crouch.png");
-	anim_textures[anim_idle]     = load_texture_from_file("textures/idle.png");
-	anim_textures[anim_look_up]  = load_texture_from_file("textures/look_up.png");
-	anim_textures[anim_peelout]  = load_texture_from_file("textures/peelout.png");
-	anim_textures[anim_roll]     = load_texture_from_file("textures/roll.png");
-	anim_textures[anim_run]      = load_texture_from_file("textures/run.png");
-	anim_textures[anim_skid]     = load_texture_from_file("textures/skid.png");
-	anim_textures[anim_spindash] = load_texture_from_file("textures/spindash.png");
-	anim_textures[anim_walk]     = load_texture_from_file("textures/walk.png");
+	load_texture_from_file(&anim_textures[anim_crouch],   "textures/crouch.png");
+	load_texture_from_file(&anim_textures[anim_idle],     "textures/idle.png");
+	load_texture_from_file(&anim_textures[anim_look_up],  "textures/look_up.png");
+	load_texture_from_file(&anim_textures[anim_peelout],  "textures/peelout.png");
+	load_texture_from_file(&anim_textures[anim_roll],     "textures/roll.png");
+	load_texture_from_file(&anim_textures[anim_run],      "textures/run.png");
+	load_texture_from_file(&anim_textures[anim_skid],     "textures/skid.png");
+	load_texture_from_file(&anim_textures[anim_spindash], "textures/spindash.png");
+	load_texture_from_file(&anim_textures[anim_walk],     "textures/walk.png");
 
 	player.pos.x = 80; // @Temp
 	player.pos.y = 944;
@@ -347,11 +347,17 @@ static SensorResult sensor_check_down(vec2 pos, int layer) {
 
 	SensorResult result = {};
 
-	int ix = floorf(pos.x);
-	int iy = floorf(pos.y);
+	// 
+	// NOTE: To make this work correctly with negative numbers,
+	// we would have to replace these casts for ix, iy, tile_x, tile_y with floorf's
+	// and replace the modulo operator in get_height with calls to wrap()
+	// 
 
-	int tile_x = floorf(pos.x / 16.0f);
-	int tile_y = floorf(pos.y / 16.0f);
+	int ix = pos.x;
+	int iy = pos.y;
+
+	int tile_x = pos.x / 16;
+	int tile_y = pos.y / 16;
 
 	Tile tile = get_tile(game.tm, tile_x, tile_y, layer);
 	int height = get_height(tile, ix, iy);
@@ -421,11 +427,11 @@ static SensorResult sensor_check_right(vec2 pos, int layer) {
 
 	SensorResult result = {};
 
-	int ix = floorf(pos.x);
-	int iy = floorf(pos.y);
+	int ix = pos.x;
+	int iy = pos.y;
 
-	int tile_x = floorf(pos.x / 16.0f);
-	int tile_y = floorf(pos.y / 16.0f);
+	int tile_x = pos.x / 16;
+	int tile_y = pos.y / 16;
 
 	Tile tile = get_tile(game.tm, tile_x, tile_y, layer);
 	int height = get_height(tile, ix, iy);
@@ -494,11 +500,11 @@ static SensorResult sensor_check_up(vec2 pos, int layer) {
 
 	SensorResult result = {};
 
-	int ix = floorf(pos.x);
-	int iy = floorf(pos.y);
+	int ix = pos.x;
+	int iy = pos.y;
 
-	int tile_x = floorf(pos.x / 16.0f);
-	int tile_y = floorf(pos.y / 16.0f);
+	int tile_x = pos.x / 16;
+	int tile_y = pos.y / 16;
 
 	Tile tile = get_tile(game.tm, tile_x, tile_y, layer);
 	int height = get_height(tile, ix, iy);
@@ -567,11 +573,11 @@ static SensorResult sensor_check_left(vec2 pos, int layer) {
 
 	SensorResult result = {};
 
-	int ix = floorf(pos.x);
-	int iy = floorf(pos.y);
+	int ix = pos.x;
+	int iy = pos.y;
 
-	int tile_x = floorf(pos.x / 16.0f);
-	int tile_y = floorf(pos.y / 16.0f);
+	int tile_x = pos.x / 16;
+	int tile_y = pos.y / 16;
 
 	Tile tile = get_tile(game.tm, tile_x, tile_y, layer);
 	int height = get_height(tile, ix, iy);
@@ -1459,6 +1465,12 @@ void Game::draw(float delta) {
 			string str = "F5 - Next Frame\nF6 - Disable Frame Advance Mode\n";
 			pos = draw_text_shadow(font, str, pos);
 		}
+
+		{
+			char buf[16];
+			string str = Sprintf(buf, "%.0f", roundf(window.avg_fps));
+			draw_text_shadow(font, str, {window.game_width, window.game_height}, HALIGN_RIGHT, VALIGN_BOTTOM);
+		}
 	}
 }
 
@@ -1486,7 +1498,7 @@ void free_tileset(Tileset* ts) {
 	ts->angles = {};
 }
 
-void load_tilemap_old_format(Tilemap* tm, const char* fname) {
+void read_tilemap_old_format(Tilemap* tm, const char* fname) {
 	free_tilemap(tm);
 
 	SDL_RWops* f = SDL_RWFromFile(fname, "rb");
@@ -1553,7 +1565,7 @@ void load_tilemap_old_format(Tilemap* tm, const char* fname) {
 	}
 }
 
-void load_tileset_old_format(Tileset* ts, const char* fname) {
+void read_tileset_old_format(Tileset* ts, const char* fname) {
 	free_tileset(ts);
 
 	SDL_RWops* f = SDL_RWFromFile(fname, "rb");
@@ -1582,7 +1594,7 @@ void load_tileset_old_format(Tileset* ts, const char* fname) {
 	ts->count = tile_count_;
 }
 
-void write_tilemap(Tilemap* tm, const char* fname) {
+void write_tilemap(const Tilemap& tm, const char* fname) {
 	SDL_RWops* f = SDL_RWFromFile(fname, "wb");
 
 	if (!f) {
@@ -1598,22 +1610,22 @@ void write_tilemap(Tilemap* tm, const char* fname) {
 	u32 version = 1;
 	SDL_RWwrite(f, &version, sizeof version, 1);
 
-	int width = tm->width;
+	int width = tm.width;
 	SDL_RWwrite(f, &width, sizeof width, 1);
 
-	int height = tm->height;
+	int height = tm.height;
 	SDL_RWwrite(f, &height, sizeof height, 1);
 
-	auto tiles_a = tm->tiles_a;
+	auto tiles_a = tm.tiles_a;
 	Assert(tiles_a.count == width * height);
 	SDL_RWwrite(f, tiles_a.data, sizeof(tiles_a[0]), tiles_a.count);
 
-	auto tiles_b = tm->tiles_b;
+	auto tiles_b = tm.tiles_b;
 	Assert(tiles_b.count == width * height);
 	SDL_RWwrite(f, tiles_b.data, sizeof(tiles_b[0]), tiles_b.count);
 }
 
-void write_tileset(Tileset* ts, const char* fname) {
+void write_tileset(const Tileset& ts, const char* fname) {
 	SDL_RWops* f = SDL_RWFromFile(fname, "wb");
 
 	if (!f) {
@@ -1629,18 +1641,18 @@ void write_tileset(Tileset* ts, const char* fname) {
 	u32 version = 1;
 	SDL_RWwrite(f, &version, sizeof version, 1);
 
-	int count = ts->count;
+	int count = ts.count;
 	SDL_RWwrite(f, &count, sizeof count, 1);
 
-	auto heights = ts->heights;
+	auto heights = ts.heights;
 	Assert(heights.count == count * 16);
 	SDL_RWwrite(f, heights.data, sizeof(heights[0]), heights.count);
 
-	auto widths = ts->widths;
+	auto widths = ts.widths;
 	Assert(widths.count == count * 16);
 	SDL_RWwrite(f, widths.data, sizeof(widths[0]), widths.count);
 
-	auto angles = ts->angles;
+	auto angles = ts.angles;
 	Assert(angles.count == count);
 	SDL_RWwrite(f, angles.data, sizeof(angles[0]), angles.count);
 }
@@ -1767,7 +1779,7 @@ void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture&
 		}
 	}
 
-	glGenTextures(1, &heightmap->ID); // @Leak
+	glGenTextures(1, &heightmap->ID);
 	glBindTexture(GL_TEXTURE_2D, heightmap->ID);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -1781,6 +1793,8 @@ void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture&
 }
 
 void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& tileset_texture) {
+	free_texture(widthmap);
+
 	widthmap->width  = tileset_texture.width;
 	widthmap->height = tileset_texture.height;
 
@@ -1789,6 +1803,8 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 
 	SDL_FillRect(wsurf, nullptr, 0x00000000);
 
+	int stride = tileset_texture.width / 16;
+
 	for (int tile_index = 0; tile_index < ts.count; tile_index++) {
 		array<u8> widths  = get_tile_widths(ts, tile_index);
 
@@ -1796,16 +1812,16 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 			if (widths[i] != 0) {
 				if (widths[i] <= 0x10) {
 					SDL_Rect line = {
-						(tile_index % 16) * 16 + 16 - widths[i],
-						(tile_index / 16) * 16 + i,
+						(tile_index % stride) * 16 + 16 - widths[i],
+						(tile_index / stride) * 16 + i,
 						widths[i],
 						1
 					};
 					SDL_FillRect(wsurf, &line, 0xffffffff);
-				} else {
+				} else if (widths[i] >= 0xF0) {
 					SDL_Rect line = {
-						(tile_index % 16) * 16,
-						(tile_index / 16) * 16 + i,
+						(tile_index % stride) * 16,
+						(tile_index / stride) * 16 + i,
 						16 - (widths[i] - 0xF0),
 						1
 					};
@@ -1815,7 +1831,7 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 		}
 	}
 
-	glGenTextures(1, &widthmap->ID); // @Leak
+	glGenTextures(1, &widthmap->ID);
 	glBindTexture(GL_TEXTURE_2D, widthmap->ID);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);

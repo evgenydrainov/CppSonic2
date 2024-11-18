@@ -72,6 +72,40 @@ void init_window_and_opengl(const char* title,
 		panic_and_abort("Couldn't initialize SDL: %s", SDL_GetError());
 	}
 
+	log_info("Platform: %s", SDL_GetPlatform());
+
+	{
+		SDL_version ver;
+
+		SDL_VERSION(&ver);
+		log_info("Compiled against SDL %u.%u.%u", ver.major, ver.minor, ver.patch);
+
+		SDL_GetVersion(&ver);
+		log_info("Linked against SDL %u.%u.%u", ver.major, ver.minor, ver.patch);
+	}
+
+	{
+		log_info("Available video backends:");
+
+		int num_drivers = SDL_GetNumVideoDrivers();
+		for (int i = 0; i < num_drivers; i++) {
+			log_info("%s", SDL_GetVideoDriver(i));
+		}
+
+		log_info("Current video backend: %s", SDL_GetCurrentVideoDriver());
+	}
+
+	{
+		log_info("Available audio backends:");
+
+		int num_drivers = SDL_GetNumAudioDrivers();
+		for (int i = 0; i < num_drivers; i++) {
+			log_info("%s", SDL_GetAudioDriver(i));
+		}
+
+		log_info("Current audio backend: %s", SDL_GetCurrentAudioDriver());
+	}
+
 	window.handle = SDL_CreateWindow(title,
 									 SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 									 width * init_window_scale, height * init_window_scale,
@@ -111,7 +145,9 @@ void init_window_and_opengl(const char* title,
 			return (GLADapiproc) SDL_GL_GetProcAddress(name);
 		});
 
-		if (version == 0) {
+		log_info("Loaded GL %d.%d", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
+
+		if (GLAD_VERSION_MAJOR(version) < 3) {
 			panic_and_abort("Couldn't load OpenGL.");
 		}
 	}
@@ -126,7 +162,17 @@ void init_window_and_opengl(const char* title,
 	}
 #endif
 
-	// Decide on vsync.
+	{
+		int max_texture_size;
+		glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
+
+		log_info("GL max texture size: %d",         max_texture_size);
+		log_info("GL vendor: %s",                   (const char*)glGetString(GL_VENDOR));
+		log_info("GL renderer: %s",                 (const char*)glGetString(GL_RENDERER));
+		log_info("GL version: %s",                  (const char*)glGetString(GL_VERSION));
+		log_info("GL shading language version: %s", (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION));
+	}
+
 	{
 		window.vsync = prefer_vsync;
 
@@ -134,9 +180,14 @@ void init_window_and_opengl(const char* title,
 		if (env_use_vsync) {
 			window.vsync = (SDL_atoi(env_use_vsync) != 0);
 		}
-	}
 
-	window.prefer_borderless_fullscreen = prefer_borderless_fullscreen;
+		window.prefer_borderless_fullscreen = prefer_borderless_fullscreen;
+
+		char* env_use_borderless_fullscreen = SDL_getenv("USE_BORDERLESS_FULLSCREEN"); // @Leak
+		if (env_use_borderless_fullscreen) {
+			window.prefer_borderless_fullscreen = (SDL_atoi(env_use_borderless_fullscreen) != 0);
+		}
+	}
 
 	SDL_GL_SetSwapInterval(window.vsync ? 1 : 0);
 
@@ -191,18 +242,20 @@ void handle_event(const SDL_Event& ev) {
 
 void begin_frame() {
 	if (!window.prev_time_is_initialized) {
-		window.prev_time = get_time() - 1.0 / window.target_fps;
+		window.prev_time = get_time() - 1.0; // 1.0 / window.target_fps;
 
 		window.prev_time_is_initialized = true;
 	}
 
+	double prev_time = window.prev_time;
 	double time = get_time();
+	window.prev_time = time;
 
 	window.frame_end_time = time + (1.0 / window.target_fps);
 
 	// Set delta.
 	{
-		window.delta = (float)((time - window.prev_time) * 60.0);
+		window.delta = (float)((time - prev_time) * 60.0);
 
 		// 
 		// Don't go below 30 fps. No upper limit for now.
@@ -211,12 +264,22 @@ void begin_frame() {
 		window.delta = fminf(window.delta, max_delta);
 	}
 
-	window.fps = (float)(1.0 / (time - window.prev_time));
-
-	window.prev_time = time;
+	window.fps = (float)(1.0 / (time - prev_time));
 
 	memset(window.key_pressed, 0, sizeof(window.key_pressed));
 	memset(window.key_repeat,  0, sizeof(window.key_repeat));
+
+	window.avg_fps_sum += window.fps;
+	window.avg_fps_num_samples += 1;
+
+	if (time - window.avg_fps_last_time_updated > 1) {
+		window.avg_fps = window.avg_fps_sum / window.avg_fps_num_samples;
+
+		window.avg_fps_sum = 0;
+		window.avg_fps_num_samples = 0;
+
+		window.avg_fps_last_time_updated = time;
+	}
 }
 
 void swap_buffers() {

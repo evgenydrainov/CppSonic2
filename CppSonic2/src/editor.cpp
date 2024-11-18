@@ -304,8 +304,8 @@ void Editor::update(float delta) {
 
 		update_window_caption();
 
-		tileset_texture = load_texture_from_file((current_level_dir / "Tileset.png").string().c_str());
-		tileset_surface = load_surface_from_file((current_level_dir / "Tileset.png").string().c_str());
+		load_texture_from_file(&tileset_texture, (current_level_dir / "Tileset.png").string().c_str());
+		load_surface_from_file(&tileset_surface, (current_level_dir / "Tileset.png").string().c_str());
 
 		read_tilemap(&tm, (current_level_dir / "Tilemap.bin").string().c_str());
 		read_tileset(&ts, (current_level_dir / "Tileset.bin").string().c_str());
@@ -319,8 +319,8 @@ void Editor::update(float delta) {
 	auto try_save_level = [&]() {
 		if (!is_level_open) return;
 
-		write_tilemap(&tm, (current_level_dir / "Tilemap.bin").string().c_str());
-		write_tileset(&ts, (current_level_dir / "Tileset.bin").string().c_str());
+		write_tilemap(tm, (current_level_dir / "Tilemap.bin").string().c_str());
+		write_tileset(ts, (current_level_dir / "Tileset.bin").string().c_str());
 	};
 
 	if (ImGui::IsKeyPressed(ImGuiKey_N) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
@@ -442,7 +442,42 @@ void Editor::update(float delta) {
 
 							if (htool == HTOOL_AUTO) {
 								if (heightmap_show_widths) {
+									auto widths = get_tile_widths(ts, tile_x + tile_y * (tileset_texture.width / 16));
+									for (int y = 0; y < 16; y++) {
+										int width = 0;
 
+										int pixel_x = tile_x * 16 + 15;
+										int pixel_y = tile_y * 16 + y;
+										vec4 pixel = surface_get_pixel(tileset_surface, pixel_x, pixel_y);
+										if (pixel.a == 0) {
+											// flipped height
+											for (int x = 0; x < 16; x++) {
+												int pixel_x = tile_x * 16 + x;
+												int pixel_y = tile_y * 16 + y;
+												vec4 pixel = surface_get_pixel(tileset_surface, pixel_x, pixel_y);
+												if (pixel.a != 0) {
+													width = 0xFF - x;
+												} else {
+													break;
+												}
+											}
+										} else {
+											// normal height
+											for (int x = 15; x >= 0; x--) {
+												int pixel_x = tile_x * 16 + x;
+												int pixel_y = tile_y * 16 + y;
+												vec4 pixel = surface_get_pixel(tileset_surface, pixel_x, pixel_y);
+												if (pixel.a != 0) {
+													width = 16 - x;
+												} else {
+													break;
+												}
+											}
+										}
+
+										widths[y] = width;
+									}
+									gen_widthmap_texture(&widthmap, ts, tileset_texture);
 								} else {
 									auto heights = get_tile_heights(ts, tile_x + tile_y * (tileset_texture.width / 16));
 									for (int x = 0; x < 16; x++) {
@@ -927,8 +962,8 @@ void Editor::update(float delta) {
 
 				std::filesystem::copy_file(cnl_tileset, current_level_dir / "Tileset.png");
 
-				tileset_texture = load_texture_from_file((current_level_dir / "Tileset.png").string().c_str());
-				tileset_surface = load_surface_from_file((current_level_dir / "Tileset.png").string().c_str());
+				load_texture_from_file(&tileset_texture, (current_level_dir / "Tileset.png").string().c_str());
+				load_surface_from_file(&tileset_surface, (current_level_dir / "Tileset.png").string().c_str());
 
 				Assert(tileset_texture.width  % 16 == 0);
 				Assert(tileset_texture.height % 16 == 0);
@@ -940,8 +975,8 @@ void Editor::update(float delta) {
 
 				heightmap_view.scrolling = (io.DisplaySize - ImVec2(tileset_texture.width, tileset_texture.height)) / 2.0f;
 
-				write_tilemap(&tm, (current_level_dir / "Tilemap.bin").string().c_str());
-				write_tileset(&ts, (current_level_dir / "Tileset.bin").string().c_str());
+				write_tilemap(tm, (current_level_dir / "Tilemap.bin").string().c_str());
+				write_tileset(ts, (current_level_dir / "Tileset.bin").string().c_str());
 
 				return true;
 			};

@@ -57,9 +57,21 @@ struct Rectf {
 // Logging and assert
 // 
 
-#define log_info(fmt, ...)  SDL_LogInfo (SDL_LOG_CATEGORY_APPLICATION, fmt, ##__VA_ARGS__)
-#define log_error(fmt, ...) SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, fmt, ##__VA_ARGS__)
-#define log_warn(fmt, ...)  SDL_LogWarn (SDL_LOG_CATEGORY_APPLICATION, fmt, ##__VA_ARGS__)
+#define log_info(fmt, ...)  _my_log(SDL_LOG_PRIORITY_INFO,  fmt, ##__VA_ARGS__)
+#define log_warn(fmt, ...)  _my_log(SDL_LOG_PRIORITY_WARN,  fmt, ##__VA_ARGS__)
+#define log_error(fmt, ...) _my_log(SDL_LOG_PRIORITY_ERROR, fmt, ##__VA_ARGS__)
+
+inline void SDL_PRINTF_VARARG_FUNC(2) _my_log(SDL_LogPriority priority, SDL_PRINTF_FORMAT_STRING const char* fmt, ...) {
+	static char buf[512];
+
+	// SDL_snprintf doesn't support %g.
+	va_list va;
+	va_start(va, fmt);
+	stb_vsnprintf(buf, sizeof(buf), fmt, va);
+	va_end(va);
+
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, priority, "%s", buf);
+}
 
 //
 // For now, asserts will be enabled in release build.
@@ -163,6 +175,7 @@ public:
 // Human-readable printing for filesizes.
 // 
 
+// NOTE: SDL_snprintf doesn't support %g
 #define Size_Fmt "%.7g %s"
 #define Size_Arg(size) format_size_float(size), format_size_string(size)
 
@@ -425,7 +438,7 @@ struct Arena {
 	size_t capacity;
 };
 
-inline Arena arena_create(size_t capacity) {
+inline Arena malloc_arena(size_t capacity) {
 	Arena a = {};
 	a.data     = (u8*) malloc(capacity);
 	a.capacity = capacity;
@@ -435,7 +448,7 @@ inline Arena arena_create(size_t capacity) {
 	return a;
 }
 
-inline void arena_destroy(Arena* a) {
+inline void free_arena(Arena* a) {
 	free(a->data);
 	*a = {};
 }
@@ -848,7 +861,7 @@ inline bool starts_with(string str, string prefix) {
 }
 
 template <size_t N>
-inline string Sprintf(char (&buf)[N], const char* fmt, ...) {
+inline string SDL_PRINTF_VARARG_FUNC(2) Sprintf(char (&buf)[N], SDL_PRINTF_FORMAT_STRING const char* fmt, ...) {
 	va_list va;
 	va_start(va, fmt);
 

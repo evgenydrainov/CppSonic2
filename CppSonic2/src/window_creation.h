@@ -3,7 +3,7 @@
 #include "common.h"
 
 /*
-* A module that handles OS window, input, GL context, game main loop
+* A module that handles OS window, input, GL context, game main loop.
 */
 
 struct Window {
@@ -25,8 +25,10 @@ struct Window {
 	int game_width;
 	int game_height;
 
-	float fps; // For metrics
+	float fps; // for metrics
 	float delta; // NOTE: multiplied by 60
+
+	float avg_fps;
 	
 	/*   don't touch   */
 
@@ -38,20 +40,24 @@ struct Window {
 
 	bool prev_time_is_initialized;
 	bool prefer_borderless_fullscreen;
+
+	float avg_fps_sum;
+	float avg_fps_num_samples;
+	double avg_fps_last_time_updated;
 };
 
 extern Window window;
 
 /*
-* If you pass "prefer_vsync" as false, then you may want to change "window.target_fps" after calling this function.
-* 
-* If vsync is false, then we do OS sleep + spinlock to keep the framerate.
-* 
-* Vsync option can be overriden by an environment variable "USE_VSYNC".
-* 
-* Note that vsync is forced anyway on most OS's window managers in windowed mode and
-* it'll look bad if not in fullscreen mode.
-* (On Linux, you may want to search for a "disable compositor for fullscreen apps" option for your favourite DE.)
+If you pass "prefer_vsync" as false, then you may want to change "window.target_fps" after calling this function.
+
+If vsync is false, then we do OS sleep + spinlock to keep the framerate.
+
+Vsync option can be overriden by an environment variable "USE_VSYNC".
+
+Fullscreen option can be overriden by an environment variable "USE_BORDERLESS_FULLSCREEN".
+
+Note that vsync is forced anyway on most OS's window managers.
 */
 void init_window_and_opengl(const char* title,
 							int width, int height, int init_window_scale,
@@ -69,8 +75,8 @@ bool is_key_pressed(SDL_Scancode key, bool repeat = false);
 
 SDL_Window* get_window_handle(); // for common.h
 
-// Enabling fullscreen doesn't change your monitor display mode (resolution and refresh rate). At least it shouldn't.
-// This means it won't cause a flicker and rearrange all your windows.
+// Enabling fullscreen doesn't change your monitor's display mode (resolution and refresh rate). At least it shouldn't.
+// This means that it won't cause a flicker and rearrange all your windows.
 void set_fullscreen(bool fullscreen);
 
 bool is_fullscreen();

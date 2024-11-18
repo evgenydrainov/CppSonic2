@@ -145,11 +145,11 @@ bool console_callback(string str, void* userdata);
 void free_tilemap(Tilemap* tm);
 void free_tileset(Tileset* ts);
 
-void load_tilemap_old_format(Tilemap* tm, const char* fname);
-void load_tileset_old_format(Tileset* ts, const char* fname);
+void read_tilemap_old_format(Tilemap* tm, const char* fname);
+void read_tileset_old_format(Tileset* ts, const char* fname);
 
-void write_tilemap(Tilemap* tm, const char* fname);
-void write_tileset(Tileset* ts, const char* fname);
+void write_tilemap(const Tilemap& tm, const char* fname);
+void write_tileset(const Tileset& ts, const char* fname);
 
 void read_tilemap(Tilemap* tm, const char* fname);
 void read_tileset(Tileset* ts, const char* fname);

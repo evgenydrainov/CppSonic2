@@ -3,19 +3,16 @@
 #include "package.h"
 #include "renderer.h"
 
-Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath) {
-	Font font = {};
+bool load_bmfont_file(Font* f, const char* fnt_filepath, const char* png_filepath) {
+	free_font(f);
 
 	string text = get_file_str(fnt_filepath);
 	if (text.count == 0) {
-		log_error("Couldn't load font \"%s\"", fnt_filepath);
-		return font;
+		log_error("Couldn't open font \"%s\"", fnt_filepath);
+		return false;
 	}
 
-	string line;
-	string word;
-
-	line = eat_line(&text); // info
+	string line = eat_line(&text); // info
 
 	// 
 	// TODO: Parse 'face="MS Gothic"' somehow
@@ -23,7 +20,7 @@ Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath) {
 
 	while (line.count > 0) {
 		eat_whitespace(&line);
-		word = eat_non_whitespace(&line);
+		string word = eat_non_whitespace(&line);
 
 		string prefix = "size=";
 		if (starts_with(word, prefix)) {
@@ -33,7 +30,7 @@ Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath) {
 			int size = string_to_int(word, &done);
 			Assert(done);
 
-			font.size = size;
+			f->size = size;
 		}
 	}
 
@@ -41,7 +38,7 @@ Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath) {
 
 	while (line.count > 0) {
 		eat_whitespace(&line);
-		word = eat_non_whitespace(&line);
+		string word = eat_non_whitespace(&line);
 
 		string prefix = "lineHeight=";
 		if (starts_with(word, prefix)) {
@@ -51,27 +48,28 @@ Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath) {
 			int line_height = string_to_int(word, &done);
 			Assert(done);
 
-			font.line_height = line_height;
+			f->line_height = line_height;
 		}
 	}
 
 	line = eat_line(&text); // page
 	line = eat_line(&text); // chars
 
-	font.glyphs = calloc_array<Glyph>(95);
+	f->glyphs = calloc_array<Glyph>(95);
+	f->should_free_glyphs = true;
 
 	for (int i = 0; i < 95; i++) {
 		line = eat_line(&text);
 
 		eat_whitespace(&line);
-		word = eat_non_whitespace(&line);
+		string word = eat_non_whitespace(&line);
 		Assert(word == "char");
 
 		auto eat_value_int = [&](string prefix) -> int {
 			Assert(prefix.count >= 2);
 
 			eat_whitespace(&line);
-			word = eat_non_whitespace(&line);
+			string word = eat_non_whitespace(&line);
 
 			Assert(starts_with(word, prefix));
 
@@ -100,12 +98,20 @@ Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath) {
 		glyph.yoffset  = eat_value_int("yoffset=");
 		glyph.xadvance = eat_value_int("xadvance=");
 
-		font.glyphs[i] = glyph;
+		f->glyphs[i] = glyph;
 	}
 
-	font.atlas = load_texture_from_file(png_filepath);
+	load_texture_from_file(&f->atlas, png_filepath);
+	f->should_free_atlas = true;
 
-	return font;
+	return true;
+}
+
+void free_font(Font* f) {
+	if (f->should_free_atlas)  free_texture(&f->atlas);
+	if (f->should_free_glyphs) free(f->glyphs.data);
+
+	*f = {};
 }
 
 vec2 draw_text(Font font, string text, vec2 text_pos,
@@ -215,7 +221,9 @@ vec2 measure_text(Font font, string text, bool only_one_line) {
 
 				pos = glm::floor(pos);
 
-				w = max(w, pos.x + glyph.width);
+				// On practise, I always happen to prefer glyph.xadvance here,
+				// instead of the actual "correct" text size.
+				w = max(w, pos.x + glyph.xadvance /*glyph.width*/);
 				h = max(h, ch_y + font.size);
 			}
 
