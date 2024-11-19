@@ -48,13 +48,16 @@
     <ClCompile Include="src\imgui\imgui_single_file.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\nfd\nfd_common.c">
+    <ClCompile Include="src\nfd\nfd_common.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\nfd\nfd_win.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\console.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\single_header.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

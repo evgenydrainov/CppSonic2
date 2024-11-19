@@ -584,6 +584,23 @@ void Editor::update(float delta) {
 					draw_list->AddImage(tex, texture_pos, texture_pos + texture_size, {0, 0}, {1, 1}, IM_COL32(255, 255, 255, 128));
 				}
 
+				for (int tile_index = 0; tile_index < ts.count; tile_index++) {
+					float angle = ts.angles[tile_index];
+					if (angle == -1) {
+						continue;
+					}
+
+					int tile_x = tile_index % (tileset_texture.width / 16);
+					int tile_y = tile_index / (tileset_texture.width / 16);
+					ImVec2 p1 = texture_pos + ImVec2(tile_x * 16 + 8, tile_y * 16 + 8) * heightmap_view.zoom;
+					ImVec2 p2 = p1;
+					p2.x += dcos(angle) * 8 * heightmap_view.zoom;
+					p2.y -= dsin(angle) * 8 * heightmap_view.zoom;
+					draw_list->PathLineTo(p1);
+					draw_list->PathLineTo(p2);
+					draw_list->PathStroke(IM_COL32_WHITE, 0, 2);
+				}
+
 				// draw grids
 				{
 					draw_list->AddRect(texture_pos, texture_pos + texture_size, IM_COL32(255, 255, 255, 255));

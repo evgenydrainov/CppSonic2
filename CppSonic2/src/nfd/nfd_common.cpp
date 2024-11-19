@@ -1,4 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
+
+#ifdef EDITOR
+
 /*
   Native File Dialog
 
@@ -141,3 +144,4 @@ int NFDi_IsFilterSegmentChar( char ch )
     return (ch==','||ch==';'||ch=='\0');
 }
 
+#endif

@@ -1,3 +1,5 @@
+#ifdef EDITOR
+
 /*
   Native File Dialog
 
@@ -92,7 +94,7 @@ static nfdresult_t ZenityCommon(char** command, int commandLen, const char* defa
 {
     if(defaultPath != NULL)
     {
-        char* prefix = "--filename=";
+        const char* prefix = "--filename=";
         int len = strlen(prefix) + strlen(defaultPath) + 1;
 
         char* tmp = (char*) calloc(len, 1);
@@ -137,7 +139,7 @@ static nfdresult_t AllocPathSet(char* zenityList, nfdpathset_t *pathSet )
     assert(pathSet);
     
     size_t len = strlen(zenityList) + 1;
-    pathSet->buf = NFDi_Malloc(len);
+    pathSet->buf = (nfdchar_t*)NFDi_Malloc(len);
 
     int numEntries = 1;
 
@@ -157,7 +159,7 @@ static nfdresult_t AllocPathSet(char* zenityList, nfdpathset_t *pathSet )
     pathSet->count = numEntries;
     assert( pathSet->count > 0 );
 
-    pathSet->indices = NFDi_Malloc( sizeof(size_t)*pathSet->count );
+    pathSet->indices = (size_t*)NFDi_Malloc( sizeof(size_t)*pathSet->count );
 
     int entry = 0;
     pathSet->indices[0] = 0;
@@ -181,7 +183,7 @@ nfdresult_t NFD_OpenDialog( const char *filterList,
                             const nfdchar_t *defaultPath,
                             nfdchar_t **outPath )
 {    
-    int commandLen = 100;
+    const int commandLen = 100;
     char* command[commandLen];
     memset(command, 0, commandLen * sizeof(char*));
 
@@ -195,7 +197,7 @@ nfdresult_t NFD_OpenDialog( const char *filterList,
     if(stdOut != NULL)
     {
         size_t len = strlen(stdOut);
-        *outPath = NFDi_Malloc(len);
+        *outPath = (nfdchar_t*)NFDi_Malloc(len);
         memcpy(*outPath, stdOut, len);
         (*outPath)[len-1] = '\0'; // trim out the final \n with a null terminator
         free(stdOut);
@@ -213,7 +215,7 @@ nfdresult_t NFD_OpenDialogMultiple( const nfdchar_t *filterList,
                                     const nfdchar_t *defaultPath,
                                     nfdpathset_t *outPaths )
 {
-    int commandLen = 100;
+    const int commandLen = 100;
     char* command[commandLen];
     memset(command, 0, commandLen * sizeof(char*));
 
@@ -247,7 +249,7 @@ nfdresult_t NFD_SaveDialog( const nfdchar_t *filterList,
                             const nfdchar_t *defaultPath,
                             nfdchar_t **outPath )
 {
-    int commandLen = 100;
+    const int commandLen = 100;
     char* command[commandLen];
     memset(command, 0, commandLen * sizeof(char*));
 
@@ -262,7 +264,7 @@ nfdresult_t NFD_SaveDialog( const nfdchar_t *filterList,
     if(stdOut != NULL)
     {
         size_t len = strlen(stdOut);
-        *outPath = NFDi_Malloc(len);
+        *outPath = (nfdchar_t*)NFDi_Malloc(len);
         memcpy(*outPath, stdOut, len);
         (*outPath)[len-1] = '\0'; // trim out the final \n with a null terminator
         free(stdOut);
@@ -278,7 +280,7 @@ nfdresult_t NFD_SaveDialog( const nfdchar_t *filterList,
 nfdresult_t NFD_PickFolder(const nfdchar_t *defaultPath,
     nfdchar_t **outPath)
 {
-    int commandLen = 100;
+    const int commandLen = 100;
     char* command[commandLen];
     memset(command, 0, commandLen * sizeof(char*));
 
@@ -293,7 +295,7 @@ nfdresult_t NFD_PickFolder(const nfdchar_t *defaultPath,
     if(stdOut != NULL)
     {
         size_t len = strlen(stdOut);
-        *outPath = NFDi_Malloc(len);
+        *outPath = (nfdchar_t*)NFDi_Malloc(len);
         memcpy(*outPath, stdOut, len);
         (*outPath)[len-1] = '\0'; // trim out the final \n with a null terminator
         free(stdOut);
@@ -305,3 +307,5 @@ nfdresult_t NFD_PickFolder(const nfdchar_t *defaultPath,
 
     return result;
 }
+
+#endif

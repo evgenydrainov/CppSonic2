@@ -56,9 +56,10 @@ set(SOURCES
 	src/imgui_glue.cpp
 	src/editor.cpp
 	src/console.cpp
+	src/single_header.cpp
 	src/imgui/imgui_single_file.cpp
-	src/nfd/nfd_zenity.c
-	src/nfd/nfd_common.c)
+	src/nfd/nfd_zenity.cpp
+	src/nfd/nfd_common.cpp)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 

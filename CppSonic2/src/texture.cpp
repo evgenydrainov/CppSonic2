@@ -7,7 +7,7 @@ u8* decode_image_data(array<u8> buffer, int* out_width, int* out_height) {
 	static const u8 png_magic[] = {137, 80, 78, 71, 13, 10, 26, 10};
 	static const u8 qoi_magic[] = {'q', 'o', 'i', 'f'};
 	
-	if (starts_with(buffer, array{png_magic})) {
+	if (starts_with(buffer, array<u8>{png_magic})) {
 		int width;
 		int height;
 		int num_channels;
@@ -25,7 +25,7 @@ u8* decode_image_data(array<u8> buffer, int* out_width, int* out_height) {
 		return pixel_data;
 	}
 
-	if (starts_with(buffer, array{qoi_magic})) {
+	if (starts_with(buffer, array<u8>{qoi_magic})) {
 #if 0
 		qoi_desc desc;
 		u8* pixel_data = (u8*) qoi_decode(buffer.data, (int)buffer.count, &desc, 4);
