@@ -49,6 +49,31 @@ void main() {
 
 
 
+static char circle_frag_shader_src[] = R"(
+#version 330 core
+
+layout(location = 0) out vec4 FragColor;
+
+in vec4 v_Color;
+in vec2 v_TexCoord;
+
+uniform sampler2D u_Texture;
+
+void main() {
+	vec4 color = texture(u_Texture, v_TexCoord);
+
+	vec2 coord = v_TexCoord * 2.0 - 1.0;
+
+	if (coord.x * coord.x + coord.y * coord.y >= 1.0) {
+		color.a = 0.0;
+	}
+
+	FragColor = color * v_Color;
+}
+)";
+
+
+
 static char sharp_bilinear_frag_shader_src[] = R"(
 #version 330 core
 
@@ -176,10 +201,14 @@ void init_renderer() {
 		u32 texture_frag_shader = compile_shader(GL_FRAGMENT_SHADER, texture_frag_shader_src);
 		defer { glDeleteShader(texture_frag_shader); };
 
+		u32 circle_frag_shader = compile_shader(GL_FRAGMENT_SHADER, circle_frag_shader_src);
+		defer { glDeleteShader(circle_frag_shader); };
+
 		u32 sharp_bilinear_frag_shader = compile_shader(GL_FRAGMENT_SHADER, sharp_bilinear_frag_shader_src);
 		defer { glDeleteShader(sharp_bilinear_frag_shader); };
 
 		renderer.texture_shader = link_program(texture_vert_shader, texture_frag_shader);
+		renderer.circle_shader = link_program(texture_vert_shader, circle_frag_shader);
 		renderer.sharp_bilinear_shader = link_program(texture_vert_shader, sharp_bilinear_frag_shader);
 
 		renderer.current_shader = renderer.texture_shader;
@@ -402,6 +431,31 @@ void break_batch() {
 			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
 			break;
 		}
+
+		case MODE_CIRCLES: {
+			u32 program = renderer.circle_shader;
+
+			glUseProgram(program);
+			defer { glUseProgram(0); };
+
+			mat4 MVP = (renderer.proj_mat * renderer.view_mat) * renderer.model_mat;
+
+			int u_MVP = glGetUniformLocation(program, "u_MVP");
+			glUniformMatrix4fv(u_MVP, 1, GL_FALSE, &MVP[0][0]);
+
+			glBindTexture(GL_TEXTURE_2D, renderer.current_texture);
+			defer { glBindTexture(GL_TEXTURE_2D, 0); };
+
+			glBindVertexArray(renderer.batch_vao);
+			defer { glBindVertexArray(0); };
+
+			Assert(renderer.vertices.count % 4 == 0);
+
+			glDrawElements(GL_TRIANGLES, (GLsizei)renderer.vertices.count / 4 * 6, GL_UNSIGNED_INT, 0);
+			renderer.curr_draw_calls++;
+			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
+			break;
+		}
 	}
 
 	renderer.vertices.count = 0;
@@ -457,10 +511,10 @@ void draw_texture(Texture t, Rect src,
 		}
 
 		Vertex vertices[] = {
-			{{x1, y1, 0.0f}, {}, color, {u1, v1}},
-			{{x2, y1, 0.0f}, {}, color, {u2, v1}},
-			{{x2, y2, 0.0f}, {}, color, {u2, v2}},
-			{{x1, y2, 0.0f}, {}, color, {u1, v2}},
+			{{x1, y1, 0.0f}, {}, color, {u1, v1}}, // LT
+			{{x2, y1, 0.0f}, {}, color, {u2, v1}}, // RT
+			{{x2, y2, 0.0f}, {}, color, {u2, v2}}, // RB
+			{{x1, y2, 0.0f}, {}, color, {u1, v2}}, // LB
 		};
 
 		// Has to be in this order (learned it the hard way)
@@ -533,6 +587,7 @@ void draw_triangle(vec2 p1, vec2 p2, vec2 p3, vec4 color) {
 }
 
 void draw_circle(vec2 pos, float radius, vec4 color, int precision) {
+#if 0
 	for (int i = 0; i < precision; i++) {
 		float angle1 = (float)i       / (float)precision * 2.0f * glm::pi<float>();
 		float angle2 = (float)(i + 1) / (float)precision * 2.0f * glm::pi<float>();
@@ -540,6 +595,31 @@ void draw_circle(vec2 pos, float radius, vec4 color, int precision) {
 		vec2 p2 = pos + vec2{cosf(angle2), -sinf(angle2)} * radius;
 		draw_triangle(p1, p2, pos, color);
 	}
+#else
+	if (renderer.current_texture != renderer.stub_texture
+		|| renderer.current_mode != MODE_CIRCLES
+		|| renderer.vertices.count + 4 > BATCH_MAX_VERTICES)
+	{
+		break_batch();
+
+		renderer.current_texture = renderer.stub_texture;
+		renderer.current_mode = MODE_CIRCLES;
+	}
+
+	{
+		Vertex vertices[] = {
+			{{pos.x - radius, pos.y - radius, 0.0f}, {}, color, {0.0f, 0.0f}}, // LT
+			{{pos.x + radius, pos.y - radius, 0.0f}, {}, color, {1.0f, 0.0f}}, // RT
+			{{pos.x + radius, pos.y + radius, 0.0f}, {}, color, {1.0f, 1.0f}}, // RB
+			{{pos.x - radius, pos.y + radius, 0.0f}, {}, color, {0.0f, 1.0f}}, // LB
+		};
+
+		array_add(&renderer.vertices, vertices[0]);
+		array_add(&renderer.vertices, vertices[1]);
+		array_add(&renderer.vertices, vertices[2]);
+		array_add(&renderer.vertices, vertices[3]);
+	}
+#endif
 }
 
 void draw_line(vec2 p1, vec2 p2, vec4 color) {

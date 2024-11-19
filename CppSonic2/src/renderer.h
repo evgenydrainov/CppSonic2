@@ -28,6 +28,7 @@ enum RenderMode {
 	MODE_TRIANGLES,
 	MODE_LINES,
 	MODE_POINTS,
+	MODE_CIRCLES,
 };
 
 struct Renderer {
@@ -36,6 +37,7 @@ struct Renderer {
 	bump_array<Vertex> vertices;
 
 	u32 texture_shader;  // These shaders should be handled by an asset system maybe
+	u32 circle_shader;
 	u32 sharp_bilinear_shader;
 
 	u32 current_shader;
