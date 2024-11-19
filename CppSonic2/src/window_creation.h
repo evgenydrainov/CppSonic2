@@ -86,3 +86,14 @@ void set_fullscreen(bool fullscreen);
 bool is_fullscreen();
 
 double get_time();
+
+struct ScopeTimer {
+	double t;
+	const char* name;
+
+	ScopeTimer(const char* name) : name(name), t(get_time()) {}
+
+	~ScopeTimer() {
+		log_info("[%s] %fms", name, (get_time() - t) * 1000.0);
+	}
+};

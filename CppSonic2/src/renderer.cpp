@@ -305,7 +305,7 @@ void render_end_frame() {
 		}
 
 		{
-			float int_scale = max(floorf(scale), 1.0f);
+			float int_scale = fmaxf(floorf(scale), 1.0f);
 
 			int u_Scale = glGetUniformLocation(program, "u_Scale");
 			glUniform2f(u_Scale, int_scale, int_scale);
