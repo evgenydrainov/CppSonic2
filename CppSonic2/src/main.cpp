@@ -38,7 +38,7 @@ int main(int /*argc*/, char* /*argv*/[]) {
 #endif
 
 #if defined(DEVELOPER) && !defined(EDITOR)
-	console.init(console_callback, nullptr, game.font_consolas);
+	console.init(console_callback, nullptr, game.consolas_bold);
 	defer { console.deinit(); };
 #endif
 
@@ -81,6 +81,10 @@ int main(int /*argc*/, char* /*argv*/[]) {
 #endif
 
 		render_end_frame();
+
+#ifndef EDITOR
+		game.late_draw(window.delta);
+#endif
 
 #ifdef EDITOR
 		imgui_render();

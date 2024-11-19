@@ -33,8 +33,9 @@ void Game::load_level(const char* path) {
 }
 
 void Game::init() {
-	load_bmfont_file(&font,          "fonts/ms_gothic.fnt", "fonts/ms_gothic_0.png");
-	load_bmfont_file(&font_consolas, "fonts/consolas.fnt",  "fonts/consolas_0.png");
+	load_bmfont_file(&font,          "fonts/ms_gothic.fnt",     "fonts/ms_gothic_0.png");
+	load_bmfont_file(&consolas,      "fonts/consolas.fnt",      "fonts/consolas_0.png");
+	load_bmfont_file(&consolas_bold, "fonts/consolas_bold.fnt", "fonts/consolas_bold_0.png");
 
 	load_level("levels/GHZ_Act1");
 
@@ -353,8 +354,8 @@ static SensorResult sensor_check_down(vec2 pos, int layer) {
 	// and replace the modulo operator in get_height with calls to wrap()
 	// 
 
-	int ix = pos.x;
-	int iy = pos.y;
+	int ix = max((int)pos.x, 0);
+	int iy = max((int)pos.y, 0);
 
 	int tile_x = pos.x / 16;
 	int tile_y = pos.y / 16;
@@ -427,8 +428,8 @@ static SensorResult sensor_check_right(vec2 pos, int layer) {
 
 	SensorResult result = {};
 
-	int ix = pos.x;
-	int iy = pos.y;
+	int ix = max((int)pos.x, 0);
+	int iy = max((int)pos.y, 0);
 
 	int tile_x = pos.x / 16;
 	int tile_y = pos.y / 16;
@@ -500,8 +501,8 @@ static SensorResult sensor_check_up(vec2 pos, int layer) {
 
 	SensorResult result = {};
 
-	int ix = pos.x;
-	int iy = pos.y;
+	int ix = max((int)pos.x, 0);
+	int iy = max((int)pos.y, 0);
 
 	int tile_x = pos.x / 16;
 	int tile_y = pos.y / 16;
@@ -573,8 +574,8 @@ static SensorResult sensor_check_left(vec2 pos, int layer) {
 
 	SensorResult result = {};
 
-	int ix = pos.x;
-	int iy = pos.y;
+	int ix = max((int)pos.x, 0);
+	int iy = max((int)pos.y, 0);
 
 	int tile_x = pos.x / 16;
 	int tile_y = pos.y / 16;
@@ -1443,35 +1444,55 @@ void Game::draw(float delta) {
 	renderer.proj_mat = glm::ortho<float>(0, window.game_width, window.game_height, 0);
 	renderer.view_mat = {1};
 
-	// draw debug text
+	// draw fps
 	{
-		vec2 pos = {};
+		char buf[16];
+		string str = Sprintf(buf, "%.0f", roundf(window.avg_fps));
+		draw_text_shadow(font, str, {window.game_width, window.game_height}, HALIGN_RIGHT, VALIGN_BOTTOM);
+	}
+}
+
+void Game::late_draw(float delta) {
+	vec2 pos = {};
 
 #ifdef DEVELOPER
-		{
-			char buf[128];
-			string str = Sprintf(buf,
-								 "state: %s\n"
-								 "ground speed: %f\n"
-								 "ground angle: %f\n",
-								 GetPlayerStateName(p->state),
-								 p->ground_speed,
-								 p->ground_angle);
-			pos = draw_text_shadow(font, str, pos);
-		}
+	{
+		char buf[256];
+		string str = Sprintf(buf,
+							 "frame: %fms\n"
+							 "update: %fms\n"
+							 "draw: %fms\n"
+							 "draw calls: %d\n"
+							 "total triangles: %d\n",
+							 window.frame_took * 1000.0,
+							 (window.frame_took - renderer.draw_took) * 1000.0,
+							 renderer.draw_took * 1000.0,
+							 renderer.draw_calls,
+							 renderer.total_triangles);
+		pos = draw_text_shadow(consolas_bold, str, pos);
+	}
+
+	{
+		Player* p = &player;
+
+		char buf[256];
+		string str = Sprintf(buf,
+							 "state: %s\n"
+							 "ground speed: %f\n"
+							 "ground angle: %f\n",
+							 GetPlayerStateName(p->state),
+							 p->ground_speed,
+							 p->ground_angle);
+		pos = draw_text_shadow(consolas_bold, str, pos);
+	}
 #endif
 
-		if (frame_advance) {
-			string str = "F5 - Next Frame\nF6 - Disable Frame Advance Mode\n";
-			pos = draw_text_shadow(font, str, pos);
-		}
-
-		{
-			char buf[16];
-			string str = Sprintf(buf, "%.0f", roundf(window.avg_fps));
-			draw_text_shadow(font, str, {window.game_width, window.game_height}, HALIGN_RIGHT, VALIGN_BOTTOM);
-		}
+	if (frame_advance) {
+		string str = "F5 - Next Frame\nF6 - Disable Frame Advance Mode\n";
+		pos = draw_text_shadow(consolas_bold, str, pos);
 	}
+
+	break_batch();
 }
 
 void free_tilemap(Tilemap* tm) {

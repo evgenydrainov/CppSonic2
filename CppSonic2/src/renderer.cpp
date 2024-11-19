@@ -246,13 +246,17 @@ void deinit_renderer() {
 }
 
 void render_begin_frame(vec4 clear_color) {
+	renderer.draw_took_t = get_time();
+
 	Assert(renderer.vertices.count == 0);
 
-	renderer.draw_calls = renderer.curr_draw_calls;
-	renderer.max_batch  = renderer.curr_max_batch;
+	renderer.draw_calls      = renderer.curr_draw_calls;
+	renderer.max_batch       = renderer.curr_max_batch;
+	renderer.total_triangles = renderer.curr_total_triangles;
 
-	renderer.curr_draw_calls = 0;
-	renderer.curr_max_batch  = 0;
+	renderer.curr_draw_calls      = 0;
+	renderer.curr_max_batch       = 0;
+	renderer.curr_total_triangles = 0;
 
 	glBindFramebuffer(GL_FRAMEBUFFER, renderer.game_framebuffer);
 
@@ -317,6 +321,8 @@ void render_end_frame() {
 
 		renderer.current_shader = old_shader;
 	}
+
+	renderer.draw_took = get_time() - renderer.draw_took_t;
 }
 
 void break_batch() {
@@ -354,8 +360,10 @@ void break_batch() {
 			Assert(renderer.vertices.count % 4 == 0);
 
 			glDrawElements(GL_TRIANGLES, (GLsizei)renderer.vertices.count / 4 * 6, GL_UNSIGNED_INT, 0);
+
 			renderer.curr_draw_calls++;
 			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
+			renderer.curr_total_triangles += (GLsizei)renderer.vertices.count / 4 * 2;
 			break;
 		}
 
@@ -379,8 +387,10 @@ void break_batch() {
 			Assert(renderer.vertices.count % 3 == 0);
 
 			glDrawArrays(GL_TRIANGLES, 0, (GLsizei)renderer.vertices.count);
+
 			renderer.curr_draw_calls++;
 			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
+			renderer.curr_total_triangles += (GLsizei)renderer.vertices.count / 3;
 			break;
 		}
 
@@ -404,6 +414,7 @@ void break_batch() {
 			Assert(renderer.vertices.count % 2 == 0);
 
 			glDrawArrays(GL_LINES, 0, (GLsizei)renderer.vertices.count);
+
 			renderer.curr_draw_calls++;
 			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
 			break;
@@ -427,6 +438,7 @@ void break_batch() {
 			defer { glBindVertexArray(0); };
 
 			glDrawArrays(GL_POINTS, 0, (GLsizei)renderer.vertices.count);
+
 			renderer.curr_draw_calls++;
 			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
 			break;
@@ -452,8 +464,10 @@ void break_batch() {
 			Assert(renderer.vertices.count % 4 == 0);
 
 			glDrawElements(GL_TRIANGLES, (GLsizei)renderer.vertices.count / 4 * 6, GL_UNSIGNED_INT, 0);
+
 			renderer.curr_draw_calls++;
 			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
+			renderer.curr_total_triangles += (GLsizei)renderer.vertices.count / 4 * 2;
 			break;
 		}
 	}

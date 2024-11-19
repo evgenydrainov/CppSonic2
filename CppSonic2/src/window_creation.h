@@ -29,6 +29,8 @@ struct Window {
 	float delta; // NOTE: multiplied by 60
 
 	float avg_fps;
+
+	double frame_took;
 	
 	/*   don't touch   */
 
@@ -44,6 +46,8 @@ struct Window {
 	float avg_fps_sum;
 	float avg_fps_num_samples;
 	double avg_fps_last_time_updated;
+
+	double frame_took_t;
 };
 
 extern Window window;

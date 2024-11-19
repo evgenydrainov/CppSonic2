@@ -676,6 +676,9 @@ struct string {
 		return data[i];
 	}
 
+	char* begin() const { return data; }
+	char* end()   const { return data + count; }
+
 	bool operator==(const string& other) const {
 		if (count != other.count) {
 			return false;

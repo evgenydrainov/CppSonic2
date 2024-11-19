@@ -241,6 +241,8 @@ void handle_event(const SDL_Event& ev) {
 }
 
 void begin_frame() {
+	window.frame_took_t = get_time();
+
 	if (!window.prev_time_is_initialized) {
 		window.prev_time = get_time() - 1.0; // 1.0 / window.target_fps;
 
@@ -283,6 +285,8 @@ void begin_frame() {
 }
 
 void swap_buffers() {
+	window.frame_took = get_time() - window.frame_took_t;
+
 	SDL_GL_SwapWindow(window.handle);
 
 	if (!window.vsync) {

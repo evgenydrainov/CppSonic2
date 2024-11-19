@@ -57,9 +57,14 @@ struct Renderer {
 
 	int draw_calls;
 	size_t max_batch;
+	int total_triangles;
 
 	int curr_draw_calls;  // These values change during the frame, use draw_calls and max_batch for metrics
 	size_t curr_max_batch;
+	int curr_total_triangles;
+
+	double draw_took;
+	double draw_took_t;
 };
 
 extern Renderer renderer;

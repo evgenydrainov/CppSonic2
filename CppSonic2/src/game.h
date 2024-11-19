@@ -104,7 +104,8 @@ struct Game {
 	float camera_lock;
 
 	Font font;
-	Font font_consolas;
+	Font consolas;
+	Font consolas_bold;
 
 	Tileset ts;
 	Texture tileset_texture;
@@ -132,6 +133,7 @@ struct Game {
 
 	void update(float delta);
 	void draw(float delta);
+	void late_draw(float delta);
 
 	void load_level(const char* path);
 };
