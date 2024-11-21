@@ -241,26 +241,49 @@ static void AddTile(ImDrawList* draw_list, Tile tile,
 	}
 }
 
-static bool ButtonActive(const char* label, bool active) {
+static void AddArrow(ImDrawList* draw_list,
+					 ImVec2 p1, ImVec2 p2, ImU32 col,
+					 float thickness, float zoom) {
+	draw_list->AddLine(p1, p2, col, thickness * zoom);
+
+	float dir = point_direction(p1.x, p1.y, p2.x, p2.y);
+
+	ImVec2 p3 = p2;
+	p3.x += dcos(dir + 90 + 45) * (2 * zoom);
+	p3.y -= dsin(dir + 90 + 45) * (2 * zoom);
+	draw_list->AddLine(p2, p3, col, thickness * zoom);
+
+	ImVec2 p4 = p2;
+	p4.x += dcos(dir - 90 - 45) * (2 * zoom);
+	p4.y -= dsin(dir - 90 - 45) * (2 * zoom);
+	draw_list->AddLine(p2, p4, col, thickness * zoom);
+}
+
+static bool ButtonActive(const char* label, bool active, bool icon) {
 	if (active) {
 		ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
 	}
-	bool res = ImGui::Button(label, ImVec2(24, 0));
+
+	ImVec2 size = {};
+	if (icon) size = ImVec2(24, 0);
+
+	bool res = ImGui::Button(label, size);
+
 	if (active) {
 		ImGui::PopStyleColor();
 	}
+
 	return res;
 }
 
 void Editor::clear_state() {
-	if (tileset_texture.ID != 0) {
-		glDeleteTextures(1, &tileset_texture.ID);
-	}
-	tileset_texture = {};
+	free_texture(&tileset_texture);
 
 	free_tilemap(&tm);
 	free_tileset(&ts);
 
+	mode = {};
+	hmode = {};
 	heightmap_view   = {};
 	tilemap_view     = {};
 	tile_select_view = {};
@@ -269,8 +292,6 @@ void Editor::clear_state() {
 	htool = {};
 	tilemap_select_tool_selection = {};
 	tilemap_rect_tool_selection = {};
-	heightmap_show_collision = true;
-	heightmap_show_widths = false;
 }
 
 void Editor::update(float delta) {
@@ -354,6 +375,17 @@ void Editor::update(float delta) {
 
 		switch (mode) {
 			case MODE_HEIGHTMAP: {
+				if (hmode == HMODE_ANGLES) {
+					if (ImGui::BeginMenu("Angle Editing")) {
+						if (ImGui::MenuItem("Fill whole tileset with angle -1")) {
+							for (int i = 0; i < ts.count; i++) {
+								ts.angles[i] = -1;
+							}
+						}
+
+						ImGui::EndMenu();
+					}
+				}
 				break;
 			}
 		}
@@ -431,7 +463,7 @@ void Editor::update(float delta) {
 				ImVec2 texture_size(tileset_texture.width * heightmap_view.zoom, tileset_texture.height * heightmap_view.zoom);
 				ImVec2 texture_pos = ImGui::GetCursorScreenPos() + heightmap_view.scrolling;
 
-				if (heightmap_show_collision) {
+				if (/*heightmap_show_collision*/true) {
 					// item = invisible button from pan_and_zoom
 					if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
 						if (pos_in_rect(ImGui::GetMousePos(), texture_pos, texture_size)) {
@@ -441,7 +473,7 @@ void Editor::update(float delta) {
 							int tile_y = clamp((int)(pos.y / 16), 0, (tileset_texture.height / 16) - 1);
 
 							if (htool == HTOOL_AUTO) {
-								if (heightmap_show_widths) {
+								if (hmode == HMODE_WIDTHS) {
 									auto widths = get_tile_widths(ts, tile_x + tile_y * (tileset_texture.width / 16));
 									for (int y = 0; y < 16; y++) {
 										int width = 0;
@@ -478,7 +510,7 @@ void Editor::update(float delta) {
 										widths[y] = width;
 									}
 									gen_widthmap_texture(&widthmap, ts, tileset_texture);
-								} else {
+								} else if (hmode == HMODE_HEIGHTS) {
 									auto heights = get_tile_heights(ts, tile_x + tile_y * (tileset_texture.width / 16));
 									for (int x = 0; x < 16; x++) {
 										int height = 0;
@@ -520,7 +552,7 @@ void Editor::update(float delta) {
 								int x = clamp((int)pos.x, 0, tileset_texture.width  - 1);
 								int y = clamp((int)pos.y, 0, tileset_texture.height - 1);
 
-								if (heightmap_show_widths) {
+								if (hmode == HMODE_WIDTHS) {
 									auto widths = get_tile_widths(ts, tile_x + tile_y * (tileset_texture.width / 16));
 									if (htool == HTOOL_BRUSH) {
 										widths[y % 16] = 16 - (x % 16);
@@ -529,7 +561,7 @@ void Editor::update(float delta) {
 									}
 
 									gen_widthmap_texture(&widthmap, ts, tileset_texture);
-								} else {
+								} else if (hmode == HMODE_HEIGHTS) {
 									auto heights = get_tile_heights(ts, tile_x + tile_y * (tileset_texture.width / 16));
 									if (htool == HTOOL_BRUSH) {
 										heights[x % 16] = 16 - (y % 16);
@@ -553,14 +585,14 @@ void Editor::update(float delta) {
 							int x = clamp((int)pos.x, 0, tileset_texture.width  - 1);
 							int y = clamp((int)pos.y, 0, tileset_texture.height - 1);
 
-							if (heightmap_show_widths) {
+							if (hmode == HMODE_WIDTHS) {
 								auto widths = get_tile_widths(ts, tile_x + tile_y * (tileset_texture.width / 16));
 								if (htool == HTOOL_BRUSH) {
 									widths[y % 16] = 0xF0 + (15 - (x % 16));
 								}
 
 								gen_widthmap_texture(&widthmap, ts, tileset_texture);
-							} else {
+							} else if (hmode == HMODE_HEIGHTS) {
 								auto heights = get_tile_heights(ts, tile_x + tile_y * (tileset_texture.width / 16));
 								if (htool == HTOOL_BRUSH) {
 									heights[x % 16] = 0xF0 + (15 - (y % 16));
@@ -575,30 +607,32 @@ void Editor::update(float delta) {
 				ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
 				{
-					ImU32 col = heightmap_show_collision ? IM_COL32(255, 255, 255, 128) : IM_COL32_WHITE;
+					ImU32 col = /*heightmap_show_collision*/true ? IM_COL32(255, 255, 255, 128) : IM_COL32_WHITE;
 					draw_list->AddImage(tileset_texture.ID, texture_pos, texture_pos + texture_size, {0, 0}, {1, 1}, col);
 				}
 
-				if (heightmap_show_collision) {
-					ImTextureID tex = heightmap_show_widths ? widthmap.ID : heightmap.ID;
-					draw_list->AddImage(tex, texture_pos, texture_pos + texture_size, {0, 0}, {1, 1}, IM_COL32(255, 255, 255, 128));
+				if (hmode == HMODE_HEIGHTS || hmode == HMODE_ANGLES) {
+					ImU32 col = IM_COL32(255, 255, 255, 128);
+					draw_list->AddImage(heightmap.ID, texture_pos, texture_pos + texture_size, {0, 0}, {1, 1}, col);
 				}
+				if (hmode == HMODE_WIDTHS) {
+					draw_list->AddImage(widthmap.ID, texture_pos, texture_pos + texture_size, {0, 0}, {1, 1}, IM_COL32(255, 255, 255, 128));
+				}
+				if (hmode == HMODE_ANGLES) {
+					for (int tile_index = 0; tile_index < ts.count; tile_index++) {
+						float angle = ts.angles[tile_index];
+						if (angle == -1) {
+							continue;
+						}
 
-				for (int tile_index = 0; tile_index < ts.count; tile_index++) {
-					float angle = ts.angles[tile_index];
-					if (angle == -1) {
-						continue;
+						int tile_x = tile_index % (tileset_texture.width / 16);
+						int tile_y = tile_index / (tileset_texture.width / 16);
+						ImVec2 p1 = texture_pos + ImVec2(tile_x * 16 + 8, tile_y * 16 + 8) * heightmap_view.zoom;
+						ImVec2 p2 = p1;
+						p2.x += dcos(angle) * 8 * heightmap_view.zoom;
+						p2.y -= dsin(angle) * 8 * heightmap_view.zoom;
+						AddArrow(draw_list, p1, p2, IM_COL32_WHITE, 0.5, heightmap_view.zoom);
 					}
-
-					int tile_x = tile_index % (tileset_texture.width / 16);
-					int tile_y = tile_index / (tileset_texture.width / 16);
-					ImVec2 p1 = texture_pos + ImVec2(tile_x * 16 + 8, tile_y * 16 + 8) * heightmap_view.zoom;
-					ImVec2 p2 = p1;
-					p2.x += dcos(angle) * 8 * heightmap_view.zoom;
-					p2.y -= dsin(angle) * 8 * heightmap_view.zoom;
-					draw_list->PathLineTo(p1);
-					draw_list->PathLineTo(p2);
-					draw_list->PathStroke(IM_COL32_WHITE, 0, 2);
 				}
 
 				// draw grids
@@ -613,19 +647,57 @@ void Editor::update(float delta) {
 								IM_COL32(255, 255, 255, 255));
 					}
 				}
+
+				// drag an arrow
+				{
+					static bool dragging;
+					static ImVec2 start_pos;
+
+					if (ImGui::IsItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+						if (pos_in_rect(ImGui::GetMousePos(), texture_pos, texture_size)) {
+							ImVec2 pos = get_mouse_pos_in_view(heightmap_view);
+
+							dragging = true;
+							start_pos = pos;
+						}
+					}
+
+					if (dragging) {
+						ImVec2 pos = get_mouse_pos_in_view(heightmap_view);
+
+						// highlight selected tile
+						{
+							int tile_x = clamp((int)(start_pos.x / 16), 0, tileset_texture.width  / 16 - 1);
+							int tile_y = clamp((int)(start_pos.y / 16), 0, tileset_texture.height / 16 - 1);
+							ImVec2 p = texture_pos + ImVec2(tile_x * 16, tile_y * 16) * heightmap_view.zoom;
+							ImVec2 p2 = p + ImVec2(16, 16) * heightmap_view.zoom;
+							draw_list->AddRect(p, p2, IM_COL32(160, 160, 255, 220), 0, 0, 0.75 * heightmap_view.zoom);
+						}
+
+						AddArrow(draw_list,
+								 texture_pos + start_pos * heightmap_view.zoom,
+								 texture_pos + pos * heightmap_view.zoom,
+								 IM_COL32_WHITE, 0.5, heightmap_view.zoom);
+
+						if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+							dragging = false;
+							if (point_distance(start_pos.x, start_pos.y, pos.x, pos.y) > 1) {
+								int tile_x = clamp((int)(start_pos.x / 16), 0, tileset_texture.width  / 16 - 1);
+								int tile_y = clamp((int)(start_pos.y / 16), 0, tileset_texture.height / 16 - 1);
+								int tile_index = tile_x + tile_y * (tileset_texture.width / 16);
+								float angle = point_direction(start_pos.x, start_pos.y, pos.x, pos.y);
+								ts.angles[tile_index] = angle;
+							}
+						}
+
+						if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+							dragging = false;
+						}
+					}
+				}
 			};
 
 			heightmap_editor_window();
-
-			auto heightmap_editor_options_window = [&]() {
-				ImGui::Begin("Heightmap Editor Options");
-				defer { ImGui::End(); };
-
-				ImGui::Checkbox("Show Collision", &heightmap_show_collision);
-				ImGui::Checkbox("Show Widths", &heightmap_show_widths);
-			};
-
-			heightmap_editor_options_window();
 
 			auto tool_select_window = [&]() {
 				ImGui::SetNextWindowPos(ImVec2(main_window_pos.x, io.DisplaySize.y / 2.0f), ImGuiCond_Always, ImVec2(0, 0.5f));
@@ -633,16 +705,17 @@ void Editor::update(float delta) {
 				ImGui::Begin("Tool select##heightmap_editor", nullptr,
 							 ImGuiWindowFlags_AlwaysAutoResize
 							 | ImGuiWindowFlags_NoDecoration
-							 | ImGuiWindowFlags_NoMove);
+							 | ImGuiWindowFlags_NoMove
+							 | ImGuiWindowFlags_NoSavedSettings);
 				defer { ImGui::End(); };
 
-				if (ButtonActive(ICON_FA_PEN, htool == HTOOL_BRUSH)) htool = HTOOL_BRUSH;
+				if (ButtonActive(ICON_FA_PEN, htool == HTOOL_BRUSH, true)) htool = HTOOL_BRUSH;
 				ImGui::SetItemTooltip("Brush\nShortcut: B");
 
-				if (ButtonActive(ICON_FA_ERASER, htool == HTOOL_ERASER)) htool = HTOOL_ERASER;
+				if (ButtonActive(ICON_FA_ERASER, htool == HTOOL_ERASER, true)) htool = HTOOL_ERASER;
 				ImGui::SetItemTooltip("Eraser\nShortcut: E");
 
-				if (ButtonActive("A", htool == HTOOL_AUTO)) htool = HTOOL_AUTO;
+				if (ButtonActive("A", htool == HTOOL_AUTO, true)) htool = HTOOL_AUTO;
 				ImGui::SetItemTooltip("Auto-Tool\nShortcut: A");
 
 				if (ImGui::IsKeyPressed(ImGuiKey_B)) htool = HTOOL_BRUSH;
@@ -651,6 +724,27 @@ void Editor::update(float delta) {
 			};
 
 			tool_select_window();
+
+			auto hmode_select_window = [&]() {
+				ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / 2.0f, main_window_pos.y), ImGuiCond_Always, ImVec2(0.5f, 0));
+
+				ImGui::Begin("##heightmap_editor - hmode_select_window", nullptr,
+							 ImGuiWindowFlags_AlwaysAutoResize
+							 | ImGuiWindowFlags_NoDecoration
+							 | ImGuiWindowFlags_NoMove
+							 | ImGuiWindowFlags_NoSavedSettings);
+				defer { ImGui::End(); };
+
+				if (ButtonActive("Heights", hmode == HMODE_HEIGHTS, false)) hmode = HMODE_HEIGHTS;
+
+				ImGui::SameLine();
+				if (ButtonActive("Widths", hmode == HMODE_WIDTHS, false)) hmode = HMODE_WIDTHS;
+
+				ImGui::SameLine();
+				if (ButtonActive("Angles", hmode == HMODE_ANGLES, false)) hmode = HMODE_ANGLES;
+			};
+
+			hmode_select_window();
 			break;
 		}
 
@@ -858,19 +952,20 @@ void Editor::update(float delta) {
 				ImGui::Begin("Tool select##tilemap_editor", nullptr,
 							 ImGuiWindowFlags_AlwaysAutoResize
 							 | ImGuiWindowFlags_NoDecoration
-							 | ImGuiWindowFlags_NoMove);
+							 | ImGuiWindowFlags_NoMove
+							 | ImGuiWindowFlags_NoSavedSettings);
 				defer { ImGui::End(); };
 
-				if (ButtonActive(ICON_FA_PEN, tool == TOOL_BRUSH)) tool = TOOL_BRUSH;
+				if (ButtonActive(ICON_FA_PEN, tool == TOOL_BRUSH, true)) tool = TOOL_BRUSH;
 				ImGui::SetItemTooltip("Brush");
 
-				if (ButtonActive(ICON_FA_SQUARE_FULL, tool == TOOL_RECT)) {
+				if (ButtonActive(ICON_FA_SQUARE_FULL, tool == TOOL_RECT, true)) {
 					tool = TOOL_RECT;
 					tilemap_rect_tool_selection = {};
 				}
 				ImGui::SetItemTooltip("Rectangle");
 
-				if (ButtonActive(ICON_FA_OBJECT_GROUP, tool == TOOL_SELECT)) {
+				if (ButtonActive(ICON_FA_OBJECT_GROUP, tool == TOOL_SELECT, true)) {
 					tool = TOOL_SELECT;
 					tilemap_select_tool_selection = {};
 				}
@@ -884,7 +979,8 @@ void Editor::update(float delta) {
 
 	ImGui::SetNextWindowPos(io.DisplaySize / 2.0f, ImGuiCond_Always, {0.5f, 0.5f});
 	if (ImGui::BeginPopupModal("Create New Level", nullptr,
-							   ImGuiWindowFlags_AlwaysAutoResize)) {
+							   ImGuiWindowFlags_AlwaysAutoResize
+							   | ImGuiWindowFlags_NoSavedSettings)) {
 		if (ImGui::Button("Open...##folder")) {
 			char* path = nullptr;
 			nfdresult_t res = NFD_PickFolder(nullptr, &path);

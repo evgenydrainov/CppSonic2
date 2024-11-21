@@ -105,11 +105,11 @@ bool load_texture_from_file(Texture* t, const char* fname,
 }
 
 void free_texture(Texture* t) {
-	t->width  = 0;
-	t->height = 0;
+	if (t->ID != 0) {
+		glDeleteTextures(1, &t->ID);
+	}
 
-	if (t->ID) glDeleteTextures(1, &t->ID);
-	t->ID = 0;
+	*t = {};
 }
 
 bool load_surface_from_file(SDL_Surface** surface, const char* fname) {

@@ -1496,27 +1496,18 @@ void Game::late_draw(float delta) {
 }
 
 void free_tilemap(Tilemap* tm) {
-	tm->width = 0;
-	tm->height = 0;
+	free(tm->tiles_a.data);
+	free(tm->tiles_b.data);
 
-	if (tm->tiles_a.data) free(tm->tiles_a.data);
-	tm->tiles_a = {};
-
-	if (tm->tiles_b.data) free(tm->tiles_b.data);
-	tm->tiles_b = {};
+	*tm = {};
 }
 
 void free_tileset(Tileset* ts) {
-	ts->count = 0;
+	free(ts->heights.data);
+	free(ts->widths.data);
+	free(ts->angles.data);
 
-	if (ts->heights.data) free(ts->heights.data);
-	ts->heights = {};
-
-	if (ts->widths.data) free(ts->widths.data);
-	ts->widths = {};
-
-	if (ts->angles.data) free(ts->angles.data);
-	ts->angles = {};
+	*ts = {};
 }
 
 void read_tilemap_old_format(Tilemap* tm, const char* fname) {

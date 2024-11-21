@@ -32,6 +32,12 @@ struct Editor {
 		MODE_TILEMAP,
 	};
 
+	enum HMode {
+		HMODE_HEIGHTS,
+		HMODE_WIDTHS,
+		HMODE_ANGLES,
+	};
+
 	enum Tool {
 		TOOL_BRUSH,
 		TOOL_LINE,
@@ -46,6 +52,7 @@ struct Editor {
 	};
 
 	Mode mode;
+	HMode hmode;
 
 	View heightmap_view;
 	View tilemap_view;
@@ -65,8 +72,6 @@ struct Editor {
 
 	Selection tilemap_select_tool_selection;
 	Selection tilemap_rect_tool_selection;
-	bool heightmap_show_collision = true;
-	bool heightmap_show_widths;
 
 	bool is_level_open;
 	std::filesystem::path current_level_dir;
