@@ -287,7 +287,7 @@ void Editor::clear_state() {
 	heightmap_view   = {};
 	tilemap_view     = {};
 	tile_select_view = {};
-	selected_tile = {};
+	selected_tiles = {};
 	tool = {};
 	htool = {};
 	tilemap_select_tool_selection = {};
@@ -789,7 +789,17 @@ void Editor::update(float delta) {
 							int tile_x = clamp((int)(pos.x / 16), 0, tm.width  - 1);
 							int tile_y = clamp((int)(pos.y / 16), 0, tm.height - 1);
 
-							tm.tiles_a[tile_x + tile_y * tm.width] = selected_tile;
+							for (int y = 0; y < selected_tiles.h; y++) {
+								for (int x = 0; x < selected_tiles.w; x++) {
+									Tile tile = {};
+									tile.index = (selected_tiles.x + x) + (selected_tiles.y + y) * (tileset_texture.width / 16);
+									if ((tile_x + x) >= 0 && (tile_x + x) < tm.width
+										&& (tile_y + y) >= 0 && (tile_y + y) < tm.height)
+									{
+										tm.tiles_a[(tile_x + x) + (tile_y + y) * tm.width] = tile;
+									}
+								}
+							}
 							is_drawing = true;
 						}
 					}
@@ -819,7 +829,7 @@ void Editor::update(float delta) {
 						auto sel = tilemap_rect_tool_selection;
 						for (int y = sel.y; y < sel.y + sel.h; y++) {
 							for (int x = sel.x; x < sel.x + sel.w; x++) {
-								tm.tiles_a[x + y * tm.width] = selected_tile;
+								//tm.tiles_a[x + y * tm.width] = selected_tile;
 							}
 						}
 					}
@@ -842,9 +852,22 @@ void Editor::update(float delta) {
 						ImU32 col = IM_COL32(255, 255, 255, 255);
 
 						if (tool == TOOL_BRUSH || tool == TOOL_RECT) {
-							if (mouse_tile_x == x && mouse_tile_y == y && !is_erasing) {
-								tile = selected_tile;
-								if (!is_drawing) col = IM_COL32(255, 255, 255, 180);
+							if (!is_erasing) {
+								if (x >= mouse_tile_x && x < mouse_tile_x + selected_tiles.w
+									&& y >= mouse_tile_y && y < mouse_tile_y + selected_tiles.h
+									&& mouse_tile_x != -1 && mouse_tile_y != -1)
+								{
+									int xx = x - mouse_tile_x;
+									int yy = y - mouse_tile_y;
+									xx += selected_tiles.x;
+									yy += selected_tiles.y;
+									int tile_index = xx + yy * (tileset_texture.width / 16);
+
+									tile = {};
+									tile.index = tile_index;
+
+									if (!is_drawing) col = IM_COL32(255, 255, 255, 180);
+								}
 							}
 						}
 
@@ -852,7 +875,7 @@ void Editor::update(float delta) {
 							auto sel = tilemap_rect_tool_selection;
 							if (sel.dragging) {
 								if (x >= sel.x && x < sel.x + sel.w && y >= sel.y && y < sel.y + sel.h) {
-									tile = selected_tile;
+									//tile = selected_tile;
 								}
 							}
 						}
@@ -919,28 +942,21 @@ void Editor::update(float delta) {
 				int tileset_width  = tileset_texture.width  / 16;
 				int tileset_height = tileset_texture.height / 16;
 
-				// item = invisible button
-				if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
-					if (pos_in_rect(ImGui::GetMousePos(), texture_pos, texture_size)) {
-						ImVec2 pos = get_mouse_pos_in_view(tile_select_view);
-
-						int tile_x = clamp((int)(pos.x / 16), 0, tileset_width  - 1);
-						int tile_y = clamp((int)(pos.y / 16), 0, tileset_height - 1);
-						selected_tile = {};
-						selected_tile.index = tile_x + tile_y * tileset_width;
-					}
-				}
+				rectangle_select(selected_tiles, ImGui::IsItemActive(),
+								 texture_pos, texture_size,
+								 tile_select_view,
+								 tileset_width, tileset_height);
 
 				ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
 				draw_list->AddImage(tileset_texture.ID, texture_pos, texture_pos + texture_size);
 
-				// border around selected tile
-				{
-					int tile_x = selected_tile.index % tileset_width;
-					int tile_y = selected_tile.index / tileset_width;
-					ImVec2 p = texture_pos + ImVec2(tile_x * 16 * tile_select_view.zoom, tile_y * 16 * tile_select_view.zoom);
-					draw_list->AddRect(p, p + ImVec2(16 * tile_select_view.zoom, 16 * tile_select_view.zoom), IM_COL32(255, 255, 255, 255), 0, 0, 2);
+				if (selected_tiles.w > 0) {
+					Assert(selected_tiles.h > 0);
+
+					ImVec2 p = texture_pos + ImVec2(selected_tiles.x * 16, selected_tiles.y * 16) * tile_select_view.zoom;
+					ImVec2 p2 = p + ImVec2(selected_tiles.w * 16, selected_tiles.h * 16) * tile_select_view.zoom;
+					draw_list->AddRect(p, p2, IM_COL32_WHITE, 0, 0, 2);
 				}
 			};
 

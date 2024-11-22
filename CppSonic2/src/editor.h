@@ -66,7 +66,7 @@ struct Editor {
 
 	Tilemap tm;
 
-	Tile selected_tile;
+	Selection selected_tiles;
 	Tool tool;
 	HTool htool;
 
