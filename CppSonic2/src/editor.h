@@ -43,6 +43,8 @@ struct Editor {
 		TOOL_LINE,
 		TOOL_RECT,
 		TOOL_SELECT,
+		TOOL_TOP_SOLID_BRUSH,
+		TOOL_LRB_SOLID_BRUSH,
 	};
 
 	enum HTool {

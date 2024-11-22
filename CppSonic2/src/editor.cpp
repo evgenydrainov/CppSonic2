@@ -649,7 +649,7 @@ void Editor::update(float delta) {
 				}
 
 				// drag an arrow
-				{
+				if (hmode == HMODE_ANGLES) {
 					static bool dragging;
 					static ImVec2 start_pos;
 
@@ -817,19 +817,57 @@ void Editor::update(float delta) {
 					}
 				}
 
+				if (tool == TOOL_TOP_SOLID_BRUSH) {
+					if (ImGui::IsItemActive()) {
+						if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
+							ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
+
+							int tile_x = clamp((int)(pos.x / 16), 0, tm.width  - 1);
+							int tile_y = clamp((int)(pos.y / 16), 0, tm.height - 1);
+
+							if (ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
+								tm.tiles_a[tile_x + tile_y * tm.width].top_solid = 1;
+							} else if (ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0)) {
+								tm.tiles_a[tile_x + tile_y * tm.width].top_solid = 0;
+							}
+						}
+					}
+				}
+
+				if (tool == TOOL_LRB_SOLID_BRUSH) {
+					if (ImGui::IsItemActive()) {
+						if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
+							ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
+
+							int tile_x = clamp((int)(pos.x / 16), 0, tm.width  - 1);
+							int tile_y = clamp((int)(pos.y / 16), 0, tm.height - 1);
+
+							if (ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
+								tm.tiles_a[tile_x + tile_y * tm.width].lrb_solid = 1;
+							} else if (ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0)) {
+								tm.tiles_a[tile_x + tile_y * tm.width].lrb_solid = 0;
+							}
+						}
+					}
+				}
+
 				if (tool == TOOL_SELECT) {
 					rectangle_select(tilemap_select_tool_selection, is_item_active,
 									 tilemap_pos, tilemap_size, tilemap_view, tm.width, tm.height);
 				}
 
 				if (tool == TOOL_RECT) {
-					bool result = rectangle_select(tilemap_rect_tool_selection, is_item_active,
-												   tilemap_pos, tilemap_size, tilemap_view, tm.width, tm.height);
-					if (result) {
-						auto sel = tilemap_rect_tool_selection;
-						for (int y = sel.y; y < sel.y + sel.h; y++) {
-							for (int x = sel.x; x < sel.x + sel.w; x++) {
-								//tm.tiles_a[x + y * tm.width] = selected_tile;
+					if (selected_tiles.w > 0 && selected_tiles.h > 0) {
+						bool result = rectangle_select(tilemap_rect_tool_selection, is_item_active,
+													   tilemap_pos, tilemap_size, tilemap_view, tm.width, tm.height);
+						if (result) {
+							auto sel = tilemap_rect_tool_selection;
+							for (int y = sel.y; y < sel.y + sel.h; y++) {
+								for (int x = sel.x; x < sel.x + sel.w; x++) {
+									Tile tile = {};
+									tile.index = selected_tiles.x + selected_tiles.y * (tileset_texture.width / 16);
+									tm.tiles_a[x + y * tm.width] = tile;
+								}
 							}
 						}
 					}
@@ -875,7 +913,10 @@ void Editor::update(float delta) {
 							auto sel = tilemap_rect_tool_selection;
 							if (sel.dragging) {
 								if (x >= sel.x && x < sel.x + sel.w && y >= sel.y && y < sel.y + sel.h) {
-									//tile = selected_tile;
+									if (selected_tiles.w > 0 && selected_tiles.h > 0) {
+										tile = {};
+										tile.index = selected_tiles.x + selected_tiles.y * (tileset_texture.width / 16);
+									}
 								}
 							}
 						}
@@ -884,8 +925,26 @@ void Editor::update(float delta) {
 							continue;
 						}
 
+						if (tool == TOOL_TOP_SOLID_BRUSH || tool == TOOL_LRB_SOLID_BRUSH) {
+							col = IM_COL32(255, 255, 255, 150);
+						}
+
 						AddTile(draw_list, tile, tilemap_pos, tilemap_size,
 								tilemap_view, x, y, tileset_texture, col);
+
+						if (tool == TOOL_TOP_SOLID_BRUSH) {
+							if (tile.top_solid) {
+								AddTile(draw_list, tile, tilemap_pos, tilemap_size,
+										tilemap_view, x, y, heightmap, IM_COL32_WHITE);
+							}
+						}
+
+						if (tool == TOOL_LRB_SOLID_BRUSH) {
+							if (tile.lrb_solid) {
+								AddTile(draw_list, tile, tilemap_pos, tilemap_size,
+										tilemap_view, x, y, heightmap, IM_COL32_WHITE);
+							}
+						}
 					}
 				}
 
@@ -986,6 +1045,12 @@ void Editor::update(float delta) {
 					tilemap_select_tool_selection = {};
 				}
 				ImGui::SetItemTooltip("Select");
+
+				if (ButtonActive(ICON_FA_PEN "##2", tool == TOOL_TOP_SOLID_BRUSH, true)) tool = TOOL_TOP_SOLID_BRUSH;
+				ImGui::SetItemTooltip("Top Solid Brush");
+
+				if (ButtonActive(ICON_FA_PEN "##3", tool == TOOL_LRB_SOLID_BRUSH, true)) tool = TOOL_LRB_SOLID_BRUSH;
+				ImGui::SetItemTooltip("LRB Solid Brush");
 			};
 
 			tool_select_window();

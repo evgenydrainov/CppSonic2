@@ -1761,7 +1761,7 @@ void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture&
 	SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, heightmap->width, heightmap->height, 32, SDL_PIXELFORMAT_RGBA8888);
 	defer { SDL_FreeSurface(surf); };
 
-	SDL_FillRect(surf,  nullptr, 0x00000000);
+	SDL_FillRect(surf, nullptr, 0x00000000);
 
 	int stride = tileset_texture.width / 16;
 
@@ -1785,7 +1785,7 @@ void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture&
 						1,
 						16 - (heights[i] - 0xF0)
 					};
-					SDL_FillRect(surf, &line, 0xff0000ff);
+					SDL_FillRect(surf, &line, 0xff8080ff);
 				}
 			}
 		}
@@ -1837,7 +1837,7 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 						16 - (widths[i] - 0xF0),
 						1
 					};
-					SDL_FillRect(wsurf, &line, 0xffff0000);
+					SDL_FillRect(wsurf, &line, 0xffff8080);
 				}
 			}
 		}
