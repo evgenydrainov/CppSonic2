@@ -644,7 +644,7 @@ void Editor::update(float delta) {
 								texture_pos,
 								ImVec2(16 * heightmap_view.zoom, 16 * heightmap_view.zoom),
 								{tileset_texture.width / 16, tileset_texture.height / 16},
-								IM_COL32(255, 255, 255, 255));
+								IM_COL32(255, 255, 255, 110));
 					}
 				}
 
@@ -689,9 +689,23 @@ void Editor::update(float delta) {
 								ts.angles[tile_index] = angle;
 							}
 						}
+					}
 
-						if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-							dragging = false;
+					if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+						dragging = false;
+						if (pos_in_rect(ImGui::GetMousePos(), texture_pos, texture_size)) {
+							ImVec2 pos = get_mouse_pos_in_view(heightmap_view);
+							int tile_x = clamp((int)(pos.x / 16), 0, tileset_texture.width  / 16 - 1);
+							int tile_y = clamp((int)(pos.y / 16), 0, tileset_texture.height / 16 - 1);
+							int tile_index = tile_x + tile_y * (tileset_texture.width / 16);
+							ts.angles[tile_index] = -1;
+
+							// highlight
+							{
+								ImVec2 p = texture_pos + ImVec2(tile_x * 16, tile_y * 16) * heightmap_view.zoom;
+								ImVec2 p2 = p + ImVec2(16, 16) * heightmap_view.zoom;
+								draw_list->AddRect(p, p2, IM_COL32(255, 160, 160, 220), 0, 0, 0.75 * heightmap_view.zoom);
+							}
 						}
 					}
 				}
@@ -777,42 +791,47 @@ void Editor::update(float delta) {
 				ImVec2 tilemap_pos = ImGui::GetCursorScreenPos() + tilemap_view.scrolling;
 				ImVec2 tilemap_size(tm.width * 16 * tilemap_view.zoom, tm.height * 16 * tilemap_view.zoom);
 
+				// tilemap background
+				{
+					ImU32 col = ImGui::ColorConvertFloat4ToU32(*(ImVec4*)&color_cornflower_blue);
+					draw_list->AddRectFilled(tilemap_pos, tilemap_pos + tilemap_size, col);
+				}
+
 				bool is_drawing = false;
 				bool is_erasing = false;
 
 				if (tool == TOOL_BRUSH) {
 					// item = invisible button from pan_and_zoom
-					if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
+					if (ImGui::IsItemActive()) {
 						if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
 							ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
 
 							int tile_x = clamp((int)(pos.x / 16), 0, tm.width  - 1);
 							int tile_y = clamp((int)(pos.y / 16), 0, tm.height - 1);
 
-							for (int y = 0; y < selected_tiles.h; y++) {
-								for (int x = 0; x < selected_tiles.w; x++) {
-									Tile tile = {};
-									tile.index = (selected_tiles.x + x) + (selected_tiles.y + y) * (tileset_texture.width / 16);
-									if ((tile_x + x) >= 0 && (tile_x + x) < tm.width
-										&& (tile_y + y) >= 0 && (tile_y + y) < tm.height)
-									{
-										tm.tiles_a[(tile_x + x) + (tile_y + y) * tm.width] = tile;
+							if (ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
+								for (int y = 0; y < selected_tiles.h; y++) {
+									for (int x = 0; x < selected_tiles.w; x++) {
+										if ((tile_x + x) >= 0 && (tile_x + x) < tm.width
+											&& (tile_y + y) >= 0 && (tile_y + y) < tm.height)
+										{
+											Tile oldtile = tm.tiles_a[(tile_x + x) + (tile_y + y) * tm.width];
+
+											Tile tile = {};
+											tile.index = (selected_tiles.x + x) + (selected_tiles.y + y) * (tileset_texture.width / 16);
+											// keep solidity
+											tile.top_solid = oldtile.top_solid;
+											tile.lrb_solid = oldtile.lrb_solid;
+
+											tm.tiles_a[(tile_x + x) + (tile_y + y) * tm.width] = tile;
+										}
 									}
 								}
+								is_drawing = true;
+							} else if (ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0)) {
+								tm.tiles_a[tile_x + tile_y * tm.width] = {};
+								is_erasing = true;
 							}
-							is_drawing = true;
-						}
-					}
-
-					if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0)) {
-						if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
-							ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
-
-							int tile_x = clamp((int)(pos.x / 16), 0, tm.width  - 1);
-							int tile_y = clamp((int)(pos.y / 16), 0, tm.height - 1);
-
-							tm.tiles_a[tile_x + tile_y * tm.width] = {};
-							is_erasing = true;
 						}
 					}
 				}
@@ -857,7 +876,7 @@ void Editor::update(float delta) {
 				}
 
 				if (tool == TOOL_RECT) {
-					if (selected_tiles.w > 0 && selected_tiles.h > 0) {
+					if (selected_tiles.w == 1 && selected_tiles.h == 1) {
 						bool result = rectangle_select(tilemap_rect_tool_selection, is_item_active,
 													   tilemap_pos, tilemap_size, tilemap_view, tm.width, tm.height);
 						if (result) {
@@ -890,21 +909,22 @@ void Editor::update(float delta) {
 						ImU32 col = IM_COL32(255, 255, 255, 255);
 
 						if (tool == TOOL_BRUSH || tool == TOOL_RECT) {
-							if (!is_erasing) {
-								if (x >= mouse_tile_x && x < mouse_tile_x + selected_tiles.w
-									&& y >= mouse_tile_y && y < mouse_tile_y + selected_tiles.h
-									&& mouse_tile_x != -1 && mouse_tile_y != -1)
-								{
-									int xx = x - mouse_tile_x;
-									int yy = y - mouse_tile_y;
-									xx += selected_tiles.x;
-									yy += selected_tiles.y;
-									int tile_index = xx + yy * (tileset_texture.width / 16);
+							if (mouse_tile_x != -1 && mouse_tile_y != -1) {
+								if (!is_erasing) {
+									if (x >= mouse_tile_x && x < mouse_tile_x + selected_tiles.w
+										&& y >= mouse_tile_y && y < mouse_tile_y + selected_tiles.h)
+									{
+										int xx = x - mouse_tile_x;
+										int yy = y - mouse_tile_y;
+										xx += selected_tiles.x;
+										yy += selected_tiles.y;
+										int tile_index = xx + yy * (tileset_texture.width / 16);
 
-									tile = {};
-									tile.index = tile_index;
+										tile = {};
+										tile.index = tile_index;
 
-									if (!is_drawing) col = IM_COL32(255, 255, 255, 180);
+										if (!is_drawing) col = IM_COL32(255, 255, 255, 180);
+									}
 								}
 							}
 						}
@@ -912,8 +932,8 @@ void Editor::update(float delta) {
 						if (tool == TOOL_RECT) {
 							auto sel = tilemap_rect_tool_selection;
 							if (sel.dragging) {
-								if (x >= sel.x && x < sel.x + sel.w && y >= sel.y && y < sel.y + sel.h) {
-									if (selected_tiles.w > 0 && selected_tiles.h > 0) {
+								if (selected_tiles.w == 1 && selected_tiles.h == 1) {
+									if (x >= sel.x && x < sel.x + sel.w && y >= sel.y && y < sel.y + sel.h) {
 										tile = {};
 										tile.index = selected_tiles.x + selected_tiles.y * (tileset_texture.width / 16);
 									}
@@ -921,21 +941,23 @@ void Editor::update(float delta) {
 							}
 						}
 
-						if (tile.index == 0) {
-							continue;
-						}
-
 						if (tool == TOOL_TOP_SOLID_BRUSH || tool == TOOL_LRB_SOLID_BRUSH) {
-							col = IM_COL32(255, 255, 255, 150);
+							col = IM_COL32(150, 150, 150, 255);
 						}
 
-						AddTile(draw_list, tile, tilemap_pos, tilemap_size,
-								tilemap_view, x, y, tileset_texture, col);
+						if (tile.index != 0) {
+							AddTile(draw_list, tile, tilemap_pos, tilemap_size,
+									tilemap_view, x, y, tileset_texture, col);
+						}
 
 						if (tool == TOOL_TOP_SOLID_BRUSH) {
 							if (tile.top_solid) {
 								AddTile(draw_list, tile, tilemap_pos, tilemap_size,
 										tilemap_view, x, y, heightmap, IM_COL32_WHITE);
+
+								ImVec2 p = tilemap_pos + ImVec2(x * 16, y * 16) * tilemap_view.zoom;
+								ImVec2 p2 = p + ImVec2(16, 16) * tilemap_view.zoom;
+								draw_list->AddRect(p, p2, IM_COL32(255, 0, 0, 255), 0, 0, 0.5 * tilemap_view.zoom);
 							}
 						}
 
@@ -943,6 +965,10 @@ void Editor::update(float delta) {
 							if (tile.lrb_solid) {
 								AddTile(draw_list, tile, tilemap_pos, tilemap_size,
 										tilemap_view, x, y, heightmap, IM_COL32_WHITE);
+
+								ImVec2 p = tilemap_pos + ImVec2(x * 16, y * 16) * tilemap_view.zoom;
+								ImVec2 p2 = p + ImVec2(16, 16) * tilemap_view.zoom;
+								draw_list->AddRect(p, p2, IM_COL32(255, 0, 0, 255), 0, 0, 0.5 * tilemap_view.zoom);
 							}
 						}
 					}
@@ -976,7 +1002,7 @@ void Editor::update(float delta) {
 					draw_list->AddRect(tilemap_pos, tilemap_pos + tilemap_size, IM_COL32(255, 255, 255, 255));
 
 					if (tilemap_view.zoom > 2) {
-						AddGrid(draw_list, tilemap_pos, ImVec2(16, 16) * tilemap_view.zoom, {tm.width, tm.height}, IM_COL32(255, 255, 255, 128));
+						AddGrid(draw_list, tilemap_pos, ImVec2(16, 16) * tilemap_view.zoom, {tm.width, tm.height}, IM_COL32(255, 255, 255, 110));
 					}
 
 					AddGrid(draw_list, tilemap_pos, ImVec2(256, 256) * tilemap_view.zoom, {tm.width / 16, tm.height / 16});

@@ -1758,7 +1758,7 @@ void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture&
 	heightmap->width  = tileset_texture.width;
 	heightmap->height = tileset_texture.height;
 
-	SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, heightmap->width, heightmap->height, 32, SDL_PIXELFORMAT_RGBA8888);
+	SDL_Surface* surf = SDL_CreateRGBSurfaceWithFormat(0, heightmap->width, heightmap->height, 32, SDL_PIXELFORMAT_ABGR8888);
 	defer { SDL_FreeSurface(surf); };
 
 	SDL_FillRect(surf, nullptr, 0x00000000);
@@ -1777,7 +1777,7 @@ void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture&
 						1,
 						heights[i]
 					};
-					SDL_FillRect(surf, &line, 0xffffffff);
+					SDL_FillRect(surf, &line, SDL_MapRGB(surf->format, 255, 255, 255));
 				} else if (heights[i] >= 0xF0) {
 					SDL_Rect line = {
 						(tile_index % stride) * 16 + i,
@@ -1785,7 +1785,7 @@ void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture&
 						1,
 						16 - (heights[i] - 0xF0)
 					};
-					SDL_FillRect(surf, &line, 0xff8080ff);
+					SDL_FillRect(surf, &line, SDL_MapRGB(surf->format, 255, 0, 0));
 				}
 			}
 		}
@@ -1810,7 +1810,7 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 	widthmap->width  = tileset_texture.width;
 	widthmap->height = tileset_texture.height;
 
-	SDL_Surface* wsurf = SDL_CreateRGBSurfaceWithFormat(0, widthmap->width, widthmap->height, 32, SDL_PIXELFORMAT_RGBA8888);
+	SDL_Surface* wsurf = SDL_CreateRGBSurfaceWithFormat(0, widthmap->width, widthmap->height, 32, SDL_PIXELFORMAT_ABGR8888);
 	defer { SDL_FreeSurface(wsurf); };
 
 	SDL_FillRect(wsurf, nullptr, 0x00000000);
@@ -1829,7 +1829,7 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 						widths[i],
 						1
 					};
-					SDL_FillRect(wsurf, &line, 0xffffffff);
+					SDL_FillRect(wsurf, &line, SDL_MapRGB(wsurf->format, 255, 255, 255));
 				} else if (widths[i] >= 0xF0) {
 					SDL_Rect line = {
 						(tile_index % stride) * 16,
@@ -1837,7 +1837,7 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 						16 - (widths[i] - 0xF0),
 						1
 					};
-					SDL_FillRect(wsurf, &line, 0xffff8080);
+					SDL_FillRect(wsurf, &line, SDL_MapRGB(wsurf->format, 0, 0, 255));
 				}
 			}
 		}
