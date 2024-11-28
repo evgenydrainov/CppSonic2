@@ -68,12 +68,18 @@ struct Editor {
 
 	Tilemap tm;
 
-	Selection selected_tiles;
+	array<Tile> brush;
+	glm::ivec2 brush_size;
+
+	Selection tilemap_tile_selection;
 	Tool tool;
 	HTool htool;
 
 	Selection tilemap_select_tool_selection;
 	Selection tilemap_rect_tool_selection;
+
+	bool show_tile_indices;
+	bool show_collision;
 
 	bool is_level_open;
 	std::filesystem::path current_level_dir;

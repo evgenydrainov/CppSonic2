@@ -234,7 +234,7 @@ static void AddTile(ImDrawList* draw_list, Tile tile,
 	}
 
 	ImVec2 p = texture_pos + ImVec2(tile_x, tile_y) * (16 * view.zoom);
-	if (tile.index == 0) {
+	if (/*tile.index == 0*/false) {
 		draw_list->AddRectFilled(p, p + ImVec2(16, 16) * view.zoom, IM_COL32(0, 0, 0, (col >> IM_COL32_A_SHIFT) & 0xff));
 	} else {
 		draw_list->AddImage(tileset_texture.ID, p, p + ImVec2(16, 16) * view.zoom, uv_min, uv_max, col);
@@ -282,16 +282,22 @@ void Editor::clear_state() {
 	free_tilemap(&tm);
 	free_tileset(&ts);
 
+	free(brush.data);
+	brush = {};
+	brush_size = {};
+
 	mode = {};
 	hmode = {};
 	heightmap_view   = {};
 	tilemap_view     = {};
 	tile_select_view = {};
-	selected_tiles = {};
+	tilemap_tile_selection = {};
 	tool = {};
 	htool = {};
 	tilemap_select_tool_selection = {};
 	tilemap_rect_tool_selection = {};
+	show_tile_indices = false;
+	show_collision = false;
 }
 
 void Editor::update(float delta) {
@@ -385,6 +391,20 @@ void Editor::update(float delta) {
 
 						ImGui::EndMenu();
 					}
+				}
+				break;
+			}
+
+			case MODE_TILEMAP: {
+				if (ImGui::BeginMenu("View")) {
+					if (ImGui::MenuItem("Show Tile Indices", nullptr, show_tile_indices)) {
+						show_tile_indices ^= true;
+					}
+					if (ImGui::MenuItem("Show Collision", nullptr, show_collision)) {
+						show_collision ^= true;
+					}
+
+					ImGui::EndMenu();
 				}
 				break;
 			}
@@ -810,18 +830,17 @@ void Editor::update(float delta) {
 							int tile_y = clamp((int)(pos.y / 16), 0, tm.height - 1);
 
 							if (ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
-								for (int y = 0; y < selected_tiles.h; y++) {
-									for (int x = 0; x < selected_tiles.w; x++) {
+								for (int y = 0; y < brush_size.y; y++) {
+									for (int x = 0; x < brush_size.x; x++) {
 										if ((tile_x + x) >= 0 && (tile_x + x) < tm.width
 											&& (tile_y + y) >= 0 && (tile_y + y) < tm.height)
 										{
 											Tile oldtile = tm.tiles_a[(tile_x + x) + (tile_y + y) * tm.width];
 
-											Tile tile = {};
-											tile.index = (selected_tiles.x + x) + (selected_tiles.y + y) * (tileset_texture.width / 16);
+											Tile tile = brush[x + y * brush_size.x];
 											// keep solidity
-											tile.top_solid = oldtile.top_solid;
-											tile.lrb_solid = oldtile.lrb_solid;
+											//tile.top_solid = oldtile.top_solid;
+											//tile.lrb_solid = oldtile.lrb_solid;
 
 											tm.tiles_a[(tile_x + x) + (tile_y + y) * tm.width] = tile;
 										}
@@ -831,6 +850,10 @@ void Editor::update(float delta) {
 							} else if (ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0)) {
 								tm.tiles_a[tile_x + tile_y * tm.width] = {};
 								is_erasing = true;
+
+								//ImVec2 p = tilemap_pos + ImVec2(tile_x * 16, tile_y * 16) * tilemap_view.zoom;
+								//ImVec2 p2 = p + ImVec2(16, 16) * tilemap_view.zoom;
+								//draw_list->AddRect(p, p2, IM_COL32(255, 0, 0, 255), 0, 0, tilemap_view.zoom);
 							}
 						}
 					}
@@ -873,18 +896,40 @@ void Editor::update(float delta) {
 				if (tool == TOOL_SELECT) {
 					rectangle_select(tilemap_select_tool_selection, is_item_active,
 									 tilemap_pos, tilemap_size, tilemap_view, tm.width, tm.height);
+
+					if (ImGui::IsKeyPressed(ImGuiKey_C) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+						if (tilemap_select_tool_selection.w > 0 && tilemap_select_tool_selection.h > 0) {
+							free(brush.data);
+							brush = {};
+							brush_size = {tilemap_select_tool_selection.w, tilemap_select_tool_selection.h};
+
+							brush = calloc_array<Tile>(brush_size.x * brush_size.y);
+
+							int i = 0;
+							for (int y = 0; y < tilemap_select_tool_selection.h; y++) {
+								for (int x = 0; x < tilemap_select_tool_selection.w; x++) {
+									int xx = tilemap_select_tool_selection.x + x;
+									int yy = tilemap_select_tool_selection.y + y;
+									brush[i] = tm.tiles_a[xx + yy * tm.width];
+									i++;
+								}
+							}
+
+							tilemap_tile_selection = {};
+							tool = TOOL_BRUSH;
+						}
+					}
 				}
 
 				if (tool == TOOL_RECT) {
-					if (selected_tiles.w == 1 && selected_tiles.h == 1) {
+					if (brush_size.x == 1 && brush_size.y == 1) {
 						bool result = rectangle_select(tilemap_rect_tool_selection, is_item_active,
 													   tilemap_pos, tilemap_size, tilemap_view, tm.width, tm.height);
 						if (result) {
 							auto sel = tilemap_rect_tool_selection;
 							for (int y = sel.y; y < sel.y + sel.h; y++) {
 								for (int x = sel.x; x < sel.x + sel.w; x++) {
-									Tile tile = {};
-									tile.index = selected_tiles.x + selected_tiles.y * (tileset_texture.width / 16);
+									Tile tile = brush[0];
 									tm.tiles_a[x + y * tm.width] = tile;
 								}
 							}
@@ -903,25 +948,23 @@ void Editor::update(float delta) {
 					}
 				}
 
+				// draw tilemap
 				for (int y = 0; y < tm.height; y++) {
 					for (int x = 0; x < tm.width; x++) {
 						Tile tile = tm.tiles_a[x + y * tm.width];
 						ImU32 col = IM_COL32(255, 255, 255, 255);
 
+						// mouse hover
 						if (tool == TOOL_BRUSH || tool == TOOL_RECT) {
 							if (mouse_tile_x != -1 && mouse_tile_y != -1) {
 								if (!is_erasing) {
-									if (x >= mouse_tile_x && x < mouse_tile_x + selected_tiles.w
-										&& y >= mouse_tile_y && y < mouse_tile_y + selected_tiles.h)
+									if (x >= mouse_tile_x && x < mouse_tile_x + brush_size.x
+										&& y >= mouse_tile_y && y < mouse_tile_y + brush_size.y)
 									{
 										int xx = x - mouse_tile_x;
 										int yy = y - mouse_tile_y;
-										xx += selected_tiles.x;
-										yy += selected_tiles.y;
-										int tile_index = xx + yy * (tileset_texture.width / 16);
 
-										tile = {};
-										tile.index = tile_index;
+										tile = brush[xx + yy * brush_size.x];
 
 										if (!is_drawing) col = IM_COL32(255, 255, 255, 180);
 									}
@@ -932,10 +975,9 @@ void Editor::update(float delta) {
 						if (tool == TOOL_RECT) {
 							auto sel = tilemap_rect_tool_selection;
 							if (sel.dragging) {
-								if (selected_tiles.w == 1 && selected_tiles.h == 1) {
+								if (brush_size.x == 1 && brush_size.y == 1) {
 									if (x >= sel.x && x < sel.x + sel.w && y >= sel.y && y < sel.y + sel.h) {
-										tile = {};
-										tile.index = selected_tiles.x + selected_tiles.y * (tileset_texture.width / 16);
+										tile = brush[0];
 									}
 								}
 							}
@@ -950,8 +992,27 @@ void Editor::update(float delta) {
 									tilemap_view, x, y, tileset_texture, col);
 						}
 
-						if (tool == TOOL_TOP_SOLID_BRUSH) {
-							if (tile.top_solid) {
+						// draw collision
+						{
+							bool draw_collision = false;
+
+							if (tool == TOOL_TOP_SOLID_BRUSH) {
+								if (tile.top_solid) {
+									draw_collision = true;
+								}
+							}
+							if (tool == TOOL_LRB_SOLID_BRUSH) {
+								if (tile.lrb_solid) {
+									draw_collision = true;
+								}
+							}
+							if (show_collision) {
+								if (tile.top_solid || tile.lrb_solid) {
+									draw_collision = true;
+								}
+							}
+
+							if (draw_collision) {
 								AddTile(draw_list, tile, tilemap_pos, tilemap_size,
 										tilemap_view, x, y, heightmap, IM_COL32_WHITE);
 
@@ -961,14 +1022,16 @@ void Editor::update(float delta) {
 							}
 						}
 
-						if (tool == TOOL_LRB_SOLID_BRUSH) {
-							if (tile.lrb_solid) {
-								AddTile(draw_list, tile, tilemap_pos, tilemap_size,
-										tilemap_view, x, y, heightmap, IM_COL32_WHITE);
-
+						// draw tile index
+						if (show_tile_indices) {
+							if (tile.index != 0) {
+								char buf[10];
+								stb_snprintf(buf, sizeof buf, "%u", tile.index);
 								ImVec2 p = tilemap_pos + ImVec2(x * 16, y * 16) * tilemap_view.zoom;
-								ImVec2 p2 = p + ImVec2(16, 16) * tilemap_view.zoom;
-								draw_list->AddRect(p, p2, IM_COL32(255, 0, 0, 255), 0, 0, 0.5 * tilemap_view.zoom);
+
+								//ImGui::SetWindowFontScale(tilemap_view.zoom);
+								draw_list->AddText(p, IM_COL32_WHITE, buf);
+								//ImGui::SetWindowFontScale(1);
 							}
 						}
 					}
@@ -993,7 +1056,7 @@ void Editor::update(float delta) {
 
 						ImVec2 p = tilemap_pos + ImVec2(tilemap_select_tool_selection.x, tilemap_select_tool_selection.y) * 16.0f * tilemap_view.zoom;
 						draw_list->AddRectFilled(p, p + ImVec2(tilemap_select_tool_selection.w, tilemap_select_tool_selection.h) * 16.0f * tilemap_view.zoom, IM_COL32(100, 100, 255, 100));
-						draw_list->AddRect(p, p + ImVec2(tilemap_select_tool_selection.w, tilemap_select_tool_selection.h) * 16.0f * tilemap_view.zoom, IM_COL32(255, 255, 255, 255), 0, 0, 2);
+						draw_list->AddRect(p, p + ImVec2(tilemap_select_tool_selection.w, tilemap_select_tool_selection.h) * 16.0f * tilemap_view.zoom, IM_COL32(255, 255, 255, 255), 0, 0, tilemap_view.zoom);
 					}
 				}
 
@@ -1027,21 +1090,46 @@ void Editor::update(float delta) {
 				int tileset_width  = tileset_texture.width  / 16;
 				int tileset_height = tileset_texture.height / 16;
 
-				rectangle_select(selected_tiles, ImGui::IsItemActive(),
+				rectangle_select(tilemap_tile_selection, ImGui::IsItemActive(),
 								 texture_pos, texture_size,
 								 tile_select_view,
 								 tileset_width, tileset_height);
+				if (ImGui::IsItemActive() && (ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseDown(ImGuiMouseButton_Right))) {
+					free(brush.data);
+					brush = {};
+					brush_size = {tilemap_tile_selection.w, tilemap_tile_selection.h};
+
+					if (brush_size.x > 0 && brush_size.y > 0) {
+						// copy the tiles
+						brush = calloc_array<Tile>(brush_size.x * brush_size.y);
+						int i = 0;
+						for (int y = 0; y < tilemap_tile_selection.h; y++) {
+							for (int x = 0; x < tilemap_tile_selection.w; x++) {
+								int xx = tilemap_tile_selection.x + x;
+								int yy = tilemap_tile_selection.y + y;
+								Tile tile = {};
+								tile.index = xx + yy * (tileset_texture.width / 16);
+								brush[i] = tile;
+								i++;
+							}
+						}
+					}
+				}
 
 				ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
+				// background
+				{
+					ImU32 col = ImGui::ColorConvertFloat4ToU32(*(ImVec4*)&color_cornflower_blue);
+					draw_list->AddRectFilled(texture_pos, texture_pos + texture_size, col);
+				}
+
 				draw_list->AddImage(tileset_texture.ID, texture_pos, texture_pos + texture_size);
 
-				if (selected_tiles.w > 0) {
-					Assert(selected_tiles.h > 0);
-
-					ImVec2 p = texture_pos + ImVec2(selected_tiles.x * 16, selected_tiles.y * 16) * tile_select_view.zoom;
-					ImVec2 p2 = p + ImVec2(selected_tiles.w * 16, selected_tiles.h * 16) * tile_select_view.zoom;
-					draw_list->AddRect(p, p2, IM_COL32_WHITE, 0, 0, 2);
+				if (tilemap_tile_selection.w > 0 && tilemap_tile_selection.h > 0) {
+					ImVec2 p = texture_pos + ImVec2(tilemap_tile_selection.x * 16, tilemap_tile_selection.y * 16) * tile_select_view.zoom;
+					ImVec2 p2 = p + ImVec2(tilemap_tile_selection.w * 16, tilemap_tile_selection.h * 16) * tile_select_view.zoom;
+					draw_list->AddRect(p, p2, IM_COL32_WHITE, 0, 0, 1 * tile_select_view.zoom);
 				}
 			};
 
