@@ -30,6 +30,7 @@ struct Editor {
 	enum Mode {
 		MODE_HEIGHTMAP,
 		MODE_TILEMAP,
+		MODE_OBJECTS,
 	};
 
 	enum HMode {
@@ -80,11 +81,17 @@ struct Editor {
 
 	bool show_tile_indices;
 	bool show_collision;
+	int layer_index;
+
+	bump_array<Object> objects;
+	int object_index;
 
 	bool is_level_open;
 	std::filesystem::path current_level_dir;
 
 	bool show_demo_window;
+
+	Texture tex_idle;
 
 	void init();
 	void deinit();

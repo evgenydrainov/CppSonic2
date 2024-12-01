@@ -28,6 +28,31 @@ void Game::load_level(const char* path) {
 	stb_snprintf(buf, sizeof(buf), "%s/Tileset.bin", path);
 	read_tileset(&ts, buf);
 
+	// load object data
+	objects = malloc_bump_array<Object>(MAX_OBJECTS);
+	stb_snprintf(buf, sizeof(buf), "%s/Objects.bin", path);
+	read_objects(&objects, buf);
+
+	// search for player init pos
+	{
+		bool found = false;
+
+		For (it, objects) {
+			if (it->type == OBJ_PLAYER_INIT_POS) {
+				player.pos = it->pos;
+				found = true;
+				break;
+			}
+		}
+
+		if (!found) {
+			log_error("Couldn't find OBJ_PLAYER_INIT_POS object.");
+
+			player.pos.x = 80; // @Temp
+			player.pos.y = 944;
+		}
+	}
+
 	gen_heightmap_texture(&heightmap, ts, tileset_texture);
 	gen_widthmap_texture(&widthmap, ts, tileset_texture);
 }
@@ -37,7 +62,7 @@ void Game::init() {
 	load_bmfont_file(&consolas,      "fonts/consolas.fnt",      "fonts/consolas_0.png");
 	load_bmfont_file(&consolas_bold, "fonts/consolas_bold.fnt", "fonts/consolas_bold_0.png");
 
-	load_level("levels/GHZ_Act1");
+	load_level("levels/EEZ_Act1");
 
 	// @Leak
 	load_texture_from_file(&anim_textures[anim_crouch],   "textures/crouch.png");
@@ -49,9 +74,6 @@ void Game::init() {
 	load_texture_from_file(&anim_textures[anim_skid],     "textures/skid.png");
 	load_texture_from_file(&anim_textures[anim_spindash], "textures/spindash.png");
 	load_texture_from_file(&anim_textures[anim_walk],     "textures/walk.png");
-
-	player.pos.x = 80; // @Temp
-	player.pos.y = 944;
 
 	camera_pos.x = player.pos.x - window.game_width / 2;
 	camera_pos.y = player.pos.y - window.game_height / 2;
@@ -1282,7 +1304,7 @@ void Game::draw(float delta) {
 
 		for (int y = yfrom; y < yto; y++) {
 			for (int x = xfrom; x < xto; x++) {
-				Tile tile = get_tile_a(tm, x, y);
+				Tile tile = get_tile(tm, x, y, 0);
 
 				if (tile.index == 0) {
 					continue;
@@ -1750,6 +1772,90 @@ void read_tileset(Tileset* ts, const char* fname) {
 	ts->heights = heights;
 	ts->widths = widths;
 	ts->angles = angles;
+}
+
+void write_objects(array<Object> objects, const char* fname) {
+	SDL_RWops* f = SDL_RWFromFile(fname, "wb");
+
+	if (!f) {
+		log_error("Couldn't open file \"%s\" for writing.", fname);
+		return;
+	}
+
+	defer { SDL_RWclose(f); };
+
+	char magic[4] = {'O', 'B', 'J', 'T'};
+	SDL_RWwrite(f, magic, sizeof magic, 1);
+
+	u32 version = 1;
+	SDL_RWwrite(f, &version, sizeof version, 1);
+
+	u32 num_objects = (u32) objects.count;
+	SDL_RWwrite(f, &num_objects, sizeof num_objects, 1);
+
+	auto serialize = [&](const Object& o) {
+		ObjType type = o.type;
+		SDL_RWwrite(f, &type, sizeof type, 1);
+
+		u32 flags = o.flags;
+		SDL_RWwrite(f, &flags, sizeof flags, 1);
+
+		vec2 pos = o.pos;
+		SDL_RWwrite(f, &pos, sizeof pos, 1);
+	};
+
+	For (it, objects) {
+		serialize(*it);
+	}
+}
+
+void read_objects(bump_array<Object>* objects, const char* fname) {
+	objects->count = 0; // clear
+
+	size_t filesize;
+	u8* filedata = get_file(fname, &filesize);
+
+	if (!filedata) return;
+
+	SDL_RWops* f = SDL_RWFromConstMem(filedata, filesize);
+	defer { SDL_RWclose(f); };
+
+	char magic[4];
+	SDL_RWread(f, magic, sizeof magic, 1);
+	Assert(magic[0] == 'O'
+		   && magic[1] == 'B'
+		   && magic[2] == 'J'
+		   && magic[3] == 'T');
+
+	u32 version;
+	SDL_RWread(f, &version, sizeof version, 1);
+	Assert(version == 1);
+
+	u32 num_objects;
+	SDL_RWread(f, &num_objects, sizeof num_objects, 1);
+	
+	auto deserialize = [&](Object* o) {
+		ObjType type;
+		SDL_RWread(f, &type, sizeof type, 1);
+
+		u32 flags;
+		SDL_RWread(f, &flags, sizeof flags, 1);
+
+		vec2 pos;
+		SDL_RWread(f, &pos, sizeof pos, 1);
+
+		o->type = type;
+		o->flags = flags;
+		o->pos = pos;
+	};
+
+	for (u32 i = 0; i < num_objects; i++) {
+		Object o = {};
+
+		deserialize(&o);
+
+		array_add(objects, o);
+	}
 }
 
 void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture& tileset_texture) {

@@ -62,6 +62,24 @@ struct Player {
 	vec2 prev_radius;
 };
 
+#define OBJ_TYPE_ENUM(X) \
+	X(OBJ_PLAYER_INIT_POS) \
+	X(OBJ_VERT_LAYER_SWITCH)
+
+DEFINE_NAMED_ENUM(ObjType, OBJ_TYPE_ENUM)
+
+typedef u32 instance_id;
+
+struct Object {
+	instance_id id;
+	ObjType type;
+	u32 flags;
+
+	vec2 pos;
+};
+
+constexpr size_t MAX_OBJECTS = 10'000;
+
 struct Tile {
 	unsigned int index : 16;
 
@@ -99,6 +117,8 @@ struct Tilemap {
 
 struct Game {
 	Player player;
+
+	bump_array<Object> objects;
 
 	vec2 camera_pos;
 	float camera_lock;
@@ -156,30 +176,31 @@ void write_tileset(const Tileset& ts, const char* fname);
 void read_tilemap(Tilemap* tm, const char* fname);
 void read_tileset(Tileset* ts, const char* fname);
 
+void write_objects(array<Object> objects, const char* fname);
+void read_objects(bump_array<Object>* objects, const char* fname);
+
 void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture& tileset_texture);
 void gen_widthmap_texture (Texture* widthmap,  const Tileset& ts, const Texture& tileset_texture);
 
-inline Tile get_tile_a(const Tilemap& tm, int tile_x, int tile_y) {
-	if ((0 <= tile_x && tile_x < tm.width) && (0 <= tile_y && tile_y < tm.height)) {
-		return tm.tiles_a[tile_x + tile_y * tm.width];
-	}
-	return {};
-}
-
-inline Tile get_tile_b(const Tilemap& tm, int tile_x, int tile_y) {
-	if ((0 <= tile_x && tile_x < tm.width) && (0 <= tile_y && tile_y < tm.height)) {
-		return tm.tiles_b[tile_x + tile_y * tm.width];
-	}
-	return {};
-}
-
 inline Tile get_tile(const Tilemap& tm, int tile_x, int tile_y, int layer) {
-	if (layer == 0) {
-		return get_tile_a(tm, tile_x, tile_y);
-	} else if (layer == 1) {
-		return get_tile_b(tm, tile_x, tile_y);
+	if ((0 <= tile_x && tile_x < tm.width) && (0 <= tile_y && tile_y < tm.height)) {
+		if (layer == 0) {
+			return tm.tiles_a[tile_x + tile_y * tm.width];
+		} else if (layer == 1) {
+			return tm.tiles_b[tile_x + tile_y * tm.width];
+		}
 	}
 	return {};
+}
+
+inline void set_tile(Tilemap* tm, int tile_x, int tile_y, int layer, Tile tile) {
+	if ((0 <= tile_x && tile_x < tm->width) && (0 <= tile_y && tile_y < tm->height)) {
+		if (layer == 0) {
+			tm->tiles_a[tile_x + tile_y * tm->width] = tile;
+		} else if (layer == 1) {
+			tm->tiles_b[tile_x + tile_y * tm->width] = tile;
+		}
+	}
 }
 
 inline array<u8> get_tile_heights(const Tileset& ts, int tile_index) {

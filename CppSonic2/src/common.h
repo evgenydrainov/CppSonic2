@@ -482,72 +482,6 @@ inline Arena arena_create_from_arena(Arena* arena, size_t capacity) {
 
 
 
-// "Array view"
-template <typename T>
-struct array {
-	T*     data;
-	size_t count;
-
-	array() = default;
-
-	array(T* data, size_t count) : data(data), count(count) {}
-
-	template <size_t N>
-	array(const T (&arr)[N]) : data((T*) &arr[0]), count(N) {}
-
-	T& operator[](size_t i) {
-		Assert(i >= 0);
-		Assert(i < count);
-		return data[i];
-	}
-
-	T operator[](size_t i) const {
-		Assert(i >= 0);
-		Assert(i < count);
-		return data[i];
-	}
-
-	T* begin() const { return data; }
-	T* end()   const { return data + count; }
-
-	bool operator==(const array& other) const {
-		if (count != other.count) {
-			return false;
-		}
-
-		for (size_t i = 0; i < count; i++) {
-			if (data[i] != other[i]) {
-				return false;
-			}
-		}
-
-		return true;
-	}
-
-	bool operator!=(const array& other) const {
-		return !(*this == other);
-	}
-};
-
-template <typename T>
-inline array<T> calloc_array(size_t count) {
-	array<T> arr = {};
-	arr.data  = (T*) calloc(count, sizeof(T));
-	arr.count = count;
-	return arr;
-}
-
-template <typename T>
-inline bool starts_with(array<T> arr, array<T> prefix) {
-	if (arr.count < prefix.count) {
-		return false;
-	}
-
-	arr.count = prefix.count;
-	return arr == prefix;
-}
-
-
 // Standard linear bump array
 template <typename T>
 struct bump_array {
@@ -641,6 +575,76 @@ inline T* array_insert(bump_array<T>* arr, size_t index, const T& val) {
 
 	return array_insert(arr, arr->begin() + index, val);
 }
+
+
+
+// "Array view"
+template <typename T>
+struct array {
+	T*     data;
+	size_t count;
+
+	array() = default;
+
+	array(T* data, size_t count) : data(data), count(count) {}
+
+	template <size_t N>
+	array(const T (&arr)[N]) : data((T*) &arr[0]), count(N) {}
+
+	array(bump_array<T> arr) : data(arr.data), count(arr.count) {}
+
+	T& operator[](size_t i) {
+		Assert(i >= 0);
+		Assert(i < count);
+		return data[i];
+	}
+
+	T operator[](size_t i) const {
+		Assert(i >= 0);
+		Assert(i < count);
+		return data[i];
+	}
+
+	T* begin() const { return data; }
+	T* end()   const { return data + count; }
+
+	bool operator==(const array& other) const {
+		if (count != other.count) {
+			return false;
+		}
+
+		for (size_t i = 0; i < count; i++) {
+			if (data[i] != other[i]) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	bool operator!=(const array& other) const {
+		return !(*this == other);
+	}
+};
+
+template <typename T>
+inline array<T> calloc_array(size_t count) {
+	array<T> arr = {};
+	arr.data  = (T*) calloc(count, sizeof(T));
+	arr.count = count;
+	return arr;
+}
+
+template <typename T>
+inline bool starts_with(array<T> arr, array<T> prefix) {
+	if (arr.count < prefix.count) {
+		return false;
+	}
+
+	arr.count = prefix.count;
+	return arr == prefix;
+}
+
 
 
 // -----------------------------------------------
