@@ -1,6 +1,6 @@
 #pragma once
 
-#if defined(DEVELOPER) && !defined(EDITOR)
+#ifdef DEVELOPER
 
 #include "common.h"
 #include "font.h"

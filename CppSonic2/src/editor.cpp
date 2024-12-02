@@ -10,6 +10,8 @@
 
 #include "imgui/imgui_internal.h"
 
+#include "subprocess.h"
+
 Editor editor;
 
 void Editor::init() {
@@ -18,6 +20,8 @@ void Editor::init() {
 	update_window_caption();
 
 	load_texture_from_file(&tex_idle, "textures/idle.png");
+	load_texture_from_file(&tex_layer_set, "textures/layer_set.png");
+	load_texture_from_file(&tex_layer_flip, "textures/layer_flip.png");
 }
 
 void Editor::deinit() {
@@ -127,7 +131,7 @@ static void pan_and_zoom(View& view) {
 	}
 
 	if (ImGui::IsWindowFocused()) {
-		if (ImGui::IsKeyPressed(ImGuiKey_Equal)) {
+		if (ImGui::IsKeyPressed(ImGuiKey_Equal)) { // repeat=true is fine
 			view.zoom *= 1.25f;
 			Clamp(&view.zoom, MIN_ZOOM, MAX_ZOOM);
 
@@ -135,7 +139,7 @@ static void pan_and_zoom(View& view) {
 			view.scrolling += new_texture_pos - texture_pos;
 		}
 
-		if (ImGui::IsKeyPressed(ImGuiKey_Minus)) {
+		if (ImGui::IsKeyPressed(ImGuiKey_Minus)) { // repeat=true is fine
 			view.zoom /= 1.25f;
 			Clamp(&view.zoom, MIN_ZOOM, MAX_ZOOM);
 
@@ -332,10 +336,25 @@ static void walk_tilemap(const Tilemap& tm,
 static Texture get_object_texture(ObjType type) {
 	switch (type) {
 		case OBJ_PLAYER_INIT_POS: return editor.tex_idle;
+		case OBJ_LAYER_SET:       return editor.tex_layer_set;
+		case OBJ_LAYER_FLIP:      return editor.tex_layer_flip;
 	}
 
 	Assert(!"invalid object type");
 	return {};
+}
+
+static bool IsKeyPressedNoMod(ImGuiKey key) {
+	if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) return false;
+	if (ImGui::IsKeyDown(ImGuiKey_RightCtrl)) return false;
+
+	if (ImGui::IsKeyDown(ImGuiKey_LeftShift)) return false;
+	if (ImGui::IsKeyDown(ImGuiKey_RightShift)) return false;
+
+	if (ImGui::IsKeyDown(ImGuiKey_LeftAlt)) return false;
+	if (ImGui::IsKeyDown(ImGuiKey_RightAlt)) return false;
+
+	return ImGui::IsKeyPressed(key, false);
 }
 
 void Editor::clear_state() {
@@ -422,16 +441,48 @@ void Editor::update(float delta) {
 		write_objects(objects, (current_level_dir / "Objects.bin").u8string().c_str());
 	};
 
-	if (ImGui::IsKeyPressed(ImGuiKey_N) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+	auto try_run_game = [&]() {
+		if (!is_level_open) {
+			return false;
+		}
+
+#if 1
+		// SDL overrides main and converts command line args to utf8, so process_name is utf8
+		auto str = current_level_dir.u8string();
+		const char *command_line[] = {process_name, "--game", str.c_str(), NULL};
+
+		// @Utf8
+		// it seems like this library doesn't convert from utf8 to windows wide char
+		subprocess_s subprocess;
+		int result = subprocess_create(command_line, subprocess_option_inherit_environment, &subprocess);
+
+		if (result != 0) {
+			return false;
+		}
+#else
+		// @Utf8
+		static char buf[512];
+		stb_snprintf(buf, sizeof buf, "%s --game %s", process_name, current_level_dir.string().c_str());
+		system(buf);
+#endif
+
+		return true;
+	};
+
+	if (ImGui::IsKeyPressed(ImGuiKey_N, false) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
 		try_open_cnl_popup();
 	}
 
-	if (ImGui::IsKeyPressed(ImGuiKey_O) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+	if (ImGui::IsKeyPressed(ImGuiKey_O, false) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
 		try_open_level();
 	}
 
-	if (ImGui::IsKeyPressed(ImGuiKey_S) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+	if (ImGui::IsKeyPressed(ImGuiKey_S, false) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
 		try_save_level();
+	}
+
+	if (ImGui::IsKeyPressed(ImGuiKey_F5, false)) {
+		try_run_game();
 	}
 
 	if (ImGui::BeginMainMenuBar()) {
@@ -446,6 +497,14 @@ void Editor::update(float delta) {
 
 			if (ImGui::MenuItem("Save Level", "Ctrl+S", nullptr, is_level_open)) {
 				try_save_level();
+			}
+
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Run")) {
+			if (ImGui::MenuItem("Run", "F5")) {
+				try_run_game();
 			}
 
 			ImGui::EndMenu();
@@ -500,7 +559,7 @@ void Editor::update(float delta) {
 		ImGui::EndMainMenuBar();
 	}
 
-	if (ImGui::IsKeyPressed(ImGuiKey_F1)) {
+	if (IsKeyPressedNoMod(ImGuiKey_F1)) {
 		show_demo_window ^= true;
 	}
 	if (show_demo_window) {
@@ -823,17 +882,16 @@ void Editor::update(float delta) {
 				defer { ImGui::End(); };
 
 				if (IconButtonActive(ICON_FA_PEN, htool == HTOOL_BRUSH)) htool = HTOOL_BRUSH;
+				if (IsKeyPressedNoMod(ImGuiKey_B)) htool = HTOOL_BRUSH;
 				ImGui::SetItemTooltip("Brush\nShortcut: B");
 
 				if (IconButtonActive(ICON_FA_ERASER, htool == HTOOL_ERASER)) htool = HTOOL_ERASER;
+				if (IsKeyPressedNoMod(ImGuiKey_E)) htool = HTOOL_ERASER;
 				ImGui::SetItemTooltip("Eraser\nShortcut: E");
 
 				if (IconButtonActive("A", htool == HTOOL_AUTO)) htool = HTOOL_AUTO;
+				if (IsKeyPressedNoMod(ImGuiKey_A)) htool = HTOOL_AUTO;
 				ImGui::SetItemTooltip("Auto-Tool\nShortcut: A");
-
-				if (ImGui::IsKeyPressed(ImGuiKey_B)) htool = HTOOL_BRUSH;
-				if (ImGui::IsKeyPressed(ImGuiKey_E)) htool = HTOOL_ERASER;
-				if (ImGui::IsKeyPressed(ImGuiKey_A)) htool = HTOOL_AUTO;
 			};
 
 			tool_select_window();
@@ -987,7 +1045,7 @@ void Editor::update(float delta) {
 					rectangle_select(tilemap_select_tool_selection, is_item_active,
 									 tilemap_pos, tilemap_size, tilemap_view, tm.width, tm.height);
 
-					if (ImGui::IsKeyPressed(ImGuiKey_C) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+					if (ImGui::IsKeyPressed(ImGuiKey_C, false) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
 						if (tilemap_select_tool_selection.w > 0 && tilemap_select_tool_selection.h > 0) {
 							free(brush.data);
 							brush = {};
@@ -1234,19 +1292,28 @@ void Editor::update(float delta) {
 				defer { ImGui::End(); };
 
 				if (IconButtonActive(ICON_FA_PEN, tool == TOOL_BRUSH)) tool = TOOL_BRUSH;
-				ImGui::SetItemTooltip("Brush");
+				if (IsKeyPressedNoMod(ImGuiKey_B)) tool = TOOL_BRUSH;
+				ImGui::SetItemTooltip("Brush\nShortcut: B");
 
 				if (IconButtonActive(ICON_FA_SQUARE_FULL, tool == TOOL_RECT)) {
 					tool = TOOL_RECT;
 					tilemap_rect_tool_selection = {};
 				}
-				ImGui::SetItemTooltip("Rectangle");
+				if (IsKeyPressedNoMod(ImGuiKey_R)) {
+					tool = TOOL_RECT;
+					tilemap_rect_tool_selection = {};
+				}
+				ImGui::SetItemTooltip("Rectangle\nShortcut: R");
 
 				if (IconButtonActive(ICON_FA_OBJECT_GROUP, tool == TOOL_SELECT)) {
 					tool = TOOL_SELECT;
 					tilemap_select_tool_selection = {};
 				}
-				ImGui::SetItemTooltip("Select");
+				if (IsKeyPressedNoMod(ImGuiKey_S)) {
+					tool = TOOL_SELECT;
+					tilemap_select_tool_selection = {};
+				}
+				ImGui::SetItemTooltip("Select\nShortcut: S");
 
 				if (IconButtonActive(ICON_FA_PEN "##2", tool == TOOL_TOP_SOLID_BRUSH)) tool = TOOL_TOP_SOLID_BRUSH;
 				ImGui::SetItemTooltip("Top Solid Brush");
@@ -1266,12 +1333,12 @@ void Editor::update(float delta) {
 
 				if (brush_size.x == 1 && brush_size.y == 1) {
 					if (IconButtonActive("H", brush[0].hflip)) brush[0].hflip ^= 1;
-					if (ImGui::IsKeyPressed(ImGuiKey_H)) brush[0].hflip ^= 1;
+					if (IsKeyPressedNoMod(ImGuiKey_H)) brush[0].hflip ^= 1;
 					ImGui::SetItemTooltip("Horizontal flip\nShortcut: H");
 
 					ImGui::SameLine();
 					if (IconButtonActive("V", brush[0].vflip)) brush[0].vflip ^= 1;
-					if (ImGui::IsKeyPressed(ImGuiKey_V)) brush[0].vflip ^= 1;
+					if (IsKeyPressedNoMod(ImGuiKey_V)) brush[0].vflip ^= 1;
 					ImGui::SetItemTooltip("Vertical flip\nShortcut: V");
 
 					ImGui::SameLine();
@@ -1325,7 +1392,7 @@ void Editor::update(float delta) {
 				if (ImGui::BeginDragDropTarget()) {
 					if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ADD_OBJECT")) {
 						ObjType type;
-						IM_ASSERT(payload->DataSize == sizeof type);
+						Assert(payload->DataSize == sizeof type);
 						type = *(ObjType*)payload->Data;
 
 						ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
@@ -1335,9 +1402,20 @@ void Editor::update(float delta) {
 						o.pos = {pos.x, pos.y};
 						o.type = type;
 
-						auto t = get_object_texture(type);
-						o.pos -= vec2(t.width / 2, t.height / 2);
 						o.pos = glm::floor(o.pos);
+
+						auto t = get_object_texture(type);
+
+						switch (o.type) {
+							case OBJ_LAYER_SET: {
+								o.layset.radius = {8, 24};
+								break;
+							}
+							case OBJ_LAYER_FLIP: {
+								o.layflip.radius = {8, 24};
+								break;
+							}
+						}
 
 						array_add(&objects, o);
 					}
@@ -1366,14 +1444,26 @@ void Editor::update(float delta) {
 
 				// draw objects
 				For (it, objects) {
-					Texture t = {};
+					Texture t = get_object_texture(it->type);
+
+					int w = t.width;
+					int h = t.height;
 
 					switch (it->type) {
-						case OBJ_PLAYER_INIT_POS: t = tex_idle; break;
+						case OBJ_LAYER_SET: {
+							w = it->layset.radius.x * 2;
+							h = it->layset.radius.y * 2;
+							break;
+						}
+						case OBJ_LAYER_FLIP: {
+							w = it->layflip.radius.x * 2;
+							h = it->layflip.radius.y * 2;
+							break;
+						}
 					}
 
-					ImVec2 p = tilemap_pos + ImVec2(it->pos.x, it->pos.y) * tilemap_view.zoom;
-					ImVec2 p2 = p + ImVec2(t.width, t.height) * tilemap_view.zoom;
+					ImVec2 p = tilemap_pos + ImVec2(it->pos.x - w / 2, it->pos.y - h / 2) * tilemap_view.zoom;
+					ImVec2 p2 = p + ImVec2(w, h) * tilemap_view.zoom;
 
 					draw_list->AddImage(t.ID, p, p2);
 				}
@@ -1396,13 +1486,13 @@ void Editor::update(float delta) {
 				ImGui::Begin("Objects##object_editor");
 				defer { ImGui::End(); };
 
-				int i = 0;
-
-				For (it, objects) {
+				for (int i = 0; i < objects.count; i++) {
 					char buf[32];
-					stb_snprintf(buf, sizeof buf, "%d: %s", i++, GetObjTypeName(it->type));
+					stb_snprintf(buf, sizeof buf, "%d: %s", i, GetObjTypeName(objects[i].type));
 
-					ImGui::Selectable(buf, false);
+					if (ImGui::Selectable(buf, i == selected_object)) {
+						selected_object = i;
+					}
 				}
 			};
 
@@ -1412,18 +1502,73 @@ void Editor::update(float delta) {
 				ImGui::Begin("Object List##object_editor");
 				defer { ImGui::End(); };
 
-				ImageButtonActive("object OBJ_PLAYER_INIT_POS", tex_idle.ID, ImVec2(tex_idle.width, tex_idle.height), {}, {1, 1}, false);
-				if (ImGui::BeginDragDropSource()) {
-					ObjType type = OBJ_PLAYER_INIT_POS;
-					ImGui::SetDragDropPayload("ADD_OBJECT", &type, sizeof type);
+				int id = 0;
 
-					ImGui::Text("OBJ_PLAYER_INIT_POS");
+				auto button = [&](ObjType type) {
+					auto t = get_object_texture(type);
 
-					ImGui::EndDragDropSource();
-				}
+					ImGui::PushID(id++);
+					ImageButtonActive("object button", t.ID, ImVec2(t.width, t.height), {}, {1, 1}, false);
+					ImGui::PopID();
+
+					ImGui::SetItemTooltip("%s", GetObjTypeName(type));
+
+					if (ImGui::BeginDragDropSource()) {
+						ImGui::SetDragDropPayload("ADD_OBJECT", &type, sizeof type);
+
+						ImGui::Text("%s", GetObjTypeName(type));
+
+						ImGui::EndDragDropSource();
+					}
+				};
+
+				button(OBJ_PLAYER_INIT_POS);
+				button(OBJ_LAYER_SET);
+				button(OBJ_LAYER_FLIP);
 			};
 
 			object_list_window();
+
+			auto object_properties_window = [&]() {
+				ImGui::Begin("Object Properties##object_editor");
+				defer { ImGui::End(); };
+
+				if (selected_object == -1) {
+					return;
+				}
+
+				Object* o = &objects[selected_object];
+
+				ImGui::DragFloat2("Position", glm::value_ptr(o->pos), 1, 0, 0, "%.0f");
+
+				switch (o->type) {
+					case OBJ_LAYER_SET: {
+						ImGui::DragFloat2("Radius", glm::value_ptr(o->layset.radius), 1, 0, 0, "%.0f");
+						
+						const char* values[] = {"A", "B"};
+						if (ImGui::BeginCombo("Layer", values[o->layset.layer])) {
+							if (ImGui::Selectable("A", o->layset.layer == 0)) o->layset.layer = 0;
+							if (ImGui::Selectable("B", o->layset.layer == 1)) o->layset.layer = 1;
+
+							ImGui::EndCombo();
+						}
+						break;
+					}
+
+					case OBJ_LAYER_FLIP: {
+						ImGui::DragFloat2("Radius", glm::value_ptr(o->layflip.radius), 1, 0, 0, "%.0f");
+						break;
+					}
+				}
+
+				if (ImGui::Button("Delete Object")) {
+					array_remove(&objects, selected_object);
+					selected_object = -1;
+					return;
+				}
+			};
+
+			object_properties_window();
 			break;
 		}
 	}

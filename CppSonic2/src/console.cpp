@@ -1,6 +1,6 @@
 #include "console.h"
 
-#if defined(DEVELOPER) && !defined(EDITOR)
+#ifdef DEVELOPER
 
 #include "window_creation.h"
 #include "renderer.h"

@@ -9,7 +9,7 @@ Game game;
 
 void Game::load_level(const char* path) {
 	// load tileset texture
-	char buf[512];
+	static char buf[512];
 	stb_snprintf(buf, sizeof(buf), "%s/Tileset.png", path);
 
 	load_texture_from_file(&tileset_texture, buf);
@@ -48,8 +48,7 @@ void Game::load_level(const char* path) {
 		if (!found) {
 			log_error("Couldn't find OBJ_PLAYER_INIT_POS object.");
 
-			player.pos.x = 80; // @Temp
-			player.pos.y = 944;
+			player.pos = {80, 944};
 		}
 	}
 
@@ -57,12 +56,20 @@ void Game::load_level(const char* path) {
 	gen_widthmap_texture(&widthmap, ts, tileset_texture);
 }
 
-void Game::init() {
+void Game::init(int argc, char* argv[]) {
 	load_bmfont_file(&font,          "fonts/ms_gothic.fnt",     "fonts/ms_gothic_0.png");
 	load_bmfont_file(&consolas,      "fonts/consolas.fnt",      "fonts/consolas_0.png");
 	load_bmfont_file(&consolas_bold, "fonts/consolas_bold.fnt", "fonts/consolas_bold_0.png");
 
-	load_level("levels/EEZ_Act1");
+	{
+		const char* path = "levels/EEZ_Act1";
+
+		if (argc >= 3) {
+			path = argv[2];
+		}
+
+		load_level(path);
+	}
 
 	// @Leak
 	load_texture_from_file(&anim_textures[anim_crouch],   "textures/crouch.png");
@@ -253,6 +260,13 @@ static vec2 player_get_radius(Player* p) {
 	} else {
 		return {9, 19};
 	}
+}
+
+static Rectf player_get_rect(Player* p) {
+	vec2 radius = player_get_radius(p);
+	vec2 pos = p->pos - radius / 2.0f;
+	vec2 size = radius * 2.0f;
+	return {pos.x, pos.y, size.x, size.y};
 }
 
 static void get_ground_sensors_pos(Player* p, vec2* sensor_a, vec2* sensor_b) {
@@ -914,17 +928,24 @@ static void player_state_ground(Player* p, float delta) {
 
 	// TODO: Check for starting crouching, balancing on ledges, etc.
 
-	// Move the Player object
-	p->speed.x =  dcos(p->ground_angle) * p->ground_speed;
-	p->speed.y = -dsin(p->ground_angle) * p->ground_speed;
+	auto physics_step = [&](float delta) {
+		// Move the Player object
+		p->speed.x =  dcos(p->ground_angle) * p->ground_speed;
+		p->speed.y = -dsin(p->ground_angle) * p->ground_speed;
 
-	p->pos += p->speed * delta;
+		p->pos += p->speed * delta;
 
-	// Push Sensor collision occurs.
-	push_sensor_collision(p);
+		// Push Sensor collision occurs.
+		push_sensor_collision(p);
 
-	// Grounded Ground Sensor collision occurs.
-	ground_sensor_collision(p);
+		// Grounded Ground Sensor collision occurs.
+		ground_sensor_collision(p);
+	};
+
+	constexpr int num_physics_steps = 4;
+	for (int i = 0; i < num_physics_steps; i++) {
+		physics_step(delta / (float)num_physics_steps);
+	}
 
 	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
 	player_keep_in_bounds(p);
@@ -1055,14 +1076,21 @@ static void player_state_roll(Player* p, float delta) {
 	p->speed.x =  dcos(p->ground_angle) * p->ground_speed;
 	p->speed.y = -dsin(p->ground_angle) * p->ground_speed;
 
-	// Move the Player object
-	p->pos += p->speed * delta;
+	auto physics_step = [&](float delta) {
+		// Move the Player object
+		p->pos += p->speed * delta;
 
-	// Push Sensor collision occurs.
-	push_sensor_collision(p);
+		// Push Sensor collision occurs.
+		push_sensor_collision(p);
 
-	// Grounded Ground Sensor collision occurs.
-	ground_sensor_collision(p);
+		// Grounded Ground Sensor collision occurs.
+		ground_sensor_collision(p);
+	};
+
+	constexpr int num_physics_steps = 4;
+	for (int i = 0; i < num_physics_steps; i++) {
+		physics_step(delta / (float)num_physics_steps);
+	}
 
 	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
 	player_keep_in_bounds(p);
@@ -1121,12 +1149,19 @@ static void player_state_air(Player* p, float delta) {
 	const float GRAVITY = 0.21875f;
 	p->speed.y += GRAVITY * delta;
 
-	// Move the Player object
-	p->pos += p->speed * delta;
+	auto physics_step = [&](float delta) {
+		// Move the Player object
+		p->pos += p->speed * delta;
 
-	// All air collision checks occur here.
-	push_sensor_collision(p);
-	ground_sensor_collision(p);
+		// All air collision checks occur here.
+		push_sensor_collision(p);
+		ground_sensor_collision(p);
+	};
+
+	constexpr int num_physics_steps = 4;
+	for (int i = 0; i < num_physics_steps; i++) {
+		physics_step(delta / (float)num_physics_steps);
+	}
 
 	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
 	player_keep_in_bounds(p);
@@ -1179,8 +1214,41 @@ static void player_update(Player* p, float delta) {
 		p->control_lock = fmaxf(p->control_lock - delta, 0);
 	}
 
+	For (it, game.objects) {
+		switch (it->type) {
+			case OBJ_LAYER_SET: {
+				Rectf r1 = player_get_rect(p);
+
+				vec2 pos = it->pos - it->layset.radius;
+				vec2 size = it->layset.radius * 2.0f;
+				Rectf r2 = {pos.x, pos.y, size.x, size.y};
+
+				if (rect_vs_rect(r1, r2)) {
+					p->layer = it->layset.layer;
+				}
+				break;
+			}
+			case OBJ_LAYER_FLIP: {
+				Rectf r1 = player_get_rect(p);
+
+				vec2 pos = it->pos - it->layflip.radius;
+				vec2 size = it->layflip.radius * 2.0f;
+				Rectf r2 = {pos.x, pos.y, size.x, size.y};
+
+				if (rect_vs_rect(r1, r2)) {
+					if (sign_int(p->speed.x) == 1) {
+						p->layer = 0;
+					} else if (sign_int(p->speed.x) == -1) {
+						p->layer = 1;
+					}
+				}
+				break;
+			}
+		}
+	}
+
 	auto anim_get_frame_count = [&](anim_index anim) -> int {
-		Texture t = game.anim_textures[anim];
+		const Texture& t = game.anim_textures[anim];
 		return t.width / 59;
 	};
 
@@ -1802,6 +1870,23 @@ void write_objects(array<Object> objects, const char* fname) {
 
 		vec2 pos = o.pos;
 		SDL_RWwrite(f, &pos, sizeof pos, 1);
+
+		switch (o.type) {
+			case OBJ_LAYER_SET: {
+				vec2 radius = o.layset.radius;
+				SDL_RWwrite(f, &radius, sizeof radius, 1);
+
+				int layer = o.layset.layer;
+				SDL_RWwrite(f, &layer, sizeof layer, 1);
+				break;
+			}
+
+			case OBJ_LAYER_FLIP: {
+				vec2 radius = o.layflip.radius;
+				SDL_RWwrite(f, &radius, sizeof radius, 1);
+				break;
+			}
+		}
 	};
 
 	For (it, objects) {
@@ -1837,16 +1922,35 @@ void read_objects(bump_array<Object>* objects, const char* fname) {
 	auto deserialize = [&](Object* o) {
 		ObjType type;
 		SDL_RWread(f, &type, sizeof type, 1);
+		o->type = type;
 
 		u32 flags;
 		SDL_RWread(f, &flags, sizeof flags, 1);
+		o->flags = flags;
 
 		vec2 pos;
 		SDL_RWread(f, &pos, sizeof pos, 1);
-
-		o->type = type;
-		o->flags = flags;
 		o->pos = pos;
+
+		switch (o->type) {
+			case OBJ_LAYER_SET: {
+				vec2 radius;
+				SDL_RWread(f, &radius, sizeof radius, 1);
+				o->layset.radius = radius;
+
+				int layer;
+				SDL_RWread(f, &layer, sizeof layer, 1);
+				o->layset.layer = layer;
+				break;
+			}
+
+			case OBJ_LAYER_FLIP: {
+				vec2 radius;
+				SDL_RWread(f, &radius, sizeof radius, 1);
+				o->layflip.radius = radius;
+				break;
+			}
+		}
 	};
 
 	for (u32 i = 0; i < num_objects; i++) {
@@ -1962,7 +2066,7 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-#if defined(DEVELOPER) && !defined(EDITOR)
+#ifdef DEVELOPER
 
 bool console_callback(string str, void* userdata) {
 	eat_whitespace(&str);

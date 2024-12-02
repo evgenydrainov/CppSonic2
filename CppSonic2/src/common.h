@@ -13,6 +13,7 @@
 #include <stb/stb_sprintf.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <glad/gl.h>
 
 #include <math.h>
@@ -327,6 +328,13 @@ inline bool circle_vs_circle(float x1, float y1, float r1, float x2, float y2, f
 	float dy = y2 - y1;
 	float r = r1 + r2;
 	return (dx * dx + dy * dy) < (r * r);
+}
+
+inline bool rect_vs_rect(Rectf r1, Rectf r2) {
+	return (r1.x + r1.w > r2.x &&
+			r1.x <= r2.x + r2.w &&
+			r1.y + r1.h > r2.y &&
+			r1.y <= r2.y + r2.h);
 }
 
 inline bool circle_vs_rotated_rect(float circle_x, float circle_y, float circle_radius,

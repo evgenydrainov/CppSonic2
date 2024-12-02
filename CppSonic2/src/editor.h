@@ -92,6 +92,10 @@ struct Editor {
 	bool show_demo_window;
 
 	Texture tex_idle;
+	Texture tex_layer_set;
+	Texture tex_layer_flip;
+
+	const char* process_name;
 
 	void init();
 	void deinit();

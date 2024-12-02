@@ -64,7 +64,8 @@ struct Player {
 
 #define OBJ_TYPE_ENUM(X) \
 	X(OBJ_PLAYER_INIT_POS) \
-	X(OBJ_VERT_LAYER_SWITCH)
+	X(OBJ_LAYER_SET) \
+	X(OBJ_LAYER_FLIP)
 
 DEFINE_NAMED_ENUM(ObjType, OBJ_TYPE_ENUM)
 
@@ -76,6 +77,17 @@ struct Object {
 	u32 flags;
 
 	vec2 pos;
+
+	union {
+		struct {
+			int layer;
+			vec2 radius;
+		} layset; // OBJ_LAYER_SET
+
+		struct {
+			vec2 radius;
+		} layflip; // OBJ_LAYER_FLIP
+	};
 };
 
 constexpr size_t MAX_OBJECTS = 10'000;
@@ -148,7 +160,7 @@ struct Game {
 	bool skip_frame;
 	bool frame_advance;
 
-	void init();
+	void init(int argc, char* argv[]);
 	void deinit();
 
 	void update(float delta);
@@ -160,7 +172,7 @@ struct Game {
 
 extern Game game;
 
-#if defined(DEVELOPER) && !defined(EDITOR)
+#ifdef DEVELOPER
 bool console_callback(string str, void* userdata);
 #endif
 
