@@ -329,12 +329,12 @@ static void walk_tilemap(const Tilemap& tm,
 }
 #endif
 
-static Texture get_object_texture(int object_index) {
-	switch (object_index) {
-		case 0: return editor.tex_idle;
+static Texture get_object_texture(ObjType type) {
+	switch (type) {
+		case OBJ_PLAYER_INIT_POS: return editor.tex_idle;
 	}
 
-	Assert(!"invalid object index");
+	Assert(!"invalid object type");
 	return {};
 }
 
@@ -364,7 +364,7 @@ void Editor::clear_state() {
 	show_tile_indices = false;
 	show_collision = false;
 	layer_index = 0;
-	object_index = 0;
+	selected_object = -1;
 }
 
 void Editor::update(float delta) {
@@ -1322,24 +1322,27 @@ void Editor::update(float delta) {
 				ImVec2 tilemap_size(tm.width * 16 * tilemap_view.zoom, tm.height * 16 * tilemap_view.zoom);
 
 				// add objects
-				if (is_item_active) {
-					if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+				if (ImGui::BeginDragDropTarget()) {
+					if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ADD_OBJECT")) {
+						ObjType type;
+						IM_ASSERT(payload->DataSize == sizeof type);
+						type = *(ObjType*)payload->Data;
+
 						ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
 						pos = ImFloor(pos);
 
 						Object o = {};
 						o.pos = {pos.x, pos.y};
+						o.type = type;
 
-						switch (object_index) {
-							case 0: o.type = OBJ_PLAYER_INIT_POS; break;
-						}
-
-						auto t = get_object_texture(object_index);
+						auto t = get_object_texture(type);
 						o.pos -= vec2(t.width / 2, t.height / 2);
 						o.pos = glm::floor(o.pos);
 
 						array_add(&objects, o);
 					}
+
+					ImGui::EndDragDropTarget();
 				}
 
 				// tilemap background
@@ -1370,22 +1373,6 @@ void Editor::update(float delta) {
 					}
 
 					ImVec2 p = tilemap_pos + ImVec2(it->pos.x, it->pos.y) * tilemap_view.zoom;
-					ImVec2 p2 = p + ImVec2(t.width, t.height) * tilemap_view.zoom;
-
-					draw_list->AddImage(t.ID, p, p2);
-				}
-
-				// draw hovered object
-				{
-					Texture t = get_object_texture(object_index);
-
-					ImVec2 p = (ImGui::GetMousePos() - tilemap_view.scrolling);
-					//p.x = floor_to(p.x, tilemap_view.zoom);
-					//p.y = floor_to(p.y, tilemap_view.zoom);
-					p += tilemap_view.scrolling;
-
-					p -= ImVec2(t.width / 2, t.height / 2) * tilemap_view.zoom;
-
 					ImVec2 p2 = p + ImVec2(t.width, t.height) * tilemap_view.zoom;
 
 					draw_list->AddImage(t.ID, p, p2);
@@ -1425,8 +1412,14 @@ void Editor::update(float delta) {
 				ImGui::Begin("Object List##object_editor");
 				defer { ImGui::End(); };
 
-				if (ImageButtonActive("object 0", tex_idle.ID, ImVec2(tex_idle.width, tex_idle.height), {}, {1, 1}, object_index == 0)) {
-					object_index = 0;
+				ImageButtonActive("object OBJ_PLAYER_INIT_POS", tex_idle.ID, ImVec2(tex_idle.width, tex_idle.height), {}, {1, 1}, false);
+				if (ImGui::BeginDragDropSource()) {
+					ObjType type = OBJ_PLAYER_INIT_POS;
+					ImGui::SetDragDropPayload("ADD_OBJECT", &type, sizeof type);
+
+					ImGui::Text("OBJ_PLAYER_INIT_POS");
+
+					ImGui::EndDragDropSource();
 				}
 			};
 

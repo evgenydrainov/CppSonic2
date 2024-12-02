@@ -84,7 +84,7 @@ struct Editor {
 	int layer_index;
 
 	bump_array<Object> objects;
-	int object_index;
+	int selected_object = -1;
 
 	bool is_level_open;
 	std::filesystem::path current_level_dir;
