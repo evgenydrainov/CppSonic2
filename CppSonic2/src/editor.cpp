@@ -344,6 +344,17 @@ static Texture get_object_texture(ObjType type) {
 	return {};
 }
 
+static ImVec2 get_object_size(const Object& o) {
+	switch (o.type) {
+		case OBJ_PLAYER_INIT_POS: return {30, 44};
+		case OBJ_LAYER_SET:       return {o.layset.radius.x * 2, o.layset.radius.y * 2};
+		case OBJ_LAYER_FLIP:      return {o.layflip.radius.x * 2, o.layflip.radius.y * 2};
+	}
+
+	auto t = get_object_texture(o.type);
+	return ImVec2(t.width, t.height);
+}
+
 static bool IsKeyPressedNoMod(ImGuiKey key) {
 	if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) return false;
 	if (ImGui::IsKeyDown(ImGuiKey_RightCtrl)) return false;
@@ -355,6 +366,43 @@ static bool IsKeyPressedNoMod(ImGuiKey key) {
 	if (ImGui::IsKeyDown(ImGuiKey_RightAlt)) return false;
 
 	return ImGui::IsKeyPressed(key, false);
+}
+
+static void draw_objects(ImDrawList* draw_list,
+						 array<Object> objects,
+						 ImVec2 tilemap_pos,
+						 const View& view) {
+	For (it, objects) {
+		Texture t = get_object_texture(it->type);
+
+		int w = t.width;
+		int h = t.height;
+
+		ImU32 col = IM_COL32_WHITE;
+
+		switch (it->type) {
+			case OBJ_LAYER_SET: {
+				w = it->layset.radius.x * 2;
+				h = it->layset.radius.y * 2;
+				if (it->layset.layer == 0) {
+					col = IM_COL32(128, 128, 255, 255);
+				} else {
+					col = IM_COL32(255, 128, 128, 255);
+				}
+				break;
+			}
+			case OBJ_LAYER_FLIP: {
+				w = it->layflip.radius.x * 2;
+				h = it->layflip.radius.y * 2;
+				break;
+			}
+		}
+
+		ImVec2 p = tilemap_pos + ImVec2(it->pos.x - w / 2, it->pos.y - h / 2) * view.zoom;
+		ImVec2 p2 = p + ImVec2(w, h) * view.zoom;
+
+		draw_list->AddImage(t.ID, p, p2, {0, 0}, {1, 1}, col);
+	}
 }
 
 void Editor::clear_state() {
@@ -1183,6 +1231,8 @@ void Editor::update(float delta) {
 					}
 				}
 
+				draw_objects(draw_list, objects, tilemap_pos, tilemap_view);
+
 				// draw selection
 				if (tool == TOOL_SELECT) {
 					if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
@@ -1423,6 +1473,20 @@ void Editor::update(float delta) {
 					ImGui::EndDragDropTarget();
 				}
 
+				// select object
+				if (is_item_active && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+					selected_object = -1;
+					for (int i = 0; i < objects.count; i++) {
+						const Object& it = objects[i];
+						auto size = get_object_size(it);
+						auto mouse = get_mouse_pos_in_view(tilemap_view);
+						if (point_in_rect({mouse.x, mouse.y}, {it.pos.x - size.x / 2, it.pos.y - size.y / 2, size.x, size.y})) {
+							selected_object = i;
+							break;
+						}
+					}
+				}
+
 				// tilemap background
 				{
 					ImU32 col = ImGui::ColorConvertFloat4ToU32(*(ImVec4*)&color_cornflower_blue);
@@ -1443,29 +1507,18 @@ void Editor::update(float delta) {
 				}
 
 				// draw objects
-				For (it, objects) {
-					Texture t = get_object_texture(it->type);
+				draw_objects(draw_list, objects, tilemap_pos, tilemap_view);
 
-					int w = t.width;
-					int h = t.height;
+				// highlight selected object
+				if (selected_object != -1) {
+					const Object& o = objects[selected_object];
 
-					switch (it->type) {
-						case OBJ_LAYER_SET: {
-							w = it->layset.radius.x * 2;
-							h = it->layset.radius.y * 2;
-							break;
-						}
-						case OBJ_LAYER_FLIP: {
-							w = it->layflip.radius.x * 2;
-							h = it->layflip.radius.y * 2;
-							break;
-						}
-					}
+					auto size = get_object_size(o);
 
-					ImVec2 p = tilemap_pos + ImVec2(it->pos.x - w / 2, it->pos.y - h / 2) * tilemap_view.zoom;
-					ImVec2 p2 = p + ImVec2(w, h) * tilemap_view.zoom;
+					ImVec2 p = tilemap_pos + ImVec2(o.pos.x - size.x / 2, o.pos.y - size.y / 2) * tilemap_view.zoom;
+					ImVec2 p2 = p + size * tilemap_view.zoom;
 
-					draw_list->AddImage(t.ID, p, p2);
+					draw_list->AddRect(p, p2, IM_COL32(255, 0, 0, 255), 0, 0, 0.5 * tilemap_view.zoom);
 				}
 
 				// draw grids

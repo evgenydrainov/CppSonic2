@@ -267,7 +267,7 @@ void render_begin_frame(vec4 clear_color) {
 }
 
 void render_end_frame() {
-	break_batch();
+	Assert(renderer.vertices.count == 0);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 

@@ -331,10 +331,17 @@ inline bool circle_vs_circle(float x1, float y1, float r1, float x2, float y2, f
 }
 
 inline bool rect_vs_rect(Rectf r1, Rectf r2) {
-	return (r1.x + r1.w > r2.x &&
-			r1.x <= r2.x + r2.w &&
-			r1.y + r1.h > r2.y &&
-			r1.y <= r2.y + r2.h);
+	return (r1.x + r1.w > r2.x
+			&& r1.x <= r2.x + r2.w
+			&& r1.y + r1.h > r2.y
+			&& r1.y <= r2.y + r2.h);
+}
+
+inline bool point_in_rect(vec2 p, Rectf r) {
+	return (p.x >= r.x
+			&& p.x < r.x + r.w
+			&& p.y >= r.y
+			&& p.y < r.y + r.h);
 }
 
 inline bool circle_vs_rotated_rect(float circle_x, float circle_y, float circle_radius,

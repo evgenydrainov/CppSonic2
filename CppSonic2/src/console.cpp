@@ -111,19 +111,25 @@ void Console::update(float delta) {
 void Console::draw(float delta) {
 	if (!show) return;
 
-	int backbuffer_w;
-	int backbuffer_h;
-	SDL_GL_GetDrawableSize(get_window_handle(), &backbuffer_w, &backbuffer_h);
+	int backbuffer_width;
+	int backbuffer_height;
+	SDL_GL_GetDrawableSize(window.handle, &backbuffer_width, &backbuffer_height);
 
-	float console_w = backbuffer_w;
-	float console_h = backbuffer_h * 0.40f;
+	break_batch();
+	renderer.proj_mat = glm::ortho<float>(0, backbuffer_width, backbuffer_height, 0);
+	renderer.view_mat = {1};
+	renderer.model_mat = {1};
+	glViewport(0, 0, backbuffer_width, backbuffer_height);
+
+	float console_w = backbuffer_width;
+	float console_h = backbuffer_height * 0.40f;
 
 	draw_rectangle(Rectf{0, 0, console_w, console_h}, bg_color);
 
 	vec2 pos = vec2(0, console_h + scroll);
 
 	break_batch();
-	glScissor(0, backbuffer_h - console_h, console_w, console_h);
+	glScissor(0, backbuffer_height - console_h, console_w, console_h);
 	glEnable(GL_SCISSOR_TEST);
 
 	// draw history

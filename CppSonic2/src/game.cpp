@@ -396,12 +396,12 @@ static SensorResult sensor_check_down(vec2 pos, int layer) {
 	int tile_x = pos.x / 16;
 	int tile_y = pos.y / 16;
 
-	Tile tile = get_tile(game.tm, tile_x, tile_y, layer);
+	Tile tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 	int height = get_height(tile, ix, iy);
 
 	if (height == 0) {
 		tile_y++;
-		tile = get_tile(game.tm, tile_x, tile_y, layer);
+		tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
 		result.tile = tile;
@@ -413,7 +413,7 @@ static SensorResult sensor_check_down(vec2 pos, int layer) {
 		result.dist = (32 - (iy % 16)) - (height + 1);
 	} else if (height == 16) {
 		tile_y--;
-		tile = get_tile(game.tm, tile_x, tile_y, layer);
+		tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
 		result.tile = tile;
@@ -470,12 +470,12 @@ static SensorResult sensor_check_right(vec2 pos, int layer) {
 	int tile_x = pos.x / 16;
 	int tile_y = pos.y / 16;
 
-	Tile tile = get_tile(game.tm, tile_x, tile_y, layer);
+	Tile tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 	int height = get_height(tile, ix, iy);
 
 	if (height == 0) {
 		tile_x++;
-		tile = get_tile(game.tm, tile_x, tile_y, layer);
+		tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
 		result.tile = tile;
@@ -486,7 +486,7 @@ static SensorResult sensor_check_right(vec2 pos, int layer) {
 		result.dist = (32 - (ix % 16)) - (height + 1);
 	} else if (height == 16) {
 		tile_x--;
-		tile = get_tile(game.tm, tile_x, tile_y, layer);
+		tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
 		result.tile = tile;
@@ -543,12 +543,12 @@ static SensorResult sensor_check_up(vec2 pos, int layer) {
 	int tile_x = pos.x / 16;
 	int tile_y = pos.y / 16;
 
-	Tile tile = get_tile(game.tm, tile_x, tile_y, layer);
+	Tile tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 	int height = get_height(tile, ix, iy);
 
 	if (height == 0) {
 		tile_y--;
-		tile = get_tile(game.tm, tile_x, tile_y, layer);
+		tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
 		result.tile = tile;
@@ -559,7 +559,7 @@ static SensorResult sensor_check_up(vec2 pos, int layer) {
 		result.dist = 16 + (iy % 16) - (height);
 	} else if (height == 16) {
 		tile_y++;
-		tile = get_tile(game.tm, tile_x, tile_y, layer);
+		tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
 		result.tile = tile;
@@ -616,12 +616,12 @@ static SensorResult sensor_check_left(vec2 pos, int layer) {
 	int tile_x = pos.x / 16;
 	int tile_y = pos.y / 16;
 
-	Tile tile = get_tile(game.tm, tile_x, tile_y, layer);
+	Tile tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 	int height = get_height(tile, ix, iy);
 
 	if (height == 0) {
 		tile_x--;
-		tile = get_tile(game.tm, tile_x, tile_y, layer);
+		tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
 		result.tile = tile;
@@ -632,7 +632,7 @@ static SensorResult sensor_check_left(vec2 pos, int layer) {
 		result.dist = 16 + (ix % 16) - (height);
 	} else if (height == 16) {
 		tile_x++;
-		tile = get_tile(game.tm, tile_x, tile_y, layer);
+		tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
 		result.tile = tile;
@@ -1359,8 +1359,11 @@ void Game::update(float delta) {
 }
 
 void Game::draw(float delta) {
+	break_batch();
 	renderer.proj_mat = glm::ortho<float>(0, window.game_width, window.game_height, 0);
 	renderer.view_mat = glm::translate(mat4{1}, vec3{-camera_pos.x, -camera_pos.y, 0});
+	renderer.model_mat = {1};
+	glViewport(0, 0, window.game_width, window.game_height);
 
 	// draw tilemap
 	{
@@ -1388,11 +1391,7 @@ void Game::draw(float delta) {
 
 #ifdef DEVELOPER
 				if (show_height || show_width) {
-					if (is_key_held(SDL_SCANCODE_TAB)) {
-						tile = get_tile(tm, x, y, 1);
-					} else {
-						tile = get_tile(tm, x, y, 0);
-					}
+					tile = get_tile(tm, x, y, player.layer);
 
 					src.x = (tile.index % tileset_width) * 16;
 					src.y = (tile.index / tileset_width) * 16;
@@ -1533,6 +1532,8 @@ void Game::draw(float delta) {
 	break_batch();
 	renderer.proj_mat = glm::ortho<float>(0, window.game_width, window.game_height, 0);
 	renderer.view_mat = {1};
+	renderer.model_mat = {1};
+	glViewport(0, 0, window.game_width, window.game_height);
 
 	// draw fps
 	{
@@ -1540,9 +1541,23 @@ void Game::draw(float delta) {
 		string str = Sprintf(buf, "%.0f", roundf(window.avg_fps));
 		draw_text_shadow(font, str, {window.game_width, window.game_height}, HALIGN_RIGHT, VALIGN_BOTTOM);
 	}
+
+	break_batch();
 }
 
 void Game::late_draw(float delta) {
+	{
+		int backbuffer_width;
+		int backbuffer_height;
+		SDL_GL_GetDrawableSize(window.handle, &backbuffer_width, &backbuffer_height);
+
+		break_batch();
+		renderer.proj_mat = glm::ortho<float>(0, backbuffer_width, backbuffer_height, 0);
+		renderer.view_mat = {1};
+		renderer.model_mat = {1};
+		glViewport(0, 0, backbuffer_width, backbuffer_height);
+	}
+
 	vec2 pos = {};
 
 #ifdef DEVELOPER
@@ -1872,6 +1887,9 @@ void write_objects(array<Object> objects, const char* fname) {
 		SDL_RWwrite(f, &pos, sizeof pos, 1);
 
 		switch (o.type) {
+			case OBJ_PLAYER_INIT_POS:
+				break;
+
 			case OBJ_LAYER_SET: {
 				vec2 radius = o.layset.radius;
 				SDL_RWwrite(f, &radius, sizeof radius, 1);
@@ -1884,6 +1902,11 @@ void write_objects(array<Object> objects, const char* fname) {
 			case OBJ_LAYER_FLIP: {
 				vec2 radius = o.layflip.radius;
 				SDL_RWwrite(f, &radius, sizeof radius, 1);
+				break;
+			}
+
+			default: {
+				Assert(false);
 				break;
 			}
 		}
@@ -1933,6 +1956,9 @@ void read_objects(bump_array<Object>* objects, const char* fname) {
 		o->pos = pos;
 
 		switch (o->type) {
+			case OBJ_PLAYER_INIT_POS:
+				break;
+
 			case OBJ_LAYER_SET: {
 				vec2 radius;
 				SDL_RWread(f, &radius, sizeof radius, 1);
@@ -1948,6 +1974,11 @@ void read_objects(bump_array<Object>* objects, const char* fname) {
 				vec2 radius;
 				SDL_RWread(f, &radius, sizeof radius, 1);
 				o->layflip.radius = radius;
+				break;
+			}
+
+			default: {
+				Assert(false);
 				break;
 			}
 		}
