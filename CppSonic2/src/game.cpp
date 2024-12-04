@@ -14,6 +14,11 @@ void Game::load_level(const char* path) {
 
 	load_texture_from_file(&tileset_texture, buf);
 
+	if (tileset_texture.ID == 0) {
+		log_error("Couldn't load tileset texture for level %s", path);
+		return;
+	}
+
 	Assert(tileset_texture.width  % 16 == 0);
 	Assert(tileset_texture.height % 16 == 0);
 
@@ -62,7 +67,7 @@ void Game::init(int argc, char* argv[]) {
 	load_bmfont_file(&consolas_bold, "fonts/consolas_bold.fnt", "fonts/consolas_bold_0.png");
 
 	{
-		const char* path = "levels/EEZ_Act1";
+		const char* path = "levels/Imported";
 
 		if (argc >= 3) {
 			path = argv[2];
@@ -82,7 +87,10 @@ void Game::init(int argc, char* argv[]) {
 	load_texture_from_file(&anim_textures[anim_spindash], "textures/spindash.png");
 	load_texture_from_file(&anim_textures[anim_walk],     "textures/walk.png");
 	load_texture_from_file(&anim_textures[anim_balance],  "textures/balance.png");
+	load_texture_from_file(&anim_textures[anim_balance2], "textures/balance2.png");
 	load_texture_from_file(&anim_textures[anim_push],     "textures/push.png");
+
+	load_texture_from_file(&tex_spindash_smoke, "textures/spindash_smoke.png");
 
 	camera_pos.x = player.pos.x - window.game_width / 2;
 	camera_pos.y = player.pos.y - window.game_height / 2;
@@ -744,7 +752,11 @@ static void ground_sensor_collision(Player* p) {
 				bool extra_sensor_found_tile = extra_res.dist <= check_dist;
 
 				if (!extra_sensor_found_tile) {
-					p->next_anim = anim_balance;
+					if (sensor_a_found_tile) {
+						p->next_anim = (p->facing > 0) ? anim_balance : anim_balance2;
+					} else {
+						p->next_anim = (p->facing < 0) ? anim_balance : anim_balance2;
+					}
 					p->frame_duration = 15;
 				}
 			}
@@ -839,7 +851,7 @@ static void push_sensor_collision(Player* p) {
 	vec2 sensor_f;
 	get_push_sensors_pos(p, &sensor_e, &sensor_f);
 
-	const int anim_push_frame_duration = 30;
+	const int anim_push_frame_duration = fmaxf(0, 8 - fabsf(p->ground_speed)) * 4;
 
 	if (is_push_sensor_f_active(p)) {
 		SensorResult res = push_sensor_f_check(p, sensor_f);
@@ -953,6 +965,11 @@ static void player_state_ground(Player* p, float delta) {
 		} else {
 			if (input_h == -sign_int(p->ground_speed)) {
 				p->ground_speed += input_h * PLAYER_DEC * delta;
+
+				if (fabsf(p->ground_speed) >= 4) {
+					p->next_anim = anim_skid;
+					p->frame_duration = 8;
+				}
 			} else {
 				if (fabsf(p->ground_speed) < PLAYER_TOP_SPEED) {
 					p->ground_speed += input_h * PLAYER_ACC * delta;
@@ -992,12 +1009,20 @@ static void player_state_ground(Player* p, float delta) {
 		dont_update_anim = true;
 	}
 
-	if (p->next_anim == anim_balance && p->ground_speed == 0) {
+	if ((p->next_anim == anim_balance || p->next_anim == anim_balance2) && p->ground_speed == 0) {
 		dont_update_anim = true;
 	}
 
-	if (p->next_anim == anim_push && input_h != 0) {
+	if (p->next_anim == anim_push && input_h == p->facing) {
 		dont_update_anim = true;
+	}
+
+	if (p->next_anim == anim_skid) {
+		if (sign_int(p->ground_speed) == p->facing) {
+			if (input_h != p->facing) {
+				dont_update_anim = true;
+			}
+		}
 	}
 
 	if (p->peelout) {
@@ -1463,6 +1488,7 @@ void Game::draw(float delta) {
 
 	Player* p = &player;
 
+	// draw player
 	{
 		int frame_index = p->frame_index;
 		if (p->anim == anim_roll || p->anim == anim_spindash) {
@@ -1489,6 +1515,28 @@ void Game::draw(float delta) {
 		}
 
 		draw_texture(t, src, glm::floor(player.pos), {p->facing, 1}, {30, 30}, angle);
+
+		// draw spindash smoke
+		if (p->anim == anim_spindash) {
+			auto t = tex_spindash_smoke;
+
+			const int num_frames = 7;
+
+			int frame_index = SDL_GetTicks() / (16.66 * 2);
+			frame_index %= num_frames;
+
+			Rect src;
+			src.x = frame_index * 48;
+			src.y = 0;
+			src.w = 48;
+			src.h = 48;
+
+			vec2 pos = glm::floor(p->pos);
+			pos.x -= 6 * p->facing;
+			pos.y -= 3;
+
+			draw_texture(t, src, pos, {p->facing, 1}, {24, 24});
+		}
 	}
 
 #ifdef DEVELOPER

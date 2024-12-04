@@ -105,6 +105,15 @@ struct Editor {
 	void update_window_caption();
 
 	void clear_state();
+
+	void import_s1_level(const char* level_data_path,
+						 const char* chunk_data_path,
+						 const char* tile_height_data_path,
+						 const char* tile_width_data_path,
+						 const char* tile_indices_path,
+						 const char* startpos_file_path,
+						 const char* tile_angle_data_path,
+						 const char* tileset_texture_path);
 };
 
 extern Editor editor;

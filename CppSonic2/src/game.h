@@ -31,6 +31,7 @@ enum anim_index {
 	anim_spindash,
 	anim_walk,
 	anim_balance,
+	anim_balance2,
 	anim_push,
 
 	NUM_ANIMS,
@@ -152,6 +153,8 @@ struct Game {
 	Tilemap tm;
 
 	Texture anim_textures[NUM_ANIMS];
+
+	Texture tex_spindash_smoke;
 
 	vec2 mouse_world_pos;
 

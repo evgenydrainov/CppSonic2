@@ -12,6 +12,8 @@
 
 #include "subprocess.h"
 
+#include <vector>
+
 Editor editor;
 
 void Editor::init() {
@@ -22,6 +24,17 @@ void Editor::init() {
 	load_texture_from_file(&tex_idle, "textures/idle.png");
 	load_texture_from_file(&tex_layer_set, "textures/layer_set.png");
 	load_texture_from_file(&tex_layer_flip, "textures/layer_flip.png");
+
+#if 0
+	import_s1_level("s1disasm/levels/ghz2.bin",
+					"s1disasm/map256/GHZ.bin",
+					"s1disasm/collide/Collision Array (Normal).bin",
+					"s1disasm/collide/Collision Array (Rotated).bin",
+					"s1disasm/collide/GHZ.bin",
+					"s1disasm/startpos/ghz2.bin",
+					"s1disasm/collide/Angle Map.bin",
+					"s1disasm/texture/ghz16.png");
+#endif
 }
 
 void Editor::deinit() {
@@ -403,6 +416,203 @@ static void draw_objects(ImDrawList* draw_list,
 
 		draw_list->AddImage(t.ID, p, p2, {0, 0}, {1, 1}, col);
 	}
+}
+
+void Editor::import_s1_level(const char* level_data_path,
+							 const char* chunk_data_path,
+							 const char* tile_height_data_path,
+							 const char* tile_width_data_path,
+							 const char* tile_indices_path,
+							 const char* startpos_file_path,
+							 const char* tile_angle_data_path,
+							 const char* tileset_texture_path) {
+	clear_state();
+
+	free_tileset(&ts);
+	free_tilemap(&tm);
+
+	std::vector<uint8_t> level_data;
+	std::vector<uint16_t> level_chunk_data;
+	std::vector<uint8_t> collision_array;
+	std::vector<uint8_t> collision_array_rot;
+	std::vector<uint8_t> level_col_indicies;
+	std::vector<uint16_t> startpos;
+	std::vector<uint8_t> angle_map;
+
+	{
+		size_t size;
+		uint8_t* data = (uint8_t*) SDL_LoadFile(level_data_path, &size);
+		if (!data || !size) return;
+		level_data.assign(data, data + size / sizeof(*data));
+		SDL_free(data);
+	}
+
+	{
+		size_t size;
+		uint16_t* data = (uint16_t*) SDL_LoadFile(chunk_data_path, &size);
+		if (!data || !size) return;
+		level_chunk_data.assign(data, data + size / sizeof(*data));
+		SDL_free(data);
+	}
+
+	{
+		size_t size;
+		uint8_t* data = (uint8_t*) SDL_LoadFile(tile_height_data_path, &size);
+		if (!data || !size) return;
+		collision_array.assign(data, data + size / sizeof(*data));
+		SDL_free(data);
+	}
+
+	{
+		size_t size;
+		uint8_t* data = (uint8_t*) SDL_LoadFile(tile_width_data_path, &size);
+		if (!data || !size) return;
+		collision_array_rot.assign(data, data + size / sizeof(*data));
+		SDL_free(data);
+	}
+
+	{
+		size_t size;
+		uint8_t* data = (uint8_t*) SDL_LoadFile(tile_indices_path, &size);
+		if (!data || !size) return;
+		level_col_indicies.assign(data, data + size / sizeof(*data));
+		SDL_free(data);
+	}
+
+	{
+		size_t size;
+		uint16_t* data = (uint16_t*) SDL_LoadFile(startpos_file_path, &size);
+		if (!data || !size) return;
+		startpos.assign(data, data + size / sizeof(*data));
+		SDL_free(data);
+	}
+
+	{
+		size_t size;
+		uint8_t* data = (uint8_t*) SDL_LoadFile(tile_angle_data_path, &size);
+		if (!data || !size) return;
+		angle_map.assign(data, data + size / sizeof(*data));
+		SDL_free(data);
+	}
+
+	load_texture_from_file(&tileset_texture, tileset_texture_path);
+	load_surface_from_file(&tileset_surface, tileset_texture_path);
+
+	if (tileset_texture.ID == 0) {
+		return;
+	}
+
+	int texture_w = tileset_texture.width;
+	int texture_h = tileset_texture.height;
+
+	if (texture_w <= 0 || texture_h <= 0 || texture_w % 16 != 0 || texture_h % 16 != 0) {
+		return;
+	}
+
+	int level_width_in_chunks = (int)level_data[0] + 1;
+	int level_height_in_chunks = (int)level_data[1] + 1;
+
+	if (level_width_in_chunks <= 0 || level_height_in_chunks <= 0) {
+		return;
+	}
+
+	tm.width  = level_width_in_chunks  * 16;
+	tm.height = level_height_in_chunks * 16;
+	tm.tiles_a = calloc_array<Tile>(tm.width * tm.height);
+	tm.tiles_b = calloc_array<Tile>(tm.width * tm.height);
+
+	for (size_t i = 0; i < level_chunk_data.size(); i++) {
+		level_chunk_data[i] = SDL_Swap16(level_chunk_data[i]);
+	}
+
+	startpos[0] = SDL_Swap16(startpos[0]);
+	startpos[1] = SDL_Swap16(startpos[1]);
+
+	objects = malloc_bump_array<Object>(MAX_OBJECTS);
+
+	{
+		Object o = {};
+		o.type = OBJ_PLAYER_INIT_POS;
+		o.pos = {startpos[0], startpos[1]};
+
+		array_add(&objects, o);
+	}
+
+	ts.count = (texture_w / 16) * (texture_h / 16);
+	ts.heights = calloc_array<u8>   (ts.count * 16);
+	ts.widths  = calloc_array<u8>   (ts.count * 16);
+	ts.angles  = calloc_array<float>(ts.count);
+
+	for (int y = 0; y < tm.height; y++) {
+		for (int x = 0; x < tm.width; x++) {
+			int chunk_x = x / 16;
+			int chunk_y = y / 16;
+
+			uint8_t chunk_index = level_data[2 + chunk_x + chunk_y * level_width_in_chunks] & 0b0111'1111;
+			bool loop = level_data[2 + chunk_x + chunk_y * level_width_in_chunks] & 0b1000'0000;
+
+			if (chunk_index == 0) {
+				continue;
+			}
+
+			uint16_t* tiles = &level_chunk_data[(chunk_index - 1) * 256];
+
+			int tile_in_chunk_x = x % 16;
+			int tile_in_chunk_y = y % 16;
+
+			uint16_t tile = tiles[tile_in_chunk_x + tile_in_chunk_y * 16];
+
+			tm.tiles_a[x + y * tm.width].index = tile & 0b0000'0011'1111'1111;
+			tm.tiles_a[x + y * tm.width].hflip = (tile & 0b0000'1000'0000'0000) != 0;
+			tm.tiles_a[x + y * tm.width].vflip = (tile & 0b0001'0000'0000'0000) != 0;
+			tm.tiles_a[x + y * tm.width].top_solid = (tile & 0b0010'0000'0000'0000) != 0;
+			tm.tiles_a[x + y * tm.width].lrb_solid = (tile & 0b0100'0000'0000'0000) != 0;
+
+			if (loop) {
+				chunk_index++;
+				tiles = &level_chunk_data[(chunk_index - 1) * 256];
+				tile = tiles[tile_in_chunk_x + tile_in_chunk_y * 16];
+
+				tm.tiles_b[x + y * tm.width].index = tile & 0b0000'0011'1111'1111;
+				tm.tiles_b[x + y * tm.width].hflip = (tile & 0b0000'1000'0000'0000) != 0;
+				tm.tiles_b[x + y * tm.width].vflip = (tile & 0b0001'0000'0000'0000) != 0;
+				tm.tiles_b[x + y * tm.width].top_solid = (tile & 0b0010'0000'0000'0000) != 0;
+				tm.tiles_b[x + y * tm.width].lrb_solid = (tile & 0b0100'0000'0000'0000) != 0;
+			}
+		}
+	}
+
+	for (size_t i = 0; i < level_col_indicies.size(); i++) {
+		uint8_t index = level_col_indicies[i];
+		uint8_t* height = &collision_array[index * 16];
+		uint8_t* width = &collision_array_rot[index * 16];
+
+		for (size_t j = 0; j < 16; j++) {
+			ts.heights[i * 16 + j] = height[j];
+			ts.widths[i * 16 + j] = width[j];
+		}
+
+		uint8_t angle = angle_map[index];
+		if (angle == 0xFF) { // flagged
+			ts.angles[i] = -1.0f;
+		} else {
+			ts.angles[i] = (float(256 - int(angle)) / 256.0f) * 360.0f;
+		}
+	}
+
+	gen_heightmap_texture(&heightmap, ts, tileset_texture);
+	gen_widthmap_texture(&widthmap, ts, tileset_texture);
+
+	current_level_dir = std::filesystem::u8path("levels/Imported");
+	is_level_open = true;
+
+	update_window_caption();
+
+	//std::filesystem::copy_file(std::filesystem::u8path(tileset_texture_path),
+	//						   current_level_dir / "Tileset.png");
+
+	//ImGuiIO& io = ImGui::GetIO();
+	//heightmap_view.scrolling = (io.DisplaySize - ImVec2(tileset_texture.width, tileset_texture.height)) / 2.0f;
 }
 
 void Editor::clear_state() {
