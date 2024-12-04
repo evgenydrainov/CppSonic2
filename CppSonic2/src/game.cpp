@@ -81,6 +81,8 @@ void Game::init(int argc, char* argv[]) {
 	load_texture_from_file(&anim_textures[anim_skid],     "textures/skid.png");
 	load_texture_from_file(&anim_textures[anim_spindash], "textures/spindash.png");
 	load_texture_from_file(&anim_textures[anim_walk],     "textures/walk.png");
+	load_texture_from_file(&anim_textures[anim_balance],  "textures/balance.png");
+	load_texture_from_file(&anim_textures[anim_push],     "textures/push.png");
 
 	camera_pos.x = player.pos.x - window.game_width / 2;
 	camera_pos.y = player.pos.y - window.game_height / 2;
@@ -716,12 +718,6 @@ static void ground_sensor_collision(Player* p) {
 	vec2 sensor_b;
 	get_ground_sensors_pos(p, &sensor_a, &sensor_b);
 
-	SensorResult res   = ground_sensor_check(p, sensor_a);
-	SensorResult res_b = ground_sensor_check(p, sensor_b);
-	if (res_b.dist < res.dist) {
-		res = res_b;
-	}
-
 	float check_dist;
 	if (player_is_grounded(p)) {
 		check_dist = 14;
@@ -730,10 +726,38 @@ static void ground_sensor_collision(Player* p) {
 		check_dist = fminf(fabsf(check_speed) + 4, 14);
 	}
 
+	SensorResult res_a = ground_sensor_check(p, sensor_a);
+	SensorResult res_b = ground_sensor_check(p, sensor_b);
+
+	bool sensor_a_found_tile = res_a.dist <= check_dist;
+	bool sensor_b_found_tile = res_b.dist <= check_dist;
+
+	// balancing animation
+	if (p->state == STATE_GROUND) {
+		if (p->ground_speed == 0) {
+			if ((sensor_a_found_tile && !sensor_b_found_tile) || (sensor_b_found_tile && !sensor_a_found_tile)) {
+				vec2 extra_sensor = p->pos;
+				extra_sensor.y += player_get_radius(p).y;
+
+				SensorResult extra_res = sensor_check_down(extra_sensor, p->layer);
+
+				bool extra_sensor_found_tile = extra_res.dist <= check_dist;
+
+				if (!extra_sensor_found_tile) {
+					p->next_anim = anim_balance;
+					p->frame_duration = 15;
+				}
+			}
+		}
+	}
+
+	SensorResult res = (res_a.dist < res_b.dist) ? res_a : res_b;
+
 	if (res.dist > check_dist) {
 		p->state = STATE_AIR;
 		return;
 	}
+
 	if (res.dist < -14) {
 		return;
 	}
@@ -815,6 +839,8 @@ static void push_sensor_collision(Player* p) {
 	vec2 sensor_f;
 	get_push_sensors_pos(p, &sensor_e, &sensor_f);
 
+	const int anim_push_frame_duration = 30;
+
 	if (is_push_sensor_f_active(p)) {
 		SensorResult res = push_sensor_f_check(p, sensor_f);
 		if (res.dist <= 0) {
@@ -826,6 +852,11 @@ static void push_sensor_collision(Player* p) {
 			}
 			p->ground_speed = 0.0f;
 			p->speed.x = 0.0f;
+
+			if (p->state == STATE_GROUND) {
+				p->next_anim = anim_push;
+				p->frame_duration = anim_push_frame_duration;
+			}
 		}
 	}
 
@@ -840,6 +871,11 @@ static void push_sensor_collision(Player* p) {
 			}
 			p->ground_speed = 0.0f;
 			p->speed.x = 0.0f;
+
+			if (p->state == STATE_GROUND) {
+				p->next_anim = anim_push;
+				p->frame_duration = anim_push_frame_duration;
+			}
 		}
 	}
 }
@@ -950,7 +986,25 @@ static void player_state_ground(Player* p, float delta) {
 	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
 	player_keep_in_bounds(p);
 
-	if (p->anim != anim_spindash && !p->peelout) {
+	bool dont_update_anim = false;
+
+	if (p->anim == anim_spindash) {
+		dont_update_anim = true;
+	}
+
+	if (p->next_anim == anim_balance && p->ground_speed == 0) {
+		dont_update_anim = true;
+	}
+
+	if (p->next_anim == anim_push && input_h != 0) {
+		dont_update_anim = true;
+	}
+
+	if (p->peelout) {
+		dont_update_anim = true;
+	}
+
+	if (!dont_update_anim) {
 		if (p->ground_speed == 0.0f) {
 			if (is_key_held(SDL_SCANCODE_DOWN)) {
 				p->next_anim = anim_crouch;
@@ -1183,7 +1237,7 @@ static void player_update(Player* p, float delta) {
 		p->peelout = false;
 	}
 
-	p->prev_mode = player_get_mode(p);
+	p->prev_mode   = player_get_mode(p);
 	p->prev_radius = player_get_radius(p);
 
 	switch (p->state) {

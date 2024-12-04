@@ -30,6 +30,8 @@ enum anim_index {
 	anim_skid,
 	anim_spindash,
 	anim_walk,
+	anim_balance,
+	anim_push,
 
 	NUM_ANIMS,
 };
