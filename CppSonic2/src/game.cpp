@@ -12,8 +12,7 @@ void Game::load_level(const char* path) {
 	static char buf[512];
 	stb_snprintf(buf, sizeof(buf), "%s/Tileset.png", path);
 
-	load_texture_from_file(&tileset_texture, buf);
-
+	tileset_texture = load_texture_from_file(buf);
 	if (tileset_texture.ID == 0) {
 		log_error("Couldn't load tileset texture for level %s", path);
 		return;
@@ -62,18 +61,16 @@ void Game::load_level(const char* path) {
 }
 
 void Game::init(int argc, char* argv[]) {
-	load_bmfont_file(&ms_gothic,     "fonts/ms_gothic.fnt",     "fonts/ms_gothic_0.png");
-	load_bmfont_file(&consolas,      "fonts/consolas.fnt",      "fonts/consolas_0.png");
-	load_bmfont_file(&consolas_bold, "fonts/consolas_bold.fnt", "fonts/consolas_bold_0.png");
+	ms_gothic     = load_bmfont_file("fonts/ms_gothic.fnt",     "fonts/ms_gothic_0.png");
+	consolas      = load_bmfont_file("fonts/consolas.fnt",      "fonts/consolas_0.png");
+	consolas_bold = load_bmfont_file("fonts/consolas_bold.fnt", "fonts/consolas_bold_0.png");
+	fnt_hud       = load_bmfont_file("fonts/fnt_hud.fnt",       "fonts/fnt_hud.png");
 
-	load_texture_from_file(&tex_fnt_menu, "fonts/fnt_menu.png");
-	load_font_from_texture(&fnt_menu, tex_fnt_menu, 16, 16, 8, 9, 17);
-
-	load_texture_from_file(&tex_fnt_hud, "fonts/fnt_hud.png");
-	load_font_from_texture(&fnt_hud, tex_fnt_hud, 16, 16, 8, 9, 17);
+	tex_fnt_menu = load_texture_from_file("fonts/fnt_menu.png");
+	fnt_menu = load_font_from_texture(tex_fnt_menu, 16, 16, 8, 9, 17);
 
 	{
-		const char* path = "levels/Imported";
+		const char* path = "levels/EEZ_Act1";
 
 		if (argc >= 3) {
 			path = argv[2];
@@ -83,23 +80,25 @@ void Game::init(int argc, char* argv[]) {
 	}
 
 	// @Leak
-	load_texture_from_file(&anim_textures[anim_crouch],   "textures/crouch.png");
-	load_texture_from_file(&anim_textures[anim_idle],     "textures/idle.png");
-	load_texture_from_file(&anim_textures[anim_look_up],  "textures/look_up.png");
-	load_texture_from_file(&anim_textures[anim_peelout],  "textures/peelout.png");
-	load_texture_from_file(&anim_textures[anim_roll],     "textures/roll.png");
-	load_texture_from_file(&anim_textures[anim_run],      "textures/run.png");
-	load_texture_from_file(&anim_textures[anim_skid],     "textures/skid.png");
-	load_texture_from_file(&anim_textures[anim_spindash], "textures/spindash.png");
-	load_texture_from_file(&anim_textures[anim_walk],     "textures/walk.png");
-	load_texture_from_file(&anim_textures[anim_balance],  "textures/balance.png");
-	load_texture_from_file(&anim_textures[anim_balance2], "textures/balance2.png");
-	load_texture_from_file(&anim_textures[anim_push],     "textures/push.png");
+	anim_textures[anim_crouch]   = load_texture_from_file("textures/crouch.png");
+	anim_textures[anim_idle]     = load_texture_from_file("textures/idle.png");
+	anim_textures[anim_look_up]  = load_texture_from_file("textures/look_up.png");
+	anim_textures[anim_peelout]  = load_texture_from_file("textures/peelout.png");
+	anim_textures[anim_roll]     = load_texture_from_file("textures/roll.png");
+	anim_textures[anim_run]      = load_texture_from_file("textures/run.png");
+	anim_textures[anim_skid]     = load_texture_from_file("textures/skid.png");
+	anim_textures[anim_spindash] = load_texture_from_file("textures/spindash.png");
+	anim_textures[anim_walk]     = load_texture_from_file("textures/walk.png");
+	anim_textures[anim_balance]  = load_texture_from_file("textures/balance.png");
+	anim_textures[anim_balance2] = load_texture_from_file("textures/balance2.png");
+	anim_textures[anim_push]     = load_texture_from_file("textures/push.png");
 
-	load_texture_from_file(&tex_spindash_smoke, "textures/spindash_smoke.png");
+	tex_spindash_smoke = load_texture_from_file("textures/spindash_smoke.png");
 
 	camera_pos.x = player.pos.x - window.game_width / 2;
 	camera_pos.y = player.pos.y - window.game_height / 2;
+
+	show_debug_info = true;
 }
 
 void Game::deinit() {
@@ -224,6 +223,14 @@ static bool are_ground_sensors_active(Player* p) {
 	}
 }
 
+static bool are_ceiling_sensors_active(Player* p) {
+	if (player_is_grounded(p)) {
+		return false;
+	} else {
+		return p->speed.y < 0.0f;
+	}
+}
+
 static bool is_push_sensor_e_active(Player* p) {
 	if (player_is_grounded(p)) {
 		float a = angle_wrap(p->ground_angle);
@@ -314,6 +321,44 @@ static void get_ground_sensors_pos(Player* p, vec2* sensor_a, vec2* sensor_b) {
 			sensor_a->y = p->pos.y - radius.x;
 			sensor_b->x = p->pos.x - radius.y;
 			sensor_b->y = p->pos.y + radius.x;
+			break;
+		}
+	}
+}
+
+static void get_ceiling_sensors_pos(Player* p, vec2* sensor_c, vec2* sensor_d) {
+	vec2 radius = player_get_radius(p);
+
+	radius.y = -radius.y;
+
+	// same as ground sensors
+	switch (player_get_mode(p)) {
+		case MODE_FLOOR: {
+			sensor_c->x = p->pos.x - radius.x;
+			sensor_c->y = p->pos.y + radius.y;
+			sensor_d->x = p->pos.x + radius.x;
+			sensor_d->y = p->pos.y + radius.y;
+			break;
+		}
+		case MODE_RIGHT_WALL: {
+			sensor_c->x = p->pos.x + radius.y;
+			sensor_c->y = p->pos.y + radius.x;
+			sensor_d->x = p->pos.x + radius.y;
+			sensor_d->y = p->pos.y - radius.x;
+			break;
+		}
+		case MODE_CEILING: {
+			sensor_c->x = p->pos.x + radius.x;
+			sensor_c->y = p->pos.y - radius.y;
+			sensor_d->x = p->pos.x - radius.x;
+			sensor_d->y = p->pos.y - radius.y;
+			break;
+		}
+		case MODE_LEFT_WALL: {
+			sensor_c->x = p->pos.x - radius.y;
+			sensor_c->y = p->pos.y - radius.x;
+			sensor_d->x = p->pos.x - radius.y;
+			sensor_d->y = p->pos.y + radius.x;
 			break;
 		}
 	}
@@ -683,6 +728,20 @@ static SensorResult ground_sensor_check(Player* p, vec2 pos) {
 	return {};
 }
 
+static SensorResult ceiling_sensor_check(Player* p, vec2 pos) {
+	switch (player_get_mode(p)) {
+		case MODE_FLOOR:
+			return sensor_check_up(pos, p->layer);
+		case MODE_RIGHT_WALL:
+			return sensor_check_left(pos, p->layer);
+		case MODE_CEILING:
+			return sensor_check_down(pos, p->layer);
+		case MODE_LEFT_WALL:
+			return sensor_check_right(pos, p->layer);
+	}
+	return {};
+}
+
 static SensorResult push_sensor_e_check(Player* p, vec2 pos) {
 	switch (player_get_mode(p)) {
 		case MODE_FLOOR:
@@ -852,6 +911,33 @@ static void ground_sensor_collision(Player* p) {
 	}
 }
 
+static void ceiling_sensor_collision(Player* p) {
+	if (!are_ceiling_sensors_active(p)) {
+		return;
+	}
+
+	Assert(player_get_mode(p) == MODE_FLOOR);
+
+	vec2 sensor_c;
+	vec2 sensor_d;
+	get_ceiling_sensors_pos(p, &sensor_c, &sensor_d);
+
+	SensorResult res_c = ceiling_sensor_check(p, sensor_c);
+	SensorResult res_d = ceiling_sensor_check(p, sensor_d);
+
+	SensorResult res = (res_c.dist < res_d.dist) ? res_c : res_d;
+
+	if (res.dist > 0) {
+		return;
+	}
+
+	p->pos.y -= res.dist;
+
+	p->speed.y = 0;
+
+	// TODO: Landing on ceilings.
+}
+
 static void push_sensor_collision(Player* p) {
 	vec2 sensor_e;
 	vec2 sensor_f;
@@ -920,6 +1006,22 @@ static bool player_try_jump(Player* p) {
 
 	if (p->control_lock > 0) {
 		return false;
+	}
+
+	{
+		// don't check if they're active cause they're not
+		vec2 sensor_c;
+		vec2 sensor_d;
+		get_ceiling_sensors_pos(p, &sensor_c, &sensor_d);
+
+		SensorResult res_c = ceiling_sensor_check(p, sensor_c);
+		SensorResult res_d = ceiling_sensor_check(p, sensor_d);
+
+		SensorResult res = (res_c.dist < res_d.dist) ? res_c : res_d;
+
+		if (res.dist < 6) {
+			return false;
+		}
 	}
 
 	p->speed.x -= PLAYER_JUMP_FORCE * dsin(p->ground_angle);
@@ -1084,11 +1186,11 @@ static void player_state_ground(Player* p, float delta) {
 			p->spinrev += 2;
 			p->spinrev = fminf(p->spinrev, 8);
 			p->frame_index = 0;
+		} else if (p->peelout) {
+			// do nothing
 		} else {
-			if (!p->peelout) {
-				if (player_try_jump(p)) {
-					return;
-				}
+			if (player_try_jump(p)) {
+				return;
 			}
 		}
 	}
@@ -1240,7 +1342,10 @@ static void player_state_air(Player* p, float delta) {
 
 		// All air collision checks occur here.
 		push_sensor_collision(p);
+
 		ground_sensor_collision(p);
+
+		ceiling_sensor_collision(p);
 	};
 
 	constexpr int num_physics_steps = 4;
@@ -1378,6 +1483,10 @@ void Game::update(float delta) {
 
 	if (is_key_pressed(SDL_SCANCODE_F6)) {
 		frame_advance = false;
+	}
+
+	if (is_key_pressed(SDL_SCANCODE_F1)) {
+		show_debug_info ^= true;
 	}
 
 	if (!skip_frame) {
@@ -1547,73 +1656,84 @@ void Game::draw(float delta) {
 
 #ifdef DEVELOPER
 	// draw player hitbox
-	{
-		vec2 radius = p->prev_radius;
+	if (show_debug_info) {
+		{
+			vec2 radius = p->prev_radius;
 
-		Rectf rect;
-		switch (p->prev_mode) {
-			case MODE_FLOOR:
-			case MODE_CEILING: {
-				rect.x = floorf(p->pos.x - radius.x);
-				rect.y = floorf(p->pos.y - radius.y);
-				rect.w = radius.x * 2 + 1;
-				rect.h = radius.y * 2 + 1;
-				break;
-			}
-			case MODE_RIGHT_WALL:
-			case MODE_LEFT_WALL: {
-				rect.x = floorf(p->pos.x - radius.y);
-				rect.y = floorf(p->pos.y - radius.x);
-				rect.w = radius.y * 2 + 1;
-				rect.h = radius.x * 2 + 1;
-				break;
-			}
-		}
-
-		draw_rectangle_outline(rect, get_color(128, 128, 255, 255));
-	}
-
-	// draw sensors
-	{
-		const vec4 SENSOR_A_COLOR = get_color(0, 240, 0, 255);
-		const vec4 SENSOR_B_COLOR = get_color(56, 255, 162, 255);
-		const vec4 SENSOR_C_COLOR = get_color(0, 174, 239, 255);
-		const vec4 SENSOR_D_COLOR = get_color(255, 242, 56, 255);
-		const vec4 SENSOR_E_COLOR = get_color(255, 56, 255, 255);
-		const vec4 SENSOR_F_COLOR = get_color(255, 84, 84, 255);
-
-		if (are_ground_sensors_active(p)) {
-			vec2 sensor_a;
-			vec2 sensor_b;
-			get_ground_sensors_pos(p, &sensor_a, &sensor_b);
-
-			draw_point(glm::floor(sensor_a), SENSOR_A_COLOR);
-			draw_point(glm::floor(sensor_b), SENSOR_B_COLOR);
-		}
-
-		vec2 sensor_e;
-		vec2 sensor_f;
-		get_push_sensors_pos(p, &sensor_e, &sensor_f);
-
-		auto draw_push_sensor = [&](Player* p, vec2 sensor, vec4 color) {
-			switch (player_get_push_mode(p)) {
+			Rectf rect;
+			switch (p->prev_mode) {
 				case MODE_FLOOR:
-				case MODE_CEILING:
-					draw_line(glm::floor(vec2{p->pos.x, sensor.y}), glm::floor(sensor), color);
+				case MODE_CEILING: {
+					rect.x = floorf(p->pos.x - radius.x);
+					rect.y = floorf(p->pos.y - radius.y);
+					rect.w = radius.x * 2 + 1;
+					rect.h = radius.y * 2 + 1;
 					break;
+				}
 				case MODE_RIGHT_WALL:
-				case MODE_LEFT_WALL:
-					draw_line(glm::floor(vec2{sensor.x, p->pos.y}), glm::floor(sensor), color);
+				case MODE_LEFT_WALL: {
+					rect.x = floorf(p->pos.x - radius.y);
+					rect.y = floorf(p->pos.y - radius.x);
+					rect.w = radius.y * 2 + 1;
+					rect.h = radius.x * 2 + 1;
 					break;
+				}
 			}
-		};
 
-		if (is_push_sensor_e_active(p)) {
-			draw_push_sensor(p, sensor_e, SENSOR_E_COLOR);
+			draw_rectangle_outline(rect, get_color(128, 128, 255, 255));
 		}
 
-		if (is_push_sensor_f_active(p)) {
-			draw_push_sensor(p, sensor_f, SENSOR_F_COLOR);
+		// draw sensors
+		{
+			const vec4 SENSOR_A_COLOR = get_color(0, 240, 0, 255);
+			const vec4 SENSOR_B_COLOR = get_color(56, 255, 162, 255);
+			const vec4 SENSOR_C_COLOR = get_color(0, 174, 239, 255);
+			const vec4 SENSOR_D_COLOR = get_color(255, 242, 56, 255);
+			const vec4 SENSOR_E_COLOR = get_color(255, 56, 255, 255);
+			const vec4 SENSOR_F_COLOR = get_color(255, 84, 84, 255);
+
+			if (are_ground_sensors_active(p)) {
+				vec2 sensor_a;
+				vec2 sensor_b;
+				get_ground_sensors_pos(p, &sensor_a, &sensor_b);
+
+				draw_point(glm::floor(sensor_a), SENSOR_A_COLOR);
+				draw_point(glm::floor(sensor_b), SENSOR_B_COLOR);
+			}
+
+			if (are_ceiling_sensors_active(p)) {
+				vec2 sensor_c;
+				vec2 sensor_d;
+				get_ceiling_sensors_pos(p, &sensor_c, &sensor_d);
+
+				draw_point(glm::floor(sensor_c), SENSOR_C_COLOR);
+				draw_point(glm::floor(sensor_d), SENSOR_D_COLOR);
+			}
+
+			vec2 sensor_e;
+			vec2 sensor_f;
+			get_push_sensors_pos(p, &sensor_e, &sensor_f);
+
+			auto draw_push_sensor = [&](Player* p, vec2 sensor, vec4 color) {
+				switch (player_get_push_mode(p)) {
+					case MODE_FLOOR:
+					case MODE_CEILING:
+						draw_line(glm::floor(vec2{p->pos.x, sensor.y}), glm::floor(sensor), color);
+						break;
+					case MODE_RIGHT_WALL:
+					case MODE_LEFT_WALL:
+						draw_line(glm::floor(vec2{sensor.x, p->pos.y}), glm::floor(sensor), color);
+						break;
+				}
+			};
+
+			if (is_push_sensor_e_active(p)) {
+				draw_push_sensor(p, sensor_e, SENSOR_E_COLOR);
+			}
+
+			if (is_push_sensor_f_active(p)) {
+				draw_push_sensor(p, sensor_f, SENSOR_F_COLOR);
+			}
 		}
 	}
 #endif
@@ -1645,7 +1765,15 @@ void Game::draw(float delta) {
 
 	// draw hud
 	{
-		draw_text(fnt_hud, "score", {16, 8});
+		vec2 pos = {16, 8};
+		draw_text(fnt_hud, "score", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
+		pos.y += 16;
+
+		draw_text(fnt_hud, "time", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
+		pos.y += 16;
+
+		draw_text(fnt_hud, "rings", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
+		pos.y += 16;
 	}
 
 	// draw fps
@@ -1674,34 +1802,36 @@ void Game::late_draw(float delta) {
 	vec2 pos = {};
 
 #ifdef DEVELOPER
-	{
-		char buf[256];
-		string str = Sprintf(buf,
-							 "frame: %fms\n"
-							 "update: %fms\n"
-							 "draw: %fms\n"
-							 "draw calls: %d\n"
-							 "total triangles: %d\n",
-							 window.frame_took * 1000.0,
-							 (window.frame_took - renderer.draw_took) * 1000.0,
-							 renderer.draw_took * 1000.0,
-							 renderer.draw_calls,
-							 renderer.total_triangles);
-		pos = draw_text_shadow(consolas_bold, str, pos);
-	}
+	if (show_debug_info) {
+		{
+			char buf[256];
+			string str = Sprintf(buf,
+								 "frame: %fms\n"
+								 "update: %fms\n"
+								 "draw: %fms\n"
+								 "draw calls: %d\n"
+								 "total triangles: %d\n",
+								 window.frame_took * 1000.0,
+								 (window.frame_took - renderer.draw_took) * 1000.0,
+								 renderer.draw_took * 1000.0,
+								 renderer.draw_calls,
+								 renderer.total_triangles);
+			pos = draw_text_shadow(consolas_bold, str, pos);
+		}
 
-	{
-		Player* p = &player;
+		{
+			Player* p = &player;
 
-		char buf[256];
-		string str = Sprintf(buf,
-							 "state: %s\n"
-							 "ground speed: %f\n"
-							 "ground angle: %f\n",
-							 GetPlayerStateName(p->state),
-							 p->ground_speed,
-							 p->ground_angle);
-		pos = draw_text_shadow(consolas_bold, str, pos);
+			char buf[256];
+			string str = Sprintf(buf,
+								 "state: %s\n"
+								 "ground speed: %f\n"
+								 "ground angle: %f\n",
+								 GetPlayerStateName(p->state),
+								 p->ground_speed,
+								 p->ground_angle);
+			pos = draw_text_shadow(consolas_bold, str, pos);
+		}
 	}
 #endif
 

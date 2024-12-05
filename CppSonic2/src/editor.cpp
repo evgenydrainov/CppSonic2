@@ -16,6 +16,17 @@
 
 Editor editor;
 
+static void load_texture_from_file(Texture* t, const char* fname,
+								   int filter = GL_NEAREST, int wrap = GL_CLAMP_TO_BORDER) {
+	free_texture(t);
+	*t = load_texture_from_file(fname, filter, wrap);
+}
+
+static void load_surface_from_file(SDL_Surface** surface, const char* fname) {
+	if (*surface) SDL_FreeSurface(*surface);
+	*surface = load_surface_from_file(fname);
+}
+
 void Editor::init() {
 	SDL_MaximizeWindow(get_window_handle());
 

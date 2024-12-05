@@ -47,12 +47,12 @@ u8* decode_image_data(array<u8> buffer, int* out_width, int* out_height) {
 	return {};
 }
 
-bool load_texture_from_pixel_data(Texture* t, u8* pixel_data, int width, int height,
-								  int filter, int wrap) {
-	free_texture(t);
+Texture load_texture_from_pixel_data(u8* pixel_data, int width, int height,
+									 int filter, int wrap) {
+	Texture t = {};
 
-	glGenTextures(1, &t->ID);
-	glBindTexture(GL_TEXTURE_2D, t->ID);
+	glGenTextures(1, &t.ID);
+	glBindTexture(GL_TEXTURE_2D, t.ID);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
@@ -63,45 +63,40 @@ bool load_texture_from_pixel_data(Texture* t, u8* pixel_data, int width, int hei
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	t->width = width;
-	t->height = height;
-	return true;
+	t.width = width;
+	t.height = height;
+	return t;
 }
 
-bool load_texture_from_memory(Texture* t, array<u8> buffer,
-							  int filter, int wrap) {
-	free_texture(t);
-
+Texture load_texture_from_memory(array<u8> buffer,
+								 int filter, int wrap) {
 	int width;
 	int height;
 	u8* pixel_data = decode_image_data(buffer, &width, &height);
 	if (!pixel_data) {
-		return false;
+		log_error("Couldn't decode image data.");
+		return {};
 	}
 
 	defer { free(pixel_data); };
 
-	return load_texture_from_pixel_data(t, pixel_data, width, height, filter, wrap);
+	return load_texture_from_pixel_data(pixel_data, width, height, filter, wrap);
 }
 
-bool load_texture_from_file(Texture* t, const char* fname,
-							int filter, int wrap) {
-	free_texture(t);
-
+Texture load_texture_from_file(const char* fname,
+							   int filter, int wrap) {
 	auto buffer = get_file_arr(fname);
 	if (buffer.count == 0) {
-		return false;
+		return {};
 	}
 
-	bool result = load_texture_from_memory(t, buffer, filter, wrap);
+	Texture t = load_texture_from_memory(buffer, filter, wrap);
 
-	if (result) {
+	if (t.ID != 0) {
 		log_info("Loaded texture %s", fname);
-	} else {
-		log_info("Couldn't load texture %s", fname);
 	}
 
-	return result;
+	return t;
 }
 
 void free_texture(Texture* t) {
@@ -112,25 +107,21 @@ void free_texture(Texture* t) {
 	*t = {};
 }
 
-bool load_surface_from_file(SDL_Surface** surface, const char* fname) {
-	if (*surface) SDL_FreeSurface(*surface);
-	*surface = nullptr;
-
+SDL_Surface* load_surface_from_file(const char* fname) {
 	auto buffer = get_file_arr(fname);
 	if (buffer.count == 0) {
-		return false;
+		return nullptr;
 	}
 
 	int width;
 	int height;
-	// @Leak: pixel_data must be alive
+	// @Leak!!! pixel_data must be alive
 	u8* pixel_data = decode_image_data(buffer, &width, &height);
 	if (!pixel_data) {
-		return false;
+		return nullptr;
 	}
 
-	*surface = SDL_CreateRGBSurfaceWithFormatFrom(pixel_data, width, height, 32, width * 4, SDL_PIXELFORMAT_ABGR8888);
-	return *surface != nullptr;
+	return SDL_CreateRGBSurfaceWithFormatFrom(pixel_data, width, height, 32, width * 4, SDL_PIXELFORMAT_ABGR8888);
 }
 
 vec4 surface_get_pixel(SDL_Surface* surface, int x, int y) {

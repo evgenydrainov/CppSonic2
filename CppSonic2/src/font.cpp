@@ -3,16 +3,26 @@
 #include "package.h"
 #include "renderer.h"
 
-bool load_bmfont_file(Font* f, const char* fnt_filepath, const char* png_filepath) {
-	free_font(f);
+Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath) {
+	Font f = {};
 
 	string text = get_file_str(fnt_filepath);
 	if (text.count == 0) {
 		log_error("Couldn't open font \"%s\"", fnt_filepath);
-		return false;
+		free_font(&f);
+		return {};
 	}
 
 	string line = eat_line(&text); // info
+
+	if (string_contains(line, '\r')) {
+		log_warn("File %s has CRLF line endings!", fnt_filepath);
+	}
+
+	// allow comments at top of file
+	while (line.count > 0 && line[0] == '#') {
+		line = eat_line(&text);
+	}
 
 	// 
 	// TODO: Parse 'face="MS Gothic"' somehow
@@ -30,7 +40,7 @@ bool load_bmfont_file(Font* f, const char* fnt_filepath, const char* png_filepat
 			int size = string_to_int(word, &done);
 			Assert(done);
 
-			f->size = size;
+			f.size = size;
 		}
 	}
 
@@ -48,15 +58,15 @@ bool load_bmfont_file(Font* f, const char* fnt_filepath, const char* png_filepat
 			int line_height = string_to_int(word, &done);
 			Assert(done);
 
-			f->line_height = line_height;
+			f.line_height = line_height;
 		}
 	}
 
 	line = eat_line(&text); // page
 	line = eat_line(&text); // chars
 
-	f->glyphs = calloc_array<Glyph>(95);
-	f->should_free_glyphs = true;
+	f.glyphs = calloc_array<Glyph>(95);
+	f.should_free_glyphs = true;
 
 	for (int i = 0; i < 95; i++) {
 		line = eat_line(&text);
@@ -98,47 +108,59 @@ bool load_bmfont_file(Font* f, const char* fnt_filepath, const char* png_filepat
 		glyph.yoffset  = eat_value_int("yoffset=");
 		glyph.xadvance = eat_value_int("xadvance=");
 
-		f->glyphs[i] = glyph;
+		f.glyphs[i] = glyph;
 	}
 
-	load_texture_from_file(&f->atlas, png_filepath);
-	f->should_free_atlas = true;
+	f.atlas = load_texture_from_file(png_filepath);
 
-	return true;
+	if (f.atlas.ID == 0) {
+		log_error("Couldn't load font %s: couldn't load texture.", fnt_filepath);
+		free_font(&f);
+		return {};
+	}
+
+	f.should_free_atlas = true;
+
+	log_info("Loaded font %s", fnt_filepath);
+
+	return f;
 }
 
-bool load_font_from_texture(Font* f, const Texture& texture,
+Font load_font_from_texture(const Texture& texture,
 							int size, int line_height, int char_width,
 							int xoffset, int yoffset) {
-	free_font(f);
+	Font f = {};
 
 	if (texture.width <= 0 || texture.height <= 0) {
 		log_error("Couldn't create font: invalid texture.");
-		return false;
+		free_font(&f);
+		return {};
 	}
 
 	if (xoffset == 0) {
 		log_error("Couldn't create font: xoffset must not be zero.");
-		return false;
+		free_font(&f);
+		return {};
 	}
 
 	if (texture.width % xoffset != 0) {
 		log_error("Couldn't create font: texture width must be divisible by xoffset.");
-		return false;
+		free_font(&f);
+		return {};
 	}
 
 	int stride = texture.width / xoffset;
 
-	f->atlas = texture;
-	f->should_free_atlas = false;
+	f.atlas = texture;
+	f.should_free_atlas = false;
 
-	f->glyphs = calloc_array<Glyph>(95); // [32..126]
-	f->should_free_glyphs = true;
+	f.glyphs = calloc_array<Glyph>(95); // [32..126]
+	f.should_free_glyphs = true;
 
-	f->size = size;
-	f->line_height = line_height;
+	f.size = size;
+	f.line_height = line_height;
 
-	for (size_t i = 0; i < f->glyphs.count; i++) {
+	for (size_t i = 0; i < f.glyphs.count; i++) {
 		int tile_x = i % stride;
 		int tile_y = i / stride;
 
@@ -149,10 +171,12 @@ bool load_font_from_texture(Font* f, const Texture& texture,
 		glyph.height = size;
 		glyph.xadvance = char_width;
 
-		f->glyphs[i] = glyph;
+		f.glyphs[i] = glyph;
 	}
 
-	return true;
+	log_info("Loaded font (%d x %d) from texture (%d x %d).", char_width, size, texture.width, texture.height);
+
+	return f;
 }
 
 void free_font(Font* f) {

@@ -167,6 +167,7 @@ struct Game {
 	bool collision_test;
 	bool show_height;
 	bool show_width;
+	bool show_debug_info;
 
 	bool skip_frame;
 	bool frame_advance;

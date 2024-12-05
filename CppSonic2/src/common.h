@@ -882,6 +882,13 @@ inline bool starts_with(string str, string prefix) {
 	return str == prefix;
 }
 
+inline bool string_contains(string str, char ch) {
+	For (it, str) {
+		if (*it == ch) return true;
+	}
+	return false;
+}
+
 template <size_t N>
 inline string SDL_PRINTF_VARARG_FUNC(2) Sprintf(char (&buf)[N], SDL_PRINTF_FORMAT_STRING const char* fmt, ...) {
 	va_list va;
