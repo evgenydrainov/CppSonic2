@@ -62,9 +62,15 @@ void Game::load_level(const char* path) {
 }
 
 void Game::init(int argc, char* argv[]) {
-	load_bmfont_file(&font,          "fonts/ms_gothic.fnt",     "fonts/ms_gothic_0.png");
+	load_bmfont_file(&ms_gothic,     "fonts/ms_gothic.fnt",     "fonts/ms_gothic_0.png");
 	load_bmfont_file(&consolas,      "fonts/consolas.fnt",      "fonts/consolas_0.png");
 	load_bmfont_file(&consolas_bold, "fonts/consolas_bold.fnt", "fonts/consolas_bold_0.png");
+
+	load_texture_from_file(&tex_fnt_menu, "fonts/fnt_menu.png");
+	load_font_from_texture(&fnt_menu, tex_fnt_menu, 16, 16, 8, 9, 17);
+
+	load_texture_from_file(&tex_fnt_hud, "fonts/fnt_hud.png");
+	load_font_from_texture(&fnt_hud, tex_fnt_hud, 16, 16, 8, 9, 17);
 
 	{
 		const char* path = "levels/Imported";
@@ -1637,11 +1643,16 @@ void Game::draw(float delta) {
 	renderer.model_mat = {1};
 	glViewport(0, 0, window.game_width, window.game_height);
 
+	// draw hud
+	{
+		draw_text(fnt_hud, "score", {16, 8});
+	}
+
 	// draw fps
 	{
 		char buf[16];
 		string str = Sprintf(buf, "%.0f", roundf(window.avg_fps));
-		draw_text_shadow(font, str, {window.game_width, window.game_height}, HALIGN_RIGHT, VALIGN_BOTTOM);
+		draw_text(fnt_hud, str, {window.game_width, window.game_height}, HALIGN_RIGHT, VALIGN_BOTTOM);
 	}
 
 	break_batch();

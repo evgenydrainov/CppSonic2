@@ -138,9 +138,15 @@ struct Game {
 	vec2 camera_pos;
 	float camera_lock;
 
-	Font font;
+	Font ms_gothic;
 	Font consolas;
 	Font consolas_bold;
+
+	Texture tex_fnt_menu;
+	Font fnt_menu;
+
+	Texture tex_fnt_hud;
+	Font fnt_hud;
 
 	Tileset ts;
 	Texture tileset_texture;

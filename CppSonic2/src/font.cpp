@@ -107,6 +107,54 @@ bool load_bmfont_file(Font* f, const char* fnt_filepath, const char* png_filepat
 	return true;
 }
 
+bool load_font_from_texture(Font* f, const Texture& texture,
+							int size, int line_height, int char_width,
+							int xoffset, int yoffset) {
+	free_font(f);
+
+	if (texture.width <= 0 || texture.height <= 0) {
+		log_error("Couldn't create font: invalid texture.");
+		return false;
+	}
+
+	if (xoffset == 0) {
+		log_error("Couldn't create font: xoffset must not be zero.");
+		return false;
+	}
+
+	if (texture.width % xoffset != 0) {
+		log_error("Couldn't create font: texture width must be divisible by xoffset.");
+		return false;
+	}
+
+	int stride = texture.width / xoffset;
+
+	f->atlas = texture;
+	f->should_free_atlas = false;
+
+	f->glyphs = calloc_array<Glyph>(95); // [32..126]
+	f->should_free_glyphs = true;
+
+	f->size = size;
+	f->line_height = line_height;
+
+	for (size_t i = 0; i < f->glyphs.count; i++) {
+		int tile_x = i % stride;
+		int tile_y = i / stride;
+
+		Glyph glyph = {};
+		glyph.u = tile_x * xoffset;
+		glyph.v = tile_y * yoffset;
+		glyph.width = char_width;
+		glyph.height = size;
+		glyph.xadvance = char_width;
+
+		f->glyphs[i] = glyph;
+	}
+
+	return true;
+}
+
 void free_font(Font* f) {
 	if (f->should_free_atlas)  free_texture(&f->atlas);
 	if (f->should_free_glyphs) free(f->glyphs.data);
