@@ -1,5 +1,6 @@
 {
 	"cmake.debugConfig": {
 		"cwd": "${workspaceFolder}",
+		"args": [""],
 	},
 }

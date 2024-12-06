@@ -67,8 +67,7 @@ void init_window_and_opengl(const char* title,
 
 	SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "system");
 
-	if (SDL_Init(SDL_INIT_VIDEO
-				 | SDL_INIT_AUDIO) != 0) {
+	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
 		panic_and_abort("Couldn't initialize SDL: %s", SDL_GetError());
 	}
 

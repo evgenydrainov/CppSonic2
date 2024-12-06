@@ -3,6 +3,7 @@
 #include "game.h"
 #include "renderer.h"
 #include "package.h"
+#include "assets.h"
 
 #ifdef EDITOR
 #include "imgui_glue.h"
@@ -21,6 +22,10 @@ static int game_main(int argc, char* argv[]) {
 	init_package();
 	defer { deinit_package(); };
 
+	load_common_assets();
+	load_common_assets_for_game();
+	defer { free_all_assets(); };
+
 	init_renderer();
 	defer { deinit_renderer(); };
 
@@ -28,7 +33,7 @@ static int game_main(int argc, char* argv[]) {
 	defer { game.deinit(); };
 
 #ifdef DEVELOPER
-	console.init(console_callback, nullptr, game.consolas_bold);
+	console.init(console_callback, nullptr, get_font(fnt_consolas_bold));
 	defer { console.deinit(); };
 #endif
 
@@ -79,6 +84,10 @@ static int editor_main(int argc, char* argv[]) {
 
 	init_package();
 	defer { deinit_package(); };
+
+	load_common_assets();
+	load_common_assets_for_editor();
+	defer { free_all_assets(); };
 
 	init_renderer();
 	defer { deinit_renderer(); };

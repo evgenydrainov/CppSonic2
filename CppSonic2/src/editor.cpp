@@ -2,6 +2,8 @@
 
 #ifdef EDITOR
 
+#include "assets.h"
+
 #undef Remove
 
 #include "IconsFontAwesome5.h"
@@ -31,10 +33,6 @@ void Editor::init() {
 	SDL_MaximizeWindow(get_window_handle());
 
 	update_window_caption();
-
-	load_texture_from_file(&tex_idle, "textures/idle.png");
-	load_texture_from_file(&tex_layer_set, "textures/layer_set.png");
-	load_texture_from_file(&tex_layer_flip, "textures/layer_flip.png");
 
 #if 0
 	import_s1_level("s1disasm/levels/ghz2.bin",
@@ -359,9 +357,9 @@ static void walk_tilemap(const Tilemap& tm,
 
 static Texture get_object_texture(ObjType type) {
 	switch (type) {
-		case OBJ_PLAYER_INIT_POS: return editor.tex_idle;
-		case OBJ_LAYER_SET:       return editor.tex_layer_set;
-		case OBJ_LAYER_FLIP:      return editor.tex_layer_flip;
+		case OBJ_PLAYER_INIT_POS: return get_texture(tex_idle);
+		case OBJ_LAYER_SET:       return get_texture(tex_layer_set);
+		case OBJ_LAYER_FLIP:      return get_texture(tex_layer_flip);
 	}
 
 	Assert(!"invalid object type");
@@ -1799,6 +1797,7 @@ void Editor::update(float delta) {
 				button(OBJ_PLAYER_INIT_POS);
 				button(OBJ_LAYER_SET);
 				button(OBJ_LAYER_FLIP);
+				// button(OBJ_RING);
 			};
 
 			object_list_window();

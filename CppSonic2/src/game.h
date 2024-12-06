@@ -68,7 +68,8 @@ struct Player {
 #define OBJ_TYPE_ENUM(X) \
 	X(OBJ_PLAYER_INIT_POS) \
 	X(OBJ_LAYER_SET) \
-	X(OBJ_LAYER_FLIP)
+	X(OBJ_LAYER_FLIP) \
+	X(OBJ_RING)
 
 DEFINE_NAMED_ENUM(ObjType, OBJ_TYPE_ENUM)
 
@@ -138,16 +139,6 @@ struct Game {
 	vec2 camera_pos;
 	float camera_lock;
 
-	Font ms_gothic;
-	Font consolas;
-	Font consolas_bold;
-
-	Texture tex_fnt_menu;
-	Font fnt_menu;
-
-	Texture tex_fnt_hud;
-	Font fnt_hud;
-
 	Tileset ts;
 	Texture tileset_texture;
 	int tileset_width;
@@ -157,10 +148,6 @@ struct Game {
 	Texture widthmap;
 
 	Tilemap tm;
-
-	Texture anim_textures[NUM_ANIMS];
-
-	Texture tex_spindash_smoke;
 
 	vec2 mouse_world_pos;
 

@@ -57,6 +57,7 @@ set(SOURCES
 	src/editor.cpp
 	src/console.cpp
 	src/single_header.cpp
+	src/assets.cpp
 	src/imgui/imgui_single_file.cpp
 	src/nfd/nfd_zenity.cpp
 	src/nfd/nfd_common.cpp)

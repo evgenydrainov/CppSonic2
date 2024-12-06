@@ -4,6 +4,7 @@
 #include "window_creation.h"
 #include "package.h"
 #include "console.h"
+#include "assets.h"
 
 Game game;
 
@@ -61,39 +62,13 @@ void Game::load_level(const char* path) {
 }
 
 void Game::init(int argc, char* argv[]) {
-	ms_gothic     = load_bmfont_file("fonts/ms_gothic.fnt",     "fonts/ms_gothic_0.png");
-	consolas      = load_bmfont_file("fonts/consolas.fnt",      "fonts/consolas_0.png");
-	consolas_bold = load_bmfont_file("fonts/consolas_bold.fnt", "fonts/consolas_bold_0.png");
-	fnt_hud       = load_bmfont_file("fonts/fnt_hud.fnt",       "fonts/fnt_hud.png");
+	const char* path = "levels/EEZ_Act1";
 
-	tex_fnt_menu = load_texture_from_file("fonts/fnt_menu.png");
-	fnt_menu = load_font_from_texture(tex_fnt_menu, 16, 16, 8, 9, 17);
-
-	{
-		const char* path = "levels/EEZ_Act1";
-
-		if (argc >= 3) {
-			path = argv[2];
-		}
-
-		load_level(path);
+	if (argc >= 3) {
+		path = argv[2];
 	}
 
-	// @Leak
-	anim_textures[anim_crouch]   = load_texture_from_file("textures/crouch.png");
-	anim_textures[anim_idle]     = load_texture_from_file("textures/idle.png");
-	anim_textures[anim_look_up]  = load_texture_from_file("textures/look_up.png");
-	anim_textures[anim_peelout]  = load_texture_from_file("textures/peelout.png");
-	anim_textures[anim_roll]     = load_texture_from_file("textures/roll.png");
-	anim_textures[anim_run]      = load_texture_from_file("textures/run.png");
-	anim_textures[anim_skid]     = load_texture_from_file("textures/skid.png");
-	anim_textures[anim_spindash] = load_texture_from_file("textures/spindash.png");
-	anim_textures[anim_walk]     = load_texture_from_file("textures/walk.png");
-	anim_textures[anim_balance]  = load_texture_from_file("textures/balance.png");
-	anim_textures[anim_balance2] = load_texture_from_file("textures/balance2.png");
-	anim_textures[anim_push]     = load_texture_from_file("textures/push.png");
-
-	tex_spindash_smoke = load_texture_from_file("textures/spindash_smoke.png");
+	load_level(path);
 
 	camera_pos.x = player.pos.x - window.game_width / 2;
 	camera_pos.y = player.pos.y - window.game_height / 2;
@@ -1364,6 +1339,10 @@ static void player_state_air(Player* p, float delta) {
 	}
 }
 
+static const Texture& anim_get_texture(anim_index anim) {
+	return get_texture(tex_crouch + anim);
+};
+
 static void player_update(Player* p, float delta) {
 	// clear flags
 	if (p->state != STATE_AIR) {
@@ -1438,7 +1417,7 @@ static void player_update(Player* p, float delta) {
 	}
 
 	auto anim_get_frame_count = [&](anim_index anim) -> int {
-		const Texture& t = game.anim_textures[anim];
+		const Texture& t = anim_get_texture(anim);
 		return t.width / 59;
 	};
 
@@ -1614,7 +1593,7 @@ void Game::draw(float delta) {
 			}
 		}
 
-		Texture t = anim_textures[p->anim];
+		Texture t = anim_get_texture(p->anim);
 
 		Rect src;
 		src.x = frame_index * 59;
@@ -1633,7 +1612,7 @@ void Game::draw(float delta) {
 
 		// draw spindash smoke
 		if (p->anim == anim_spindash) {
-			auto t = tex_spindash_smoke;
+			auto t = get_texture(tex_spindash_smoke);
 
 			const int num_frames = 7;
 
@@ -1766,13 +1745,13 @@ void Game::draw(float delta) {
 	// draw hud
 	{
 		vec2 pos = {16, 8};
-		draw_text(fnt_hud, "score", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
+		draw_text(get_font(fnt_hud), "score", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
 		pos.y += 16;
 
-		draw_text(fnt_hud, "time", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
+		draw_text(get_font(fnt_hud), "time", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
 		pos.y += 16;
 
-		draw_text(fnt_hud, "rings", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
+		draw_text(get_font(fnt_hud), "rings", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
 		pos.y += 16;
 	}
 
@@ -1780,7 +1759,7 @@ void Game::draw(float delta) {
 	{
 		char buf[16];
 		string str = Sprintf(buf, "%.0f", roundf(window.avg_fps));
-		draw_text(fnt_hud, str, {window.game_width, window.game_height}, HALIGN_RIGHT, VALIGN_BOTTOM);
+		draw_text(get_font(fnt_hud), str, {window.game_width, window.game_height}, HALIGN_RIGHT, VALIGN_BOTTOM);
 	}
 
 	break_batch();
@@ -1816,7 +1795,7 @@ void Game::late_draw(float delta) {
 								 renderer.draw_took * 1000.0,
 								 renderer.draw_calls,
 								 renderer.total_triangles);
-			pos = draw_text_shadow(consolas_bold, str, pos);
+			pos = draw_text_shadow(get_font(fnt_consolas_bold), str, pos);
 		}
 
 		{
@@ -1830,14 +1809,14 @@ void Game::late_draw(float delta) {
 								 GetPlayerStateName(p->state),
 								 p->ground_speed,
 								 p->ground_angle);
-			pos = draw_text_shadow(consolas_bold, str, pos);
+			pos = draw_text_shadow(get_font(fnt_consolas_bold), str, pos);
 		}
 	}
 #endif
 
 	if (frame_advance) {
 		string str = "F5 - Next Frame\nF6 - Disable Frame Advance Mode\n";
-		pos = draw_text_shadow(consolas_bold, str, pos);
+		pos = draw_text_shadow(get_font(fnt_consolas_bold), str, pos);
 	}
 
 	break_batch();
