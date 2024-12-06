@@ -60,6 +60,12 @@
     <ClCompile Include="src\single_header.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\assets.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\sprite.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\renderer.h">
@@ -96,6 +102,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\console.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\assets.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sprite.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1339,8 +1339,8 @@ static void player_state_air(Player* p, float delta) {
 	}
 }
 
-static const Texture& anim_get_texture(anim_index anim) {
-	return get_texture(tex_crouch + anim);
+static const Sprite& anim_get_sprite(anim_index anim) {
+	return get_sprite(spr_sonic_crouch + anim);
 };
 
 static void player_update(Player* p, float delta) {
@@ -1383,42 +1383,42 @@ static void player_update(Player* p, float delta) {
 		p->control_lock = fmaxf(p->control_lock - delta, 0);
 	}
 
+	auto player_collides_with_object = [](Player* p, const Object& o) -> bool {
+		Rectf r1 = player_get_rect(p);
+
+		vec2 size = get_object_size(o);
+		vec2 pos = o.pos - size / 2.0f;
+		Rectf r2 = {pos.x, pos.y, size.x, size.y};
+
+		return rect_vs_rect(r1, r2);
+	};
+
 	For (it, game.objects) {
-		switch (it->type) {
-			case OBJ_LAYER_SET: {
-				Rectf r1 = player_get_rect(p);
-
-				vec2 pos = it->pos - it->layset.radius;
-				vec2 size = it->layset.radius * 2.0f;
-				Rectf r2 = {pos.x, pos.y, size.x, size.y};
-
-				if (rect_vs_rect(r1, r2)) {
-					p->layer = it->layset.layer;
-				}
-				break;
+		if (it->type == OBJ_LAYER_SET) {
+			if (player_collides_with_object(p, *it)) {
+				p->layer = it->layset.layer;
 			}
-			case OBJ_LAYER_FLIP: {
-				Rectf r1 = player_get_rect(p);
-
-				vec2 pos = it->pos - it->layflip.radius;
-				vec2 size = it->layflip.radius * 2.0f;
-				Rectf r2 = {pos.x, pos.y, size.x, size.y};
-
-				if (rect_vs_rect(r1, r2)) {
-					if (sign_int(p->speed.x) == 1) {
-						p->layer = 0;
-					} else if (sign_int(p->speed.x) == -1) {
-						p->layer = 1;
-					}
+		} else if (it->type == OBJ_LAYER_FLIP) {
+			if (player_collides_with_object(p, *it)) {
+				if (sign_int(p->speed.x) == 1) {
+					p->layer = 0;
+				} else if (sign_int(p->speed.x) == -1) {
+					p->layer = 1;
 				}
-				break;
+			}
+		} else if (it->type == OBJ_RING) {
+			if (player_collides_with_object(p, *it)) {
+				// TODO: increment rings
+				// TODO: create particle
+				Remove(it, game.objects);
+				continue;
 			}
 		}
 	}
 
-	auto anim_get_frame_count = [&](anim_index anim) -> int {
-		const Texture& t = anim_get_texture(anim);
-		return t.width / 59;
+	auto anim_get_frame_count = [](anim_index anim) -> int {
+		const Sprite& s = anim_get_sprite(anim);
+		return s.frames.count;
 	};
 
 	// animate player
@@ -1593,13 +1593,7 @@ void Game::draw(float delta) {
 			}
 		}
 
-		Texture t = anim_get_texture(p->anim);
-
-		Rect src;
-		src.x = frame_index * 59;
-		src.y = 0;
-		src.w = 59;
-		src.h = 59;
+		const Sprite& s = anim_get_sprite(p->anim);
 
 		//float angle = round_to(p->ground_angle, 45.0f);
 		float angle = p->ground_angle;
@@ -1608,29 +1602,38 @@ void Game::draw(float delta) {
 			angle = 0;
 		}
 
-		draw_texture(t, src, glm::floor(player.pos), {p->facing, 1}, {30, 30}, angle);
+		draw_sprite(s, frame_index, glm::floor(player.pos), {p->facing, 1}, angle);
 
 		// draw spindash smoke
 		if (p->anim == anim_spindash) {
-			auto t = get_texture(tex_spindash_smoke);
-
-			const int num_frames = 7;
+			const Sprite& s = get_sprite(spr_spindash_smoke);
 
 			int frame_index = SDL_GetTicks() / (16.66 * 2);
-			frame_index %= num_frames;
-
-			Rect src;
-			src.x = frame_index * 48;
-			src.y = 0;
-			src.w = 48;
-			src.h = 48;
+			frame_index %= s.frames.count;
 
 			vec2 pos = glm::floor(p->pos);
-			pos.x -= 6 * p->facing;
-			pos.y -= 3;
 
-			draw_texture(t, src, pos, {p->facing, 1}, {24, 24});
+			draw_sprite(s, frame_index, pos, {p->facing, 1});
 		}
+	}
+
+	// draw objects
+	For (it, objects) {
+		if (it->type == OBJ_PLAYER_INIT_POS
+			|| it->type == OBJ_LAYER_FLIP
+			|| it->type == OBJ_LAYER_SET)
+		{
+			continue;
+		}
+
+		const Sprite& s = get_object_sprite(it->type);
+		int frame_index = 0;
+
+		if (it->type == OBJ_RING) {
+			frame_index = (SDL_GetTicks() / (int)(16.66 * 10)) % s.frames.count;
+		}
+
+		draw_sprite(s, frame_index, it->pos);
 	}
 
 #ifdef DEVELOPER
@@ -2110,6 +2113,7 @@ void write_objects(array<Object> objects, const char* fname) {
 
 		switch (o.type) {
 			case OBJ_PLAYER_INIT_POS:
+			case OBJ_RING:
 				break;
 
 			case OBJ_LAYER_SET: {
@@ -2179,6 +2183,7 @@ void read_objects(bump_array<Object>* objects, const char* fname) {
 
 		switch (o->type) {
 			case OBJ_PLAYER_INIT_POS:
+			case OBJ_RING:
 				break;
 
 			case OBJ_LAYER_SET: {
@@ -2351,3 +2356,26 @@ bool console_callback(string str, void* userdata) {
 }
 
 #endif
+
+const Sprite& get_object_sprite(ObjType type) {
+	switch (type) {
+		case OBJ_PLAYER_INIT_POS: return get_sprite(spr_sonic_idle);
+		case OBJ_LAYER_SET:       return get_sprite(spr_layer_set);
+		case OBJ_LAYER_FLIP:      return get_sprite(spr_layer_flip);
+		case OBJ_RING:            return get_sprite(spr_ring);
+	}
+
+	Assert(!"invalid object type");
+	return {};
+}
+
+vec2 get_object_size(const Object& o) {
+	switch (o.type) {
+		case OBJ_PLAYER_INIT_POS: return {30, 44};
+		case OBJ_LAYER_SET:       return {o.layset.radius.x * 2, o.layset.radius.y * 2};
+		case OBJ_LAYER_FLIP:      return {o.layflip.radius.x * 2, o.layflip.radius.y * 2};
+	}
+
+	const Sprite& s = get_object_sprite(o.type);
+	return {s.width, s.height};
+}

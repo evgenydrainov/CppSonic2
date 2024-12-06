@@ -94,6 +94,11 @@ struct Object {
 	};
 };
 
+struct Sprite;
+const Sprite& get_object_sprite(ObjType type);
+
+vec2 get_object_size(const Object& o);
+
 constexpr size_t MAX_OBJECTS = 10'000;
 
 struct Tile {

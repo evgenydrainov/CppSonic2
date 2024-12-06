@@ -355,26 +355,32 @@ static void walk_tilemap(const Tilemap& tm,
 }
 #endif
 
-static Texture get_object_texture(ObjType type) {
-	switch (type) {
-		case OBJ_PLAYER_INIT_POS: return get_texture(tex_idle);
-		case OBJ_LAYER_SET:       return get_texture(tex_layer_set);
-		case OBJ_LAYER_FLIP:      return get_texture(tex_layer_flip);
-	}
+static ImVec2 sprite_get_uv0(const Sprite& s, int frame_index) {
+	const Texture& t = get_texture(s.texture_index);
 
-	Assert(!"invalid object type");
-	return {};
+	const SpriteFrame& f = s.frames[frame_index];
+
+	Rect src = {f.u, f.v, f.w, f.h};
+
+	float u1 =  src.x          / (float)t.width;
+	float v1 =  src.y          / (float)t.height;
+	return {u1, v1};
 }
 
-static ImVec2 get_object_size(const Object& o) {
-	switch (o.type) {
-		case OBJ_PLAYER_INIT_POS: return {30, 44};
-		case OBJ_LAYER_SET:       return {o.layset.radius.x * 2, o.layset.radius.y * 2};
-		case OBJ_LAYER_FLIP:      return {o.layflip.radius.x * 2, o.layflip.radius.y * 2};
-	}
+static ImVec2 sprite_get_uv1(const Sprite& s, int frame_index) {
+	const Texture& t = get_texture(s.texture_index);
 
-	auto t = get_object_texture(o.type);
-	return ImVec2(t.width, t.height);
+	const SpriteFrame& f = s.frames[frame_index];
+
+	Rect src = {f.u, f.v, f.w, f.h};
+
+	float u2 = (src.x + src.w) / (float)t.width;
+	float v2 = (src.y + src.h) / (float)t.height;
+	return {u2, v2};
+}
+
+static ImVec2 make_imvec2(vec2 v) {
+	return ImVec2(v.x, v.y);
 }
 
 static bool IsKeyPressedNoMod(ImGuiKey key) {
@@ -395,10 +401,10 @@ static void draw_objects(ImDrawList* draw_list,
 						 ImVec2 tilemap_pos,
 						 const View& view) {
 	For (it, objects) {
-		Texture t = get_object_texture(it->type);
+		const Sprite& s = get_object_sprite(it->type);
 
-		int w = t.width;
-		int h = t.height;
+		int w = s.width;
+		int h = s.height;
 
 		ImU32 col = IM_COL32_WHITE;
 
@@ -423,7 +429,7 @@ static void draw_objects(ImDrawList* draw_list,
 		ImVec2 p = tilemap_pos + ImVec2(it->pos.x - w / 2, it->pos.y - h / 2) * view.zoom;
 		ImVec2 p2 = p + ImVec2(w, h) * view.zoom;
 
-		draw_list->AddImage(t.ID, p, p2, {0, 0}, {1, 1}, col);
+		draw_list->AddImage(get_texture(s.texture_index).ID, p, p2, sprite_get_uv0(s, 0), sprite_get_uv1(s, 0), col);
 	}
 }
 
@@ -1673,8 +1679,6 @@ void Editor::update(float delta) {
 
 						o.pos = glm::floor(o.pos);
 
-						auto t = get_object_texture(type);
-
 						switch (o.type) {
 							case OBJ_LAYER_SET: {
 								o.layset.radius = {8, 24};
@@ -1692,16 +1696,55 @@ void Editor::update(float delta) {
 					ImGui::EndDragDropTarget();
 				}
 
-				// select object
-				if (is_item_active && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-					selected_object = -1;
-					for (int i = 0; i < objects.count; i++) {
-						const Object& it = objects[i];
-						auto size = get_object_size(it);
-						auto mouse = get_mouse_pos_in_view(tilemap_view);
-						if (point_in_rect({mouse.x, mouse.y}, {it.pos.x - size.x / 2, it.pos.y - size.y / 2, size.x, size.y})) {
-							selected_object = i;
-							break;
+				// drag objects
+				{
+					static bool dragging = false;
+					static float drag_offset_x;
+					static float drag_offset_y;
+
+					// select object
+					if (is_item_active && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+						int new_selected_object = -1;
+						for (int i = 0; i < objects.count; i++) {
+							const Object& it = objects[i];
+							auto size = make_imvec2(get_object_size(it));
+							auto mouse = get_mouse_pos_in_view(tilemap_view);
+							if (point_in_rect({mouse.x, mouse.y}, {it.pos.x - size.x / 2, it.pos.y - size.y / 2, size.x, size.y})) {
+								new_selected_object = i;
+								break;
+							}
+						}
+
+						// paranoid
+						Assert(!dragging);
+
+						if (new_selected_object == selected_object && selected_object != -1) {
+							dragging = true;
+
+							const Object& obj = objects[selected_object];
+							auto mouse = ImFloor(get_mouse_pos_in_view(tilemap_view));
+
+							drag_offset_x = obj.pos.x - mouse.x;
+							drag_offset_y = obj.pos.y - mouse.y;
+						}
+
+						selected_object = new_selected_object;
+					}
+
+					if (dragging) {
+						Object& obj = objects[selected_object];
+						auto mouse = ImFloor(get_mouse_pos_in_view(tilemap_view));
+
+						obj.pos.x = mouse.x + drag_offset_x;
+						obj.pos.y = mouse.y + drag_offset_y;
+
+						if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+							obj.pos.x = floor_to(obj.pos.x, 16);
+							obj.pos.y = floor_to(obj.pos.y, 16);
+						}
+
+						if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+							dragging = false;
 						}
 					}
 				}
@@ -1732,7 +1775,7 @@ void Editor::update(float delta) {
 				if (selected_object != -1) {
 					const Object& o = objects[selected_object];
 
-					auto size = get_object_size(o);
+					auto size = make_imvec2(get_object_size(o));
 
 					ImVec2 p = tilemap_pos + ImVec2(o.pos.x - size.x / 2, o.pos.y - size.y / 2) * tilemap_view.zoom;
 					ImVec2 p2 = p + size * tilemap_view.zoom;
@@ -1777,11 +1820,17 @@ void Editor::update(float delta) {
 				int id = 0;
 
 				auto button = [&](ObjType type) {
-					auto t = get_object_texture(type);
+					const Sprite& s = get_object_sprite(type);
+
+					if (s.width + ImGui::GetStyle().FramePadding.x * 2 > ImGui::GetContentRegionAvail().x) {
+						ImGui::NewLine();
+					}
 
 					ImGui::PushID(id++);
-					ImageButtonActive("object button", t.ID, ImVec2(t.width, t.height), {}, {1, 1}, false);
+					ImageButtonActive("object button", get_texture(s.texture_index).ID, ImVec2(s.width, s.height), sprite_get_uv0(s, 0), sprite_get_uv1(s, 0), false);
 					ImGui::PopID();
+
+					ImGui::SameLine();
 
 					ImGui::SetItemTooltip("%s", GetObjTypeName(type));
 
@@ -1797,7 +1846,7 @@ void Editor::update(float delta) {
 				button(OBJ_PLAYER_INIT_POS);
 				button(OBJ_LAYER_SET);
 				button(OBJ_LAYER_FLIP);
-				// button(OBJ_RING);
+				button(OBJ_RING);
 			};
 
 			object_list_window();

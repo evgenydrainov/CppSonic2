@@ -22,8 +22,8 @@ static int game_main(int argc, char* argv[]) {
 	init_package();
 	defer { deinit_package(); };
 
-	load_common_assets();
-	load_common_assets_for_game();
+	load_global_assets();
+	load_assets_for_game();
 	defer { free_all_assets(); };
 
 	init_renderer();
@@ -85,8 +85,8 @@ static int editor_main(int argc, char* argv[]) {
 	init_package();
 	defer { deinit_package(); };
 
-	load_common_assets();
-	load_common_assets_for_editor();
+	load_global_assets();
+	load_assets_for_editor();
 	defer { free_all_assets(); };
 
 	init_renderer();
