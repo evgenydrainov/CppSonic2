@@ -139,6 +139,10 @@ struct Tilemap {
 struct Game {
 	Player player;
 
+	int player_score;
+	float player_time;
+	int player_rings;
+
 	bump_array<Object> objects;
 
 	vec2 camera_pos;

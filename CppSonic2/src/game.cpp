@@ -1408,7 +1408,7 @@ static void player_update(Player* p, float delta) {
 			}
 		} else if (it->type == OBJ_RING) {
 			if (player_collides_with_object(p, *it)) {
-				// TODO: increment rings
+				game.player_rings++;
 				// TODO: create particle
 				Remove(it, game.objects);
 				continue;
@@ -1470,6 +1470,8 @@ void Game::update(float delta) {
 
 	if (!skip_frame) {
 		player_update(&player, delta);
+
+		player_time += delta;
 
 		// update camera
 		{
@@ -1748,13 +1750,43 @@ void Game::draw(float delta) {
 	// draw hud
 	{
 		vec2 pos = {16, 8};
+
 		draw_text(get_font(fnt_hud), "score", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
 		pos.y += 16;
 
 		draw_text(get_font(fnt_hud), "time", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
 		pos.y += 16;
 
-		draw_text(get_font(fnt_hud), "rings", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
+		vec4 color = color_yellow;
+		if (player_rings == 0) {
+			if ((SDL_GetTicks() / 500) % 2) {
+				color = color_red;
+			}
+		}
+
+		draw_text(get_font(fnt_hud), "rings", pos, HALIGN_LEFT, VALIGN_TOP, color);
+		pos.y += 16;
+
+		pos = {112, 8};
+
+		char buf[32];
+		string str;
+
+		str = Sprintf(buf, "%d", player_score);
+		draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
+		pos.y += 16;
+
+		int min = (int)(player_time / 3600.0f);
+		int sec = (int)(player_time / 60.0f) % 60;
+		int ms  = (int)(player_time / 60.0f * 100.0f) % 100; // not actually milliseconds
+
+		str = Sprintf(buf, "%d'%02d\"%02d", min, sec, ms);
+		draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
+		pos.y += 16;
+		pos.x -= 24;
+
+		str = Sprintf(buf, "%d", player_rings);
+		draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
 		pos.y += 16;
 	}
 
@@ -2372,7 +2404,7 @@ const Sprite& get_object_sprite(ObjType type) {
 vec2 get_object_size(const Object& o) {
 	switch (o.type) {
 		case OBJ_PLAYER_INIT_POS: return {30, 44};
-		case OBJ_LAYER_SET:       return {o.layset.radius.x * 2, o.layset.radius.y * 2};
+		case OBJ_LAYER_SET:       return {o.layset.radius.x  * 2, o.layset.radius.y  * 2};
 		case OBJ_LAYER_FLIP:      return {o.layflip.radius.x * 2, o.layflip.radius.y * 2};
 	}
 

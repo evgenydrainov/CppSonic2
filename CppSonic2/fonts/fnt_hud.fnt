@@ -5,12 +5,12 @@ page
 chars
 char id=32   x=11    y=69    width=7     height=11    xoffset=0     yoffset=0     xadvance=8
 char id=33   x=11    y=69    width=7     height=11    xoffset=0     yoffset=0     xadvance=8
-char id=34   x=11    y=69    width=7     height=11    xoffset=0     yoffset=0     xadvance=8
+char id=34   x=21    y=1     width=7     height=4     xoffset=0     yoffset=0     xadvance=8
 char id=35   x=11    y=69    width=7     height=11    xoffset=0     yoffset=0     xadvance=8
 char id=36   x=11    y=69    width=7     height=11    xoffset=0     yoffset=0     xadvance=8
 char id=37   x=11    y=69    width=7     height=11    xoffset=0     yoffset=0     xadvance=8
 char id=38   x=11    y=69    width=7     height=11    xoffset=0     yoffset=0     xadvance=8
-char id=39   x=11    y=69    width=7     height=11    xoffset=0     yoffset=0     xadvance=8
+char id=39   x=73    y=1     width=3     height=4     xoffset=2     yoffset=0     xadvance=8
 char id=40   x=11    y=69    width=7     height=11    xoffset=0     yoffset=0     xadvance=8
 char id=41   x=11    y=69    width=7     height=11    xoffset=0     yoffset=0     xadvance=8
 char id=42   x=11    y=69    width=7     height=11    xoffset=0     yoffset=0     xadvance=8
