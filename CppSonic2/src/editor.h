@@ -52,6 +52,7 @@ struct Editor {
 		HTOOL_BRUSH,
 		HTOOL_ERASER,
 		HTOOL_AUTO,
+		HTOOL_SELECT,
 	};
 
 	Mode mode;
@@ -85,6 +86,7 @@ struct Editor {
 
 	bump_array<Object> objects;
 	int selected_object = -1;
+	int hmap_selected_tile = -1;
 
 	bool is_level_open;
 	std::filesystem::path current_level_dir;
