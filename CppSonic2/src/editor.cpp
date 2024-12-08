@@ -1938,8 +1938,8 @@ void Editor::update(float delta) {
 						obj.pos.y = mouse.y + drag_offset_y;
 
 						if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
-							obj.pos.x = floor_to(obj.pos.x, 16);
-							obj.pos.y = floor_to(obj.pos.y, 16);
+							obj.pos.x = floorf_to(obj.pos.x, 16);
+							obj.pos.y = floorf_to(obj.pos.y, 16);
 						}
 
 						if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {

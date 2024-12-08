@@ -259,6 +259,10 @@ constexpr vec4 color_cornflower_blue = get_color(0x6495edff);
 // Cirno's Perfect Math Library
 // 
 
+#ifndef PI
+#define PI 3.14159265359f
+#endif
+
 template <typename T>
 inline T min(T a, T b) {
 	return (a < b) ? a : b;
@@ -299,8 +303,13 @@ inline T approach(T start, T end, T shift) {
 	return start + clamp(end - start, -shift, shift);
 }
 
-inline float to_degrees(float rad) { return glm::degrees(rad); }
-inline float to_radians(float deg) { return glm::radians(deg); }
+inline float to_degrees(float rad) {
+	return rad * (180.0f / PI);
+}
+
+inline float to_radians(float deg) {
+	return deg * (PI / 180.0f);
+}
 
 inline float dsin(float deg) { return sinf(to_radians(deg)); }
 inline float dcos(float deg) { return cosf(to_radians(deg)); }
@@ -399,15 +408,15 @@ inline int sign_int(float x) {
 	return -1;
 }
 
-inline float floor_to(float a, float b) {
+inline float floorf_to(float a, float b) {
 	return floorf(a / b) * b;
 }
 
-inline float round_to(float a, float b) {
+inline float roundf_to(float a, float b) {
 	return roundf(a / b) * b;
 }
 
-inline float ceil_to(float a, float b) {
+inline float ceilf_to(float a, float b) {
 	return ceilf(a / b) * b;
 }
 
