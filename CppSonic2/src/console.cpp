@@ -85,6 +85,10 @@ void Console::execute() {
 		return;
 	}
 
+	if (cmd.count == 0) {
+		return;
+	}
+
 	bool result = callback(cmd, callback_userdata);
 	if (!result) {
 		write("Invalid command.\n");

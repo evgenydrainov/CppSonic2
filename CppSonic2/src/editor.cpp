@@ -2078,6 +2078,15 @@ void Editor::update(float delta) {
 
 					case OBJ_LAYER_FLIP: {
 						ImGui::DragFloat2("Radius", glm::value_ptr(o->layflip.radius), 1, 0, 0, "%.0f");
+
+						bool grounded = (o->flags & FLAG_LAYER_FLIP_GROUNDED) != 0;
+						if (ImGui::Checkbox("Grounded", &grounded)) {
+							if (grounded) {
+								o->flags |= FLAG_LAYER_FLIP_GROUNDED;
+							} else {
+								o->flags &= ~FLAG_LAYER_FLIP_GROUNDED;
+							}
+						}
 						break;
 					}
 				}

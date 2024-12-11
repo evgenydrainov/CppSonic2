@@ -58,7 +58,7 @@ void Game::load_level(const char* path) {
 	}
 
 	gen_heightmap_texture(&heightmap, ts, tileset_texture);
-	gen_widthmap_texture(&widthmap, ts, tileset_texture);
+	gen_widthmap_texture (&widthmap,  ts, tileset_texture);
 }
 
 void Game::init(int argc, char* argv[]) {
@@ -70,10 +70,11 @@ void Game::init(int argc, char* argv[]) {
 
 	load_level(path);
 
-	camera_pos.x = player.pos.x - window.game_width / 2;
+	camera_pos.x = player.pos.x - window.game_width  / 2;
 	camera_pos.y = player.pos.y - window.game_height / 2;
 
 	show_debug_info = true;
+	show_player_hitbox = true;
 }
 
 void Game::deinit() {
@@ -260,11 +261,37 @@ static vec2 player_get_radius(Player* p) {
 	}
 }
 
+// pass radius and mode because when drawing we want prev_radius and prev_mode
+static Rectf player_get_rect(Player* p, vec2 radius, PlayerMode mode) {
+	Rectf rect = {};
+
+	switch (mode) {
+		case MODE_FLOOR:
+		case MODE_CEILING: {
+			rect.x = p->pos.x - radius.x;
+			rect.y = p->pos.y - radius.y;
+			rect.w = radius.x * 2;
+			rect.h = radius.y * 2;
+			break;
+		}
+		case MODE_RIGHT_WALL:
+		case MODE_LEFT_WALL: {
+			rect.x = p->pos.x - radius.y;
+			rect.y = p->pos.y - radius.x;
+			rect.w = radius.y * 2;
+			rect.h = radius.x * 2;
+			break;
+		}
+	}
+
+	return rect;
+}
+
+// common case
 static Rectf player_get_rect(Player* p) {
-	vec2 radius = player_get_radius(p);
-	vec2 pos = p->pos - radius / 2.0f;
-	vec2 size = radius * 2.0f;
-	return {pos.x, pos.y, size.x, size.y};
+	auto radius = player_get_radius(p);
+	auto mode   = player_get_mode(p);
+	return player_get_rect(p, radius, mode);
 }
 
 static void get_ground_sensors_pos(Player* p, vec2* sensor_a, vec2* sensor_b) {
@@ -1394,20 +1421,26 @@ static void player_update(Player* p, float delta) {
 	};
 
 	For (it, game.objects) {
-		if (it->type == OBJ_LAYER_SET) {
-			if (player_collides_with_object(p, *it)) {
+		if (player_collides_with_object(p, *it)) {
+			if (it->type == OBJ_LAYER_SET) {
 				p->layer = it->layset.layer;
-			}
-		} else if (it->type == OBJ_LAYER_FLIP) {
-			if (player_collides_with_object(p, *it)) {
-				if (sign_int(p->speed.x) == 1) {
-					p->layer = 0;
-				} else if (sign_int(p->speed.x) == -1) {
-					p->layer = 1;
+			} else if (it->type == OBJ_LAYER_FLIP) {
+				bool dont_set_layer = false;
+
+				if (it->flags & FLAG_LAYER_FLIP_GROUNDED) {
+					if (!player_is_grounded(p)) {
+						dont_set_layer = true;
+					}
 				}
-			}
-		} else if (it->type == OBJ_RING) {
-			if (player_collides_with_object(p, *it)) {
+
+				if (!dont_set_layer) {
+					if (sign_int(p->speed.x) == 1) {
+						p->layer = 0;
+					} else if (sign_int(p->speed.x) == -1) {
+						p->layer = 1;
+					}
+				}
+			} else if (it->type == OBJ_RING) {
 				game.player_rings++;
 				// TODO: create particle
 				Remove(it, game.objects);
@@ -1640,29 +1673,16 @@ void Game::draw(float delta) {
 
 #ifdef DEVELOPER
 	// draw player hitbox
-	if (show_debug_info) {
+	if (show_player_hitbox) {
 		{
-			vec2 radius = p->prev_radius;
+			auto radius = p->prev_radius;
+			auto mode = p->prev_mode;
 
-			Rectf rect;
-			switch (p->prev_mode) {
-				case MODE_FLOOR:
-				case MODE_CEILING: {
-					rect.x = floorf(p->pos.x - radius.x);
-					rect.y = floorf(p->pos.y - radius.y);
-					rect.w = radius.x * 2 + 1;
-					rect.h = radius.y * 2 + 1;
-					break;
-				}
-				case MODE_RIGHT_WALL:
-				case MODE_LEFT_WALL: {
-					rect.x = floorf(p->pos.x - radius.y);
-					rect.y = floorf(p->pos.y - radius.x);
-					rect.w = radius.y * 2 + 1;
-					rect.h = radius.x * 2 + 1;
-					break;
-				}
-			}
+			auto rect = player_get_rect(p, radius, mode);
+			rect.x = floorf(rect.x);
+			rect.y = floorf(rect.y);
+			rect.w += 1;
+			rect.h += 1;
 
 			draw_rectangle_outline(rect, get_color(128, 128, 255, 255));
 		}
@@ -2363,7 +2383,7 @@ bool console_callback(string str, void* userdata) {
 	string command = eat_non_whitespace(&str);
 
 	if (command == "h" || command == "help") {
-		console.write("Commands: collision_test show_width show_height\n");
+		console.write("Commands: collision_test show_width show_height show_player_hitbox show_debug_info\n");
 		return true;
 	}
 
@@ -2381,6 +2401,16 @@ bool console_callback(string str, void* userdata) {
 	if (command == "show_width") {
 		game.show_width ^= true;
 		if (game.show_width) game.show_height = false;
+		return true;
+	}
+
+	if (command == "show_player_hitbox") {
+		game.show_player_hitbox ^= true;
+		return true;
+	}
+
+	if (command == "show_debug_info") {
+		game.show_debug_info ^= true;
 		return true;
 	}
 

@@ -75,6 +75,10 @@ DEFINE_NAMED_ENUM(ObjType, OBJ_TYPE_ENUM)
 
 typedef u32 instance_id;
 
+enum {
+	FLAG_LAYER_FLIP_GROUNDED = 1 << 16,
+};
+
 struct Object {
 	instance_id id;
 	ObjType type;
@@ -164,6 +168,7 @@ struct Game {
 	bool show_height;
 	bool show_width;
 	bool show_debug_info;
+	bool show_player_hitbox;
 
 	bool skip_frame;
 	bool frame_advance;
@@ -196,8 +201,8 @@ void write_tileset(const Tileset& ts, const char* fname);
 void read_tilemap(Tilemap* tm, const char* fname);
 void read_tileset(Tileset* ts, const char* fname);
 
-void write_objects(array<Object> objects, const char* fname);
-void read_objects(bump_array<Object>* objects, const char* fname);
+void write_objects(array<Object>       objects, const char* fname);
+void read_objects (bump_array<Object>* objects, const char* fname);
 
 void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture& tileset_texture);
 void gen_widthmap_texture (Texture* widthmap,  const Tileset& ts, const Texture& tileset_texture);
@@ -267,3 +272,4 @@ inline float get_tile_angle(const Tileset& ts, int tile_index) {
 	Assert(tile_index >= 0 && tile_index < ts.count);
 	return ts.angles[tile_index];
 }
+
