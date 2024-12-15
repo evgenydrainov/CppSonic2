@@ -198,7 +198,7 @@ static void load_surface_from_file(SDL_Surface** surface, const char* fname) {
 	*surface = load_surface_from_file(fname);
 }
 
-void Editor::init() {
+void Editor::init(int argc, char* argv[]) {
 	SDL_MaximizeWindow(get_window_handle());
 
 	update_window_caption();
@@ -215,10 +215,12 @@ void Editor::init() {
 #endif
 
 	ImGui::LoadIniSettingsFromMemory(default_imgui_config, sizeof(default_imgui_config) - 1);
+
+	process_name = argv[0];
 }
 
 void Editor::deinit() {
-
+	clear_state();
 }
 
 static ImVec2 CalcButtonSize(const char* label) {
@@ -802,10 +804,16 @@ void Editor::import_s1_level(const char* level_data_path,
 }
 
 void Editor::clear_state() {
+	free_tileset(&ts);
 	free_texture(&tileset_texture);
 
+	if (tileset_surface) SDL_FreeSurface(tileset_surface);
+	tileset_surface = nullptr;
+
+	free_texture(&heightmap);
+	free_texture(&widthmap);
+
 	free_tilemap(&tm);
-	free_tileset(&ts);
 
 	free(brush.data);
 	brush = {};

@@ -95,7 +95,7 @@ struct Editor {
 
 	const char* process_name;
 
-	void init();
+	void init(int argc, char* argv[]);
 	void deinit();
 	void update(float delta);
 	void draw(float delta);

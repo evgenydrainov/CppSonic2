@@ -173,6 +173,8 @@ struct Game {
 	bool skip_frame;
 	bool frame_advance;
 
+	array<string> console_commands;
+
 	void init(int argc, char* argv[]);
 	void deinit();
 

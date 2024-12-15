@@ -285,18 +285,17 @@ vec2 measure_text(Font font, string text, bool only_one_line) {
 			Assert(font.glyphs.count == 95);
 			Glyph glyph = font.glyphs[ch - 32];
 
-			if (/*ch != ' '*/true) {
-				vec2 pos;
-				pos.x = ch_x + glyph.xoffset;
-				pos.y = ch_y + glyph.yoffset;
+			// don't skip whitespace
+			vec2 pos;
+			pos.x = ch_x; // don't add xoffset and yoffset
+			pos.y = ch_y;
 
-				pos = glm::floor(pos);
+			pos = glm::floor(pos);
 
-				// On practise, I always happen to prefer glyph.xadvance here,
-				// instead of the actual "correct" text size.
-				w = max(w, pos.x + glyph.xadvance /*glyph.width*/);
-				h = max(h, ch_y + font.size);
-			}
+			// On practise, I always happen to prefer glyph.xadvance here,
+			// instead of the actual "correct" text size.
+			w = max(w, pos.x + glyph.xadvance /*glyph.width*/);
+			h = max(h, ch_y + font.size);
 
 			ch_x += glyph.xadvance;
 		}

@@ -33,7 +33,7 @@ static int game_main(int argc, char* argv[]) {
 	defer { game.deinit(); };
 
 #ifdef DEVELOPER
-	console.init(console_callback, nullptr, get_font(fnt_consolas_bold));
+	console.init(console_callback, nullptr, get_font(fnt_consolas_bold), game.console_commands);
 	defer { console.deinit(); };
 #endif
 
@@ -95,10 +95,8 @@ static int editor_main(int argc, char* argv[]) {
 	init_imgui();
 	defer { deinit_imgui(); };
 
-	editor.init();
+	editor.init(argc, argv);
 	defer { editor.deinit(); };
-
-	editor.process_name = argv[0];
 
 	while (!window.should_quit) {
 		begin_frame();

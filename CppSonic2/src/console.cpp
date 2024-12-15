@@ -7,18 +7,28 @@
 
 Console console;
 
-void Console::init(ConsoleCallbackFn _callback, void* _callback_userdata, Font _font) {
+void Console::init(ConsoleCallbackFn _callback, void* _callback_userdata,
+				   Font _font,
+				   array<string> _commands) {
 	callback          = _callback;
 	callback_userdata = _callback_userdata;
 	font              = _font;
+	commands          = _commands;
 	
 	cmd     = malloc_bump_array<char>(64);
 	history = malloc_bump_array<char>(1024);
+
+	cmd_hist = malloc_bump_array<string>(CMD_HIST);
 }
 
 void Console::deinit() {
-	free(history.data);
 	free(cmd.data);
+	free(history.data);
+
+	For (it, cmd_hist) {
+		free(it->data);
+	}
+	free(cmd_hist.data);
 }
 
 void Console::handle_event(const SDL_Event& ev) {
@@ -33,7 +43,7 @@ void Console::handle_event(const SDL_Event& ev) {
 				cmd.count = 0;
 				scroll = 0;
 				caret = 0;
-				// history_index = -1;
+				history_index = -1;
 			}
 			return;
 		}
@@ -54,9 +64,17 @@ void Console::handle_event(const SDL_Event& ev) {
 
 			execute();
 
+			if (cmd_hist.capacity == cmd_hist.count) {
+				size_t index = cmd_hist.count - 1;
+				free(cmd_hist[index].data);
+				array_remove(&cmd_hist, index);
+			}
+			string str = copy_string(cmd);
+			array_insert(&cmd_hist, 0, str);
+
 			cmd.count = 0;
 			caret = 0;
-			// history_index = -1;
+			history_index = -1;
 			return;
 		}
 
@@ -69,6 +87,64 @@ void Console::handle_event(const SDL_Event& ev) {
 		if (scancode == SDL_SCANCODE_RIGHT) {
 			caret++;
 			if (caret > cmd.count) caret = cmd.count;
+			return;
+		}
+
+		if (scancode == SDL_SCANCODE_UP) {
+			if (history_index + 1 < cmd_hist.count) {
+				history_index++;
+
+				string hist = cmd_hist[history_index];
+
+				Assert(hist.count <= cmd.capacity);
+				memcpy(cmd.data, hist.data, hist.count);
+				cmd.count = hist.count;
+
+				caret = cmd.count;
+			}
+			return;
+		}
+
+		if (scancode == SDL_SCANCODE_DOWN) {
+			if (history_index - 1 >= 0) {
+				history_index--;
+
+				string hist = cmd_hist[history_index];
+
+				Assert(hist.count <= cmd.capacity);
+				memcpy(cmd.data, hist.data, hist.count);
+				cmd.count = hist.count;
+
+				caret = cmd.count;
+			} else if (history_index == 0) {
+				history_index--;
+
+				cmd.count = 0;
+
+				caret = cmd.count;
+			}
+			return;
+		}
+
+		if (scancode == SDL_SCANCODE_TAB) {
+			string autocomplete = get_autocomplete(cmd);
+			if (autocomplete.count > 0) {
+				Assert(autocomplete.count <= cmd.capacity);
+				memcpy(cmd.data, autocomplete.data, autocomplete.count);
+				cmd.count = autocomplete.count;
+
+				caret = cmd.count;
+			}
+			return;
+		}
+
+		if (scancode == SDL_SCANCODE_HOME) {
+			caret = 0;
+			return;
+		}
+
+		if (scancode == SDL_SCANCODE_END) {
+			caret = cmd.count;
 			return;
 		}
 	};
@@ -126,6 +202,21 @@ void Console::write(string str) {
 	}
 }
 
+string Console::get_autocomplete(string cmd) {
+	string autocomplete = {};
+
+	if (cmd.count > 0) {
+		For (it, commands) {
+			if (starts_with(*it, cmd)) {
+				autocomplete = *it;
+				break;
+			}
+		}
+	}
+
+	return autocomplete;
+}
+
 void Console::update(float delta) {
 	if (!show) return;
 }
@@ -159,6 +250,12 @@ void Console::draw(float delta) {
 
 	// draw shell thing
 	pos.x = draw_text(font, ">", pos, HALIGN_LEFT, VALIGN_BOTTOM).x;
+
+	// draw autocomplete
+	{
+		string autocomplete = get_autocomplete(cmd);
+		draw_text(font, autocomplete, pos, HALIGN_LEFT, VALIGN_BOTTOM, {0.5f, 0.5f, 0.5f, 1});
+	}
 
 	// draw cmd
 	draw_text(font, cmd, pos, HALIGN_LEFT, VALIGN_BOTTOM);

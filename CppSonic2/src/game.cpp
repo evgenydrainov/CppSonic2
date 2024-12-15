@@ -61,6 +61,56 @@ void Game::load_level(const char* path) {
 	gen_widthmap_texture (&widthmap,  ts, tileset_texture);
 }
 
+#ifdef DEVELOPER
+static string console_commands_buf[] = {
+	"help",
+	"collision_test",
+	"show_height",
+	"show_width",
+	"show_player_hitbox",
+	"show_debug_info",
+};
+
+bool console_callback(string str, void* userdata) {
+	eat_whitespace(&str);
+	string command = eat_non_whitespace(&str);
+
+	if (command == "h" || command == "help") {
+		console.write("Commands: collision_test show_width show_height show_player_hitbox show_debug_info\n");
+		return true;
+	}
+
+	if (command == "collision_test") {
+		game.collision_test ^= true;
+		return true;
+	}
+
+	if (command == "show_height") {
+		game.show_height ^= true;
+		if (game.show_height) game.show_width = false;
+		return true;
+	}
+
+	if (command == "show_width") {
+		game.show_width ^= true;
+		if (game.show_width) game.show_height = false;
+		return true;
+	}
+
+	if (command == "show_player_hitbox") {
+		game.show_player_hitbox ^= true;
+		return true;
+	}
+
+	if (command == "show_debug_info") {
+		game.show_debug_info ^= true;
+		return true;
+	}
+
+	return false;
+}
+#endif
+
 void Game::init(int argc, char* argv[]) {
 	const char* path = "levels/EEZ_Act1";
 
@@ -75,10 +125,22 @@ void Game::init(int argc, char* argv[]) {
 
 	show_debug_info = true;
 	show_player_hitbox = true;
+
+#ifdef DEVELOPER
+	console_commands = console_commands_buf;
+#endif
 }
 
 void Game::deinit() {
+	free(objects.data);
 
+	free_tileset(&ts);
+	free_texture(&tileset_texture);
+
+	free_texture(&heightmap);
+	free_texture(&widthmap);
+
+	free_tilemap(&tm);
 }
 
 constexpr float PLAYER_ACC = 0.046875f;
@@ -1398,10 +1460,16 @@ static void player_update(Player* p, float delta) {
 		case STATE_DEBUG: {
 			float spd = 8;
 
-			if (is_key_held(SDL_SCANCODE_UP))    { p->pos.y -= spd * delta; }
-			if (is_key_held(SDL_SCANCODE_DOWN))  { p->pos.y += spd * delta; }
-			if (is_key_held(SDL_SCANCODE_LEFT))  { p->pos.x -= spd * delta; }
-			if (is_key_held(SDL_SCANCODE_RIGHT)) { p->pos.x += spd * delta; }
+			p->speed = {};
+			p->ground_speed = 0;
+			p->ground_angle = 0;
+
+			if (is_key_held(SDL_SCANCODE_UP))    { p->speed.y -= spd; }
+			if (is_key_held(SDL_SCANCODE_DOWN))  { p->speed.y += spd; }
+			if (is_key_held(SDL_SCANCODE_LEFT))  { p->speed.x -= spd; }
+			if (is_key_held(SDL_SCANCODE_RIGHT)) { p->speed.x += spd; }
+
+			p->pos += p->speed * delta;
 			break;
 		}
 	}
@@ -1475,9 +1543,6 @@ static void player_update(Player* p, float delta) {
 		if (p->state == STATE_DEBUG) {
 			p->state = STATE_AIR;
 			p->speed = {};
-			p->ground_speed = 0;
-			p->jumped = false;
-			p->ground_angle = 0;
 		} else {
 			p->state = STATE_DEBUG;
 		}
@@ -2376,49 +2441,6 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-#ifdef DEVELOPER
-
-bool console_callback(string str, void* userdata) {
-	eat_whitespace(&str);
-	string command = eat_non_whitespace(&str);
-
-	if (command == "h" || command == "help") {
-		console.write("Commands: collision_test show_width show_height show_player_hitbox show_debug_info\n");
-		return true;
-	}
-
-	if (command == "collision_test") {
-		game.collision_test ^= true;
-		return true;
-	}
-
-	if (command == "show_height") {
-		game.show_height ^= true;
-		if (game.show_height) game.show_width = false;
-		return true;
-	}
-
-	if (command == "show_width") {
-		game.show_width ^= true;
-		if (game.show_width) game.show_height = false;
-		return true;
-	}
-
-	if (command == "show_player_hitbox") {
-		game.show_player_hitbox ^= true;
-		return true;
-	}
-
-	if (command == "show_debug_info") {
-		game.show_debug_info ^= true;
-		return true;
-	}
-
-	return false;
-}
-
-#endif
-
 const Sprite& get_object_sprite(ObjType type) {
 	switch (type) {
 		case OBJ_PLAYER_INIT_POS: return get_sprite(spr_sonic_idle);
@@ -2428,7 +2450,7 @@ const Sprite& get_object_sprite(ObjType type) {
 	}
 
 	Assert(!"invalid object type");
-	return {};
+	return get_sprite(0);
 }
 
 vec2 get_object_size(const Object& o) {
