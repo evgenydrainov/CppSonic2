@@ -12,6 +12,7 @@ struct Console {
 	float scroll;
 	bump_array<char> cmd;
 	bump_array<char> history;
+	int caret;
 
 	ConsoleCallbackFn callback;
 	void* callback_userdata;

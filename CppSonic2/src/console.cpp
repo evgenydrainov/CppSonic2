@@ -22,43 +22,60 @@ void Console::deinit() {
 }
 
 void Console::handle_event(const SDL_Event& ev) {
+	auto handle_keydown_event = [&](const SDL_Event& ev) {
+		SDL_Scancode scancode = ev.key.keysym.scancode;
+
+		if (scancode == SDL_SCANCODE_GRAVE) {
+			show ^= true;
+			window.disable_input = show;
+
+			if (show) {
+				cmd.count = 0;
+				scroll = 0;
+				caret = 0;
+				// history_index = -1;
+			}
+			return;
+		}
+
+		if (!show) return;
+
+		if (scancode == SDL_SCANCODE_BACKSPACE) {
+			if (caret > 0) {
+				array_remove(&cmd, caret - 1);
+				caret--;
+			}
+			return;
+		}
+
+		if (scancode == SDL_SCANCODE_RETURN) {
+			write(cmd);
+			write('\n');
+
+			execute();
+
+			cmd.count = 0;
+			caret = 0;
+			// history_index = -1;
+			return;
+		}
+
+		if (scancode == SDL_SCANCODE_LEFT) {
+			caret--;
+			if (caret < 0) caret = 0;
+			return;
+		}
+
+		if (scancode == SDL_SCANCODE_RIGHT) {
+			caret++;
+			if (caret > cmd.count) caret = cmd.count;
+			return;
+		}
+	};
+
 	switch (ev.type) {
 		case SDL_KEYDOWN: {
-			SDL_Scancode scancode = ev.key.keysym.scancode;
-
-			if (scancode == SDL_SCANCODE_GRAVE) {
-				show ^= true;
-				window.disable_input = show;
-
-				if (show) {
-					cmd.count = 0;
-					scroll = 0;
-					// history_index = -1;
-					// caret = 0;
-				}
-				break;
-			}
-
-			if (!show) break;
-
-			if (scancode == SDL_SCANCODE_BACKSPACE) {
-				if (cmd.count > 0) {
-					cmd.count--;
-				}
-				break;
-			}
-
-			if (scancode == SDL_SCANCODE_RETURN) {
-				write(cmd);
-				write('\n');
-
-				execute();
-
-				cmd.count = 0;
-				// history_index = -1;
-				// caret = 0;
-				break;
-			}
+			handle_keydown_event(ev);
 			break;
 		}
 
@@ -71,7 +88,8 @@ void Console::handle_event(const SDL_Event& ev) {
 
 			if ((u8)ch >= 32 && (u8)ch <= 127) {
 				if (cmd.count < cmd.capacity) {
-					array_add(&cmd, ch);
+					array_insert(&cmd, caret, ch);
+					caret++;
 				}
 			}
 			break;
@@ -130,7 +148,7 @@ void Console::draw(float delta) {
 
 	draw_rectangle(Rectf{0, 0, console_w, console_h}, bg_color);
 
-	vec2 pos = vec2(0, console_h + scroll);
+	vec2 pos = {0, console_h + scroll};
 
 	break_batch();
 	glScissor(0, backbuffer_height - console_h, console_w, console_h);
@@ -145,23 +163,22 @@ void Console::draw(float delta) {
 	// draw cmd
 	draw_text(font, cmd, pos, HALIGN_LEFT, VALIGN_BOTTOM);
 
-	/*/ draw caret
+	// draw caret
 	{
-		vec4 color;
-		if ((SDL_GetTicks() % 800) > 400) {
-			color = {1, 1, 1, 1.00f};
-		} else {
-			color = {1, 1, 1, 0.50f};
-		}
+		vec4 color = color_white;
+		color.a = 0.5f + (sinf(SDL_GetTicks() / 200.0f) + 1.0f) / 4.0f;
 
 		string str;
-		str.data  = user_input_line.data;
+		str.data  = cmd.data;
 		str.count = caret;
 
-		vec2 text_size = r->measure_text(font, str);
+		vec2 text_size = measure_text(font, str);
 
-		r->draw_rectangle({(int)(x + text_size.x), (int)(y - text_size.y), 2, 16}, color);
-	}*/
+		float caret_w = 3;
+		float caret_h = font.line_height;
+
+		draw_rectangle({pos.x + text_size.x, pos.y - text_size.y, caret_w, caret_h}, color);
+	}
 
 	break_batch();
 	glDisable(GL_SCISSOR_TEST);

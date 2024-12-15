@@ -285,8 +285,7 @@ vec2 measure_text(Font font, string text, bool only_one_line) {
 			Assert(font.glyphs.count == 95);
 			Glyph glyph = font.glyphs[ch - 32];
 
-			// If char isn't whitespace, draw it
-			if (ch != ' ') {
+			if (/*ch != ' '*/true) {
 				vec2 pos;
 				pos.x = ch_x + glyph.xoffset;
 				pos.y = ch_y + glyph.yoffset;

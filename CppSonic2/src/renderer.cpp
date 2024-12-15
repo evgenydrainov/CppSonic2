@@ -322,6 +322,8 @@ void render_end_frame() {
 		renderer.current_shader = old_shader;
 	}
 
+	// glFinish();
+
 	renderer.draw_took = get_time() - renderer.draw_took_t;
 }
 
