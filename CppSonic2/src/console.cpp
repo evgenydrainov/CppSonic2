@@ -218,11 +218,14 @@ string Console::get_autocomplete(string cmd) {
 }
 
 void Console::update(float delta) {
-	if (!show) return;
+	float target = show ? 1.0f : 0.0f;
+	Lerp_delta(&console_anim_y, target, 0.4f, delta);
 }
 
 void Console::draw(float delta) {
-	if (!show) return;
+	if (console_anim_y < 0.01f) {
+		return;
+	}
 
 	int backbuffer_width;
 	int backbuffer_height;
@@ -235,7 +238,7 @@ void Console::draw(float delta) {
 	glViewport(0, 0, backbuffer_width, backbuffer_height);
 
 	float console_w = backbuffer_width;
-	float console_h = backbuffer_height * 0.40f;
+	float console_h = backbuffer_height * 0.40f * console_anim_y;
 
 	draw_rectangle(Rectf{0, 0, console_w, console_h}, bg_color);
 

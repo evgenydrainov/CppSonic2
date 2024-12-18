@@ -27,6 +27,8 @@ struct Console {
 	Font font;
 	vec4 bg_color = get_color(0, 0, 0, 128);
 
+	float console_anim_y;
+
 	void init(ConsoleCallbackFn _callback, void* _callback_userdata,
 			  Font _font,
 			  array<string> _commands);
