@@ -38,6 +38,7 @@ void Console::handle_event(const SDL_Event& ev) {
 		if (scancode == SDL_SCANCODE_GRAVE) {
 			show ^= true;
 			window.disable_input = show;
+			console_anim_y = show ? 0.0f : 1.0f;
 
 			if (show) {
 				cmd.count = 0;
@@ -50,10 +51,24 @@ void Console::handle_event(const SDL_Event& ev) {
 
 		if (!show) return;
 
+		if (scancode == SDL_SCANCODE_ESCAPE) {
+			show = false;
+			window.disable_input = show;
+			console_anim_y = show ? 0.0f : 1.0f;
+			return;
+		}
+
 		if (scancode == SDL_SCANCODE_BACKSPACE) {
 			if (caret > 0) {
 				array_remove(&cmd, caret - 1);
 				caret--;
+			}
+			return;
+		}
+
+		if (scancode == SDL_SCANCODE_DELETE) {
+			if (caret < cmd.count) {
+				array_remove(&cmd, caret);
 			}
 			return;
 		}
