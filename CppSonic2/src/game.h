@@ -125,8 +125,6 @@ struct SensorResult {
 };
 
 struct Tileset {
-	int count;
-
 	array<u8> heights;
 	array<u8> widths;
 	array<float> angles;
@@ -251,7 +249,7 @@ inline void set_tile_safe(Tilemap* tm, int tile_x, int tile_y, int layer, Tile t
 }
 
 inline array<u8> get_tile_heights(const Tileset& ts, int tile_index) {
-	Assert(tile_index >= 0 && tile_index < ts.count);
+	Assert(tile_index >= 0 && tile_index < ts.heights.count);
 
 	array<u8> result = {};
 	result.data = ts.heights.data + tile_index * 16;
@@ -261,7 +259,7 @@ inline array<u8> get_tile_heights(const Tileset& ts, int tile_index) {
 }
 
 inline array<u8> get_tile_widths(const Tileset& ts, int tile_index) {
-	Assert(tile_index >= 0 && tile_index < ts.count);
+	Assert(tile_index >= 0 && tile_index < ts.widths.count);
 
 	array<u8> result = {};
 	result.data = ts.widths.data + tile_index * 16;
@@ -271,7 +269,7 @@ inline array<u8> get_tile_widths(const Tileset& ts, int tile_index) {
 }
 
 inline float get_tile_angle(const Tileset& ts, int tile_index) {
-	Assert(tile_index >= 0 && tile_index < ts.count);
+	Assert(tile_index >= 0 && tile_index < ts.angles.count);
 	return ts.angles[tile_index];
 }
 

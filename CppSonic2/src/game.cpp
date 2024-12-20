@@ -2049,8 +2049,6 @@ void read_tileset_old_format(Tileset* ts, const char* fname) {
 	SDL_RWread(f, ts->heights.data, 16 * sizeof(ts->heights[0]), tile_count_);
 	SDL_RWread(f, ts->widths.data,  16 * sizeof(ts->widths[0]), tile_count_);
 	SDL_RWread(f, ts->angles.data,  sizeof(ts->angles[0]), tile_count_);
-
-	ts->count = tile_count_;
 }
 
 void write_tilemap(const Tilemap& tm, const char* fname) {
@@ -2100,7 +2098,7 @@ void write_tileset(const Tileset& ts, const char* fname) {
 	u32 version = 1;
 	SDL_RWwrite(f, &version, sizeof version, 1);
 
-	int count = ts.count;
+	int count = ts.angles.count;
 	SDL_RWwrite(f, &count, sizeof count, 1);
 
 	auto heights = ts.heights;
@@ -2193,7 +2191,6 @@ void read_tileset(Tileset* ts, const char* fname) {
 	auto angles = calloc_array<float>(count); // TODO
 	SDL_RWread(f, angles.data, sizeof(angles[0]), angles.count);
 
-	ts->count = count;
 	ts->heights = heights;
 	ts->widths = widths;
 	ts->angles = angles;
@@ -2350,7 +2347,7 @@ void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture&
 
 	int stride = tileset_texture.width / 16;
 
-	for (int tile_index = 0; tile_index < ts.count; tile_index++) {
+	for (int tile_index = 0; tile_index < ts.angles.count; tile_index++) {
 		array<u8> heights = get_tile_heights(ts, tile_index);
 
 		for (int i = 0; i < 16; i++) {
@@ -2402,7 +2399,7 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 
 	int stride = tileset_texture.width / 16;
 
-	for (int tile_index = 0; tile_index < ts.count; tile_index++) {
+	for (int tile_index = 0; tile_index < ts.angles.count; tile_index++) {
 		array<u8> widths  = get_tile_widths(ts, tile_index);
 
 		for (int i = 0; i < 16; i++) {

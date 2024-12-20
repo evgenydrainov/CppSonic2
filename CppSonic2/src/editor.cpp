@@ -726,10 +726,10 @@ void Editor::import_s1_level(const char* level_data_path,
 		array_add(&objects, o);
 	}
 
-	ts.count = (texture_w / 16) * (texture_h / 16);
-	ts.heights = calloc_array<u8>   (ts.count * 16);
-	ts.widths  = calloc_array<u8>   (ts.count * 16);
-	ts.angles  = calloc_array<float>(ts.count);
+	int count = (texture_w / 16) * (texture_h / 16);
+	ts.heights = calloc_array<u8>   (count * 16);
+	ts.widths  = calloc_array<u8>   (count * 16);
+	ts.angles  = calloc_array<float>(count);
 
 	for (int y = 0; y < tm.height; y++) {
 		for (int x = 0; x < tm.width; x++) {
@@ -968,7 +968,7 @@ void Editor::update(float delta) {
 				if (hmode == HMODE_ANGLES) {
 					if (ImGui::BeginMenu("Angle Editing")) {
 						if (ImGui::MenuItem("Fill whole tileset with angle -1")) {
-							for (int i = 0; i < ts.count; i++) {
+							for (int i = 0; i < ts.angles.count; i++) {
 								ts.angles[i] = -1;
 							}
 						}
@@ -1238,7 +1238,7 @@ void Editor::update(float delta) {
 					draw_list->AddImage(widthmap.ID, texture_pos, texture_pos + texture_size, {0, 0}, {1, 1}, IM_COL32(255, 255, 255, 128));
 				}
 				if (hmode == HMODE_ANGLES) {
-					for (int tile_index = 0; tile_index < ts.count; tile_index++) {
+					for (int tile_index = 0; tile_index < ts.angles.count; tile_index++) {
 						float angle = ts.angles[tile_index];
 						if (angle == -1) {
 							continue;
@@ -2218,10 +2218,10 @@ void Editor::update(float delta) {
 				Assert(tileset_texture.width  % 16 == 0);
 				Assert(tileset_texture.height % 16 == 0);
 
-				ts.count = (tileset_texture.width / 16) * (tileset_texture.height / 16);
-				ts.heights = calloc_array<u8>(ts.count * 16);
-				ts.widths  = calloc_array<u8>(ts.count * 16);
-				ts.angles  = calloc_array<float>(ts.count);
+				int count = (tileset_texture.width / 16) * (tileset_texture.height / 16);
+				ts.heights = calloc_array<u8>(count * 16);
+				ts.widths  = calloc_array<u8>(count * 16);
+				ts.angles  = calloc_array<float>(count);
 
 				heightmap_view.scrolling = (io.DisplaySize - ImVec2(tileset_texture.width, tileset_texture.height)) / 2.0f;
 
