@@ -586,15 +586,16 @@ static void draw_objects(ImDrawList* draw_list,
 				w = it->layset.radius.x * 2;
 				h = it->layset.radius.y * 2;
 				if (it->layset.layer == 0) {
-					col = IM_COL32(128, 128, 255, 255);
+					col = IM_COL32(128, 128, 255, 128);
 				} else {
-					col = IM_COL32(255, 128, 128, 255);
+					col = IM_COL32(255, 128, 128, 128);
 				}
 				break;
 			}
 			case OBJ_LAYER_FLIP: {
 				w = it->layflip.radius.x * 2;
 				h = it->layflip.radius.y * 2;
+				col = IM_COL32(255, 255, 255, 128);
 				break;
 			}
 		}
@@ -708,6 +709,7 @@ void Editor::import_s1_level(const char* level_data_path,
 	tm.height = level_height_in_chunks * 16;
 	tm.tiles_a = calloc_array<Tile>(tm.width * tm.height);
 	tm.tiles_b = calloc_array<Tile>(tm.width * tm.height);
+	tm.tiles_c = calloc_array<Tile>(tm.width * tm.height);
 
 	for (size_t i = 0; i < level_chunk_data.size(); i++) {
 		level_chunk_data[i] = SDL_Swap16(level_chunk_data[i]);
@@ -835,6 +837,9 @@ void Editor::clear_state() {
 	show_tile_indices = false;
 	show_collision = false;
 	layer_index = 0;
+	layer_visible[0] = 1;
+	layer_visible[1] = 0;
+	layer_visible[2] = 1;
 	selected_object = -1;
 	hmap_selected_tile = -1;
 }
@@ -1565,103 +1570,111 @@ void Editor::update(float delta) {
 					}
 				}
 
-				int mouse_tile_x = -1;
-				int mouse_tile_y = -1;
-				if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
-					if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
-						ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
-
-						mouse_tile_x = clamp((int)(pos.x / 16), 0, tm.width  - 1);
-						mouse_tile_y = clamp((int)(pos.y / 16), 0, tm.height - 1);
-					}
-				}
-
 				// draw tilemap
-				for (int y = 0; y < tm.height; y++) {
-					for (int x = 0; x < tm.width; x++) {
-						Tile tile = get_tile(tm, x, y, layer_index);
-						ImU32 col = IM_COL32(255, 255, 255, 255);
+				auto draw_tilemap = [&](int layer_index, bool selected) {
+					int mouse_tile_x = -1;
+					int mouse_tile_y = -1;
+					if (selected) {
+						if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
+							if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
+								ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
 
-						// mouse hover
-						if (tool == TOOL_BRUSH || tool == TOOL_RECT) {
-							if (mouse_tile_x != -1 && mouse_tile_y != -1) {
-								if (!is_erasing) {
-									if (x >= mouse_tile_x && x < mouse_tile_x + brush_size.x
-										&& y >= mouse_tile_y && y < mouse_tile_y + brush_size.y)
-									{
-										int xx = x - mouse_tile_x;
-										int yy = y - mouse_tile_y;
-
-										tile = brush[xx + yy * brush_size.x];
-
-										if (!is_drawing) col = IM_COL32(255, 255, 255, 180);
-									}
-								}
-							}
-						}
-
-						if (tool == TOOL_RECT) {
-							auto sel = tilemap_rect_tool_selection;
-							if (sel.dragging) {
-								if (brush_size.x == 1 && brush_size.y == 1) {
-									if (x >= sel.x && x < sel.x + sel.w && y >= sel.y && y < sel.y + sel.h) {
-										tile = brush[0];
-									}
-								}
-							}
-						}
-
-						if (tool == TOOL_TOP_SOLID_BRUSH || tool == TOOL_LRB_SOLID_BRUSH) {
-							col = IM_COL32(150, 150, 150, 255);
-						}
-
-						if (tile.index != 0) {
-							AddTile(draw_list, tile, tilemap_pos, tilemap_size,
-									tilemap_view, x, y, tileset_texture, col);
-						}
-
-						// draw collision
-						{
-							bool draw_collision = false;
-
-							if (tool == TOOL_TOP_SOLID_BRUSH) {
-								if (tile.top_solid) {
-									draw_collision = true;
-								}
-							} else if (tool == TOOL_LRB_SOLID_BRUSH) {
-								if (tile.lrb_solid) {
-									draw_collision = true;
-								}
-							} else if (show_collision) {
-								if (tile.top_solid || tile.lrb_solid) {
-									draw_collision = true;
-								}
-							}
-
-							if (draw_collision) {
-								AddTile(draw_list, tile, tilemap_pos, tilemap_size,
-										tilemap_view, x, y, heightmap, IM_COL32_WHITE);
-
-								ImVec2 p = tilemap_pos + ImVec2(x * 16, y * 16) * tilemap_view.zoom;
-								ImVec2 p2 = p + ImVec2(16, 16) * tilemap_view.zoom;
-								draw_list->AddRect(p, p2, IM_COL32(255, 0, 0, 255), 0, 0, 0.5 * tilemap_view.zoom);
-							}
-						}
-
-						// draw tile index
-						if (show_tile_indices) {
-							if (tile.index != 0) {
-								char buf[10];
-								stb_snprintf(buf, sizeof buf, "%u", tile.index);
-								ImVec2 p = tilemap_pos + ImVec2(x * 16, y * 16) * tilemap_view.zoom;
-
-								//ImGui::SetWindowFontScale(tilemap_view.zoom);
-								draw_list->AddText(p, IM_COL32_WHITE, buf);
-								//ImGui::SetWindowFontScale(1);
+								mouse_tile_x = clamp((int)(pos.x / 16), 0, tm.width  - 1);
+								mouse_tile_y = clamp((int)(pos.y / 16), 0, tm.height - 1);
 							}
 						}
 					}
-				}
+
+					for (int y = 0; y < tm.height; y++) {
+						for (int x = 0; x < tm.width; x++) {
+							Tile tile = get_tile(tm, x, y, layer_index);
+							ImU32 col = IM_COL32(255, 255, 255, 255);
+
+							// mouse hover
+							if (tool == TOOL_BRUSH || tool == TOOL_RECT) {
+								if (mouse_tile_x != -1 && mouse_tile_y != -1) {
+									if (!is_erasing) {
+										if (x >= mouse_tile_x && x < mouse_tile_x + brush_size.x
+											&& y >= mouse_tile_y && y < mouse_tile_y + brush_size.y)
+										{
+											int xx = x - mouse_tile_x;
+											int yy = y - mouse_tile_y;
+
+											tile = brush[xx + yy * brush_size.x];
+
+											if (!is_drawing) col = IM_COL32(255, 255, 255, 180);
+										}
+									}
+								}
+							}
+
+							if (tool == TOOL_RECT) {
+								auto sel = tilemap_rect_tool_selection;
+								if (sel.dragging) {
+									if (brush_size.x == 1 && brush_size.y == 1) {
+										if (x >= sel.x && x < sel.x + sel.w && y >= sel.y && y < sel.y + sel.h) {
+											tile = brush[0];
+										}
+									}
+								}
+							}
+
+							if (tool == TOOL_TOP_SOLID_BRUSH || tool == TOOL_LRB_SOLID_BRUSH) {
+								col = IM_COL32(150, 150, 150, 255);
+							}
+
+							if (tile.index != 0) {
+								AddTile(draw_list, tile, tilemap_pos, tilemap_size,
+										tilemap_view, x, y, tileset_texture, col);
+							}
+
+							// draw collision
+							{
+								bool draw_collision = false;
+
+								if (tool == TOOL_TOP_SOLID_BRUSH) {
+									if (tile.top_solid) {
+										draw_collision = true;
+									}
+								} else if (tool == TOOL_LRB_SOLID_BRUSH) {
+									if (tile.lrb_solid) {
+										draw_collision = true;
+									}
+								} else if (show_collision) {
+									if (tile.top_solid || tile.lrb_solid) {
+										draw_collision = true;
+									}
+								}
+
+								if (draw_collision) {
+									AddTile(draw_list, tile, tilemap_pos, tilemap_size,
+											tilemap_view, x, y, heightmap, IM_COL32_WHITE);
+
+									ImVec2 p = tilemap_pos + ImVec2(x * 16, y * 16) * tilemap_view.zoom;
+									ImVec2 p2 = p + ImVec2(16, 16) * tilemap_view.zoom;
+									draw_list->AddRect(p, p2, IM_COL32(255, 0, 0, 255), 0, 0, 0.5 * tilemap_view.zoom);
+								}
+							}
+
+							// draw tile index
+							if (show_tile_indices) {
+								if (tile.index != 0) {
+									char buf[10];
+									stb_snprintf(buf, sizeof buf, "%u", tile.index);
+									ImVec2 p = tilemap_pos + ImVec2(x * 16, y * 16) * tilemap_view.zoom;
+
+									//ImGui::SetWindowFontScale(tilemap_view.zoom);
+									draw_list->AddText(p, IM_COL32_WHITE, buf);
+									//ImGui::SetWindowFontScale(1);
+								}
+							}
+						}
+					}
+				};
+
+				if (layer_visible[0]) draw_tilemap(0, layer_index == 0);
+				if (layer_visible[1]) draw_tilemap(1, layer_index == 1);
+				if (layer_visible[2]) draw_tilemap(2, layer_index == 2);
 
 				draw_objects(draw_list, objects, tilemap_pos, tilemap_view);
 
@@ -1839,10 +1852,24 @@ void Editor::update(float delta) {
 				ImGui::Begin("Layers##tilemap_editor");
 				defer { ImGui::End(); };
 
-				const char* labels[] = {"Layer A", "Layer B"};
+				const char* labels[] = {
+					"Layer A",
+					"Layer B",
+					"Layer C",
+				};
 
 				for (int i = ArrayLength(labels) - 1; i >= 0; i--) {
-					if (ImGui::Selectable(labels[i], layer_index == i)) layer_index = i;
+					ImGui::PushID(i);
+					if (IconButtonActive(layer_visible[i] ? ICON_FA_EYE : ICON_FA_EYE_SLASH, layer_visible[i])) {
+						layer_visible[i] ^= true;
+					}
+					ImGui::PopID();
+
+					ImGui::SameLine();
+
+					if (ImGui::Selectable(labels[i], layer_index == i)) {
+						layer_index = i;
+					}
 				}
 			};
 
@@ -1963,17 +1990,22 @@ void Editor::update(float delta) {
 				}
 
 				// draw tilemap
-				for (int y = 0; y < tm.height; y++) {
-					for (int x = 0; x < tm.width; x++) {
-						Tile tile = get_tile(tm, x, y, layer_index);
-						ImU32 col = IM_COL32(255, 255, 255, 255);
+				auto draw_tilemap = [&](int layer_index) {
+					for (int y = 0; y < tm.height; y++) {
+						for (int x = 0; x < tm.width; x++) {
+							Tile tile = get_tile(tm, x, y, layer_index);
+							ImU32 col = IM_COL32(255, 255, 255, 255);
 
-						if (tile.index != 0) {
-							AddTile(draw_list, tile, tilemap_pos, tilemap_size,
-									tilemap_view, x, y, tileset_texture, col);
+							if (tile.index != 0) {
+								AddTile(draw_list, tile, tilemap_pos, tilemap_size,
+										tilemap_view, x, y, tileset_texture, col);
+							}
 						}
 					}
-				}
+				};
+
+				draw_tilemap(0);
+				draw_tilemap(2);
 
 				// draw objects
 				draw_objects(draw_list, objects, tilemap_pos, tilemap_view);
@@ -2206,6 +2238,7 @@ void Editor::update(float delta) {
 
 				tm.tiles_a = calloc_array<Tile>(tm.width * tm.height);
 				tm.tiles_b = calloc_array<Tile>(tm.width * tm.height);
+				tm.tiles_c = calloc_array<Tile>(tm.width * tm.height);
 
 				objects = malloc_bump_array<Object>(MAX_OBJECTS);
 

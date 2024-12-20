@@ -1646,6 +1646,7 @@ void Game::draw(float delta) {
 		int xto = clamp((int)(camera_pos.x + window.game_width  + 15) / 16, 0, tm.width);
 		int yto = clamp((int)(camera_pos.y + window.game_height + 15) / 16, 0, tm.height);
 
+		// draw layer A
 		for (int y = yfrom; y < yto; y++) {
 			for (int x = xfrom; x < xto; x++) {
 				Tile tile = get_tile(tm, x, y, 0);
@@ -1661,23 +1662,52 @@ void Game::draw(float delta) {
 				src.h = 16;
 
 				draw_texture(tileset_texture, src, {x * 16.0f, y * 16.0f}, {1, 1}, {}, 0, color_white, {tile.hflip, tile.vflip});
+			}
+		}
 
+		// draw layer C
+		for (int y = yfrom; y < yto; y++) {
+			for (int x = xfrom; x < xto; x++) {
+				Tile tile = get_tile(tm, x, y, 2);
+
+				if (tile.index == 0) {
+					continue;
+				}
+
+				Rect src;
+				src.x = (tile.index % tileset_width) * 16;
+				src.y = (tile.index / tileset_width) * 16;
+				src.w = 16;
+				src.h = 16;
+
+				draw_texture(tileset_texture, src, {x * 16.0f, y * 16.0f}, {1, 1}, {}, 0, color_white, {tile.hflip, tile.vflip});
+			}
+		}
+
+		// show_height
 #ifdef DEVELOPER
-				if (show_height || show_width) {
-					tile = get_tile(tm, x, y, player.layer);
+		if (show_height || show_width) {
+			for (int y = yfrom; y < yto; y++) {
+				for (int x = xfrom; x < xto; x++) {
+					Tile tile = get_tile(tm, x, y, player.layer);
 
+					if (tile.index == 0) {
+						continue;
+					}
+
+					Rect src;
 					src.x = (tile.index % tileset_width) * 16;
 					src.y = (tile.index / tileset_width) * 16;
 					src.w = 16;
 					src.h = 16;
-				
+
 					if (tile.top_solid || tile.lrb_solid) {
 						draw_texture(show_height ? heightmap : widthmap, src, {x * 16.0f, y * 16.0f}, {1, 1}, {}, 0, color_white, {tile.hflip, tile.vflip});
 					}
 				}
-#endif
 			}
 		}
+#endif
 	}
 
 	Player* p = &player;
@@ -1945,6 +1975,7 @@ void Game::late_draw(float delta) {
 void free_tilemap(Tilemap* tm) {
 	free(tm->tiles_a.data);
 	free(tm->tiles_b.data);
+	free(tm->tiles_c.data);
 
 	*tm = {};
 }
@@ -2006,6 +2037,7 @@ void read_tilemap_old_format(Tilemap* tm, const char* fname) {
 
 	tm->tiles_a = calloc_array<Tile>(tm->width * tm->height);
 	tm->tiles_b = calloc_array<Tile>(tm->width * tm->height);
+	tm->tiles_c = calloc_array<Tile>(tm->width * tm->height);
 
 	for (int i = 0; i < tm->width * tm->height; i++) {
 		tm->tiles_a[i].index = old_tiles_a[i].index;
@@ -2064,7 +2096,7 @@ void write_tilemap(const Tilemap& tm, const char* fname) {
 	char magic[4] = {'T', 'M', 'A', 'P'};
 	SDL_RWwrite(f, magic, sizeof magic, 1);
 
-	u32 version = 1;
+	u32 version = 2;
 	SDL_RWwrite(f, &version, sizeof version, 1);
 
 	int width = tm.width;
@@ -2073,13 +2105,14 @@ void write_tilemap(const Tilemap& tm, const char* fname) {
 	int height = tm.height;
 	SDL_RWwrite(f, &height, sizeof height, 1);
 
-	auto tiles_a = tm.tiles_a;
-	Assert(tiles_a.count == width * height);
-	SDL_RWwrite(f, tiles_a.data, sizeof(tiles_a[0]), tiles_a.count);
+	Assert(tm.tiles_a.count == width * height);
+	SDL_RWwrite(f, tm.tiles_a.data, sizeof(tm.tiles_a[0]), tm.tiles_a.count);
 
-	auto tiles_b = tm.tiles_b;
-	Assert(tiles_b.count == width * height);
-	SDL_RWwrite(f, tiles_b.data, sizeof(tiles_b[0]), tiles_b.count);
+	Assert(tm.tiles_b.count == width * height);
+	SDL_RWwrite(f, tm.tiles_b.data, sizeof(tm.tiles_b[0]), tm.tiles_b.count);
+
+	Assert(tm.tiles_c.count == width * height);
+	SDL_RWwrite(f, tm.tiles_c.data, sizeof(tm.tiles_c[0]), tm.tiles_c.count);
 }
 
 void write_tileset(const Tileset& ts, const char* fname) {
@@ -2134,26 +2167,28 @@ void read_tilemap(Tilemap* tm, const char* fname) {
 	
 	u32 version;
 	SDL_RWread(f, &version, sizeof version, 1);
-	Assert(version == 1);
+	Assert(version >= 1 && version <= 2);
 
 	int width;
 	SDL_RWread(f, &width, sizeof width, 1);
 	Assert(width > 0);
+	tm->width = width;
 
 	int height;
 	SDL_RWread(f, &height, sizeof height, 1);
 	Assert(height > 0);
-
-	auto tiles_a = calloc_array<Tile>(width * height); // TODO: add some kind of validation and free this if there's an error.
-	SDL_RWread(f, tiles_a.data, sizeof(tiles_a[0]), tiles_a.count);
-
-	auto tiles_b = calloc_array<Tile>(width * height); // TODO
-	SDL_RWread(f, tiles_b.data, sizeof(tiles_b[0]), tiles_b.count);
-
-	tm->width = width;
 	tm->height = height;
-	tm->tiles_a = tiles_a;
-	tm->tiles_b = tiles_b;
+
+	tm->tiles_a = calloc_array<Tile>(width * height);
+	SDL_RWread(f, tm->tiles_a.data, sizeof(tm->tiles_a[0]), tm->tiles_a.count);
+
+	tm->tiles_b = calloc_array<Tile>(width * height);
+	SDL_RWread(f, tm->tiles_b.data, sizeof(tm->tiles_b[0]), tm->tiles_b.count);
+
+	tm->tiles_c = calloc_array<Tile>(width * height);
+	if (version >= 2) {
+		SDL_RWread(f, tm->tiles_c.data, sizeof(tm->tiles_c[0]), tm->tiles_c.count);
+	}
 }
 
 void read_tileset(Tileset* ts, const char* fname) {

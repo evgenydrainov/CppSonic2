@@ -134,8 +134,14 @@ struct Tilemap {
 	int width;
 	int height;
 
+	// Solid and drawn
 	array<Tile> tiles_a;
+
+	// Solid and not drawn. For alternate collision layer (for ramps).
 	array<Tile> tiles_b;
+
+	// Not solid and drawn. For grass.
+	array<Tile> tiles_c;
 };
 
 struct Game {
@@ -209,11 +215,13 @@ void gen_widthmap_texture (Texture* widthmap,  const Tileset& ts, const Texture&
 
 inline Tile get_tile(const Tilemap& tm, int tile_x, int tile_y, int layer) {
 	Assert((0 <= tile_x && tile_x < tm.width) && (0 <= tile_y && tile_y < tm.height));
-	Assert(layer == 0 || layer == 1);
+	Assert(layer >= 0 && layer < 3);
 	if (layer == 0) {
 		return tm.tiles_a[tile_x + tile_y * tm.width];
-	} else {
+	} else if (layer == 1) {
 		return tm.tiles_b[tile_x + tile_y * tm.width];
+	} else {
+		return tm.tiles_c[tile_x + tile_y * tm.width];
 	}
 }
 
@@ -221,8 +229,10 @@ inline Tile get_tile_safe(const Tilemap& tm, int tile_x, int tile_y, int layer) 
 	if ((0 <= tile_x && tile_x < tm.width) && (0 <= tile_y && tile_y < tm.height)) {
 		if (layer == 0) {
 			return tm.tiles_a[tile_x + tile_y * tm.width];
-		} else {
+		} else if (layer == 1) {
 			return tm.tiles_b[tile_x + tile_y * tm.width];
+		} else {
+			return tm.tiles_c[tile_x + tile_y * tm.width];
 		}
 	}
 	return {};
@@ -230,11 +240,13 @@ inline Tile get_tile_safe(const Tilemap& tm, int tile_x, int tile_y, int layer) 
 
 inline void set_tile(Tilemap* tm, int tile_x, int tile_y, int layer, Tile tile) {
 	Assert((0 <= tile_x && tile_x < tm->width) && (0 <= tile_y && tile_y < tm->height));
-	Assert(layer == 0 || layer == 1);
+	Assert(layer >= 0 && layer < 3);
 	if (layer == 0) {
 		tm->tiles_a[tile_x + tile_y * tm->width] = tile;
-	} else {
+	} else if (layer == 1) {
 		tm->tiles_b[tile_x + tile_y * tm->width] = tile;
+	} else {
+		tm->tiles_c[tile_x + tile_y * tm->width] = tile;
 	}
 }
 
@@ -242,8 +254,10 @@ inline void set_tile_safe(Tilemap* tm, int tile_x, int tile_y, int layer, Tile t
 	if ((0 <= tile_x && tile_x < tm->width) && (0 <= tile_y && tile_y < tm->height)) {
 		if (layer == 0) {
 			tm->tiles_a[tile_x + tile_y * tm->width] = tile;
-		} else {
+		} else if (layer == 1) {
 			tm->tiles_b[tile_x + tile_y * tm->width] = tile;
+		} else {
+			tm->tiles_c[tile_x + tile_y * tm->width] = tile;
 		}
 	}
 }

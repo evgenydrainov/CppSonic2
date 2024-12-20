@@ -83,6 +83,7 @@ struct Editor {
 	bool show_tile_indices;
 	bool show_collision;
 	int layer_index;
+	bool layer_visible[3] = {1, 0, 1};
 
 	bump_array<Object> objects;
 	int selected_object = -1;
