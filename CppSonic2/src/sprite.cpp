@@ -3,7 +3,7 @@
 #include "renderer.h"
 #include "assets.h"
 
-Sprite make_sprite(u32 texture_index,
+Sprite make_sprite(const Texture& t,
 				   int u, int v,
 				   int width, int height,
 				   int xorigin, int yorigin,
@@ -16,7 +16,7 @@ Sprite make_sprite(u32 texture_index,
 	if (ystride == 0) ystride = height;
 
 	Sprite result = {};
-	result.texture_index = texture_index;
+	result.texture = t;
 	result.xorigin = xorigin;
 	result.yorigin = yorigin;
 	result.loop_frame = loop_frame;
@@ -43,7 +43,7 @@ Sprite make_sprite(u32 texture_index,
 void draw_sprite(const Sprite& s, int frame_index, vec2 pos,
 				 vec2 scale, float angle,
 				 vec4 color, glm::bvec2 flip) {
-	const Texture& t = get_texture(s.texture_index);
+	const Texture& t = s.texture;
 
 	Assert(frame_index >= 0);
 	Assert(frame_index < s.frames.count);

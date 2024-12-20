@@ -9,7 +9,7 @@ void load_global_assets() {
 	textures[tex_global_objects] = load_texture_from_file("textures/global_objects.png");
 
 	{
-		u32 t = tex_sonic_sprites;
+		const Texture& t = get_texture(tex_sonic_sprites);
 
 		sprites[spr_sonic_crouch]   = make_sprite(t, 0,  0 * 59, 59, 59, 30, 30, 1);
 		sprites[spr_sonic_idle]     = make_sprite(t, 0,  1 * 59, 59, 59, 30, 30, 1);
@@ -26,7 +26,7 @@ void load_global_assets() {
 	}
 
 	{
-		u32 t = tex_global_objects;
+		const Texture& t = get_texture(tex_global_objects);
 
 		sprites[spr_spindash_smoke] = make_sprite(t, 0,  0, 32, 32, 32, 11, 7);
 		sprites[spr_ring]           = make_sprite(t, 0, 32, 16, 16,  8,  8, 4);
@@ -49,7 +49,7 @@ void load_assets_for_editor() {
 	textures[tex_editor_sprites] = load_texture_from_file("textures/editor_sprites.png");
 
 	{
-		u32 t = tex_editor_sprites;
+		const Texture& t = get_texture(tex_editor_sprites);
 
 		sprites[spr_layer_flip] = make_sprite(t,  0,  0, 16, 48, 8, 24);
 		sprites[spr_layer_set]  = make_sprite(t, 16,  0, 16, 48, 8, 24);

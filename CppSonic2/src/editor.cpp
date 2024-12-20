@@ -529,7 +529,7 @@ static void walk_tilemap(const Tilemap& tm,
 #endif
 
 static ImVec2 sprite_get_uv0(const Sprite& s, int frame_index) {
-	const Texture& t = get_texture(s.texture_index);
+	const Texture& t = s.texture;
 
 	const SpriteFrame& f = s.frames[frame_index];
 
@@ -541,7 +541,7 @@ static ImVec2 sprite_get_uv0(const Sprite& s, int frame_index) {
 }
 
 static ImVec2 sprite_get_uv1(const Sprite& s, int frame_index) {
-	const Texture& t = get_texture(s.texture_index);
+	const Texture& t = s.texture;
 
 	const SpriteFrame& f = s.frames[frame_index];
 
@@ -602,7 +602,7 @@ static void draw_objects(ImDrawList* draw_list,
 		ImVec2 p = tilemap_pos + ImVec2(it->pos.x - w / 2, it->pos.y - h / 2) * view.zoom;
 		ImVec2 p2 = p + ImVec2(w, h) * view.zoom;
 
-		draw_list->AddImage(get_texture(s.texture_index).ID, p, p2, sprite_get_uv0(s, 0), sprite_get_uv1(s, 0), col);
+		draw_list->AddImage(s.texture.ID, p, p2, sprite_get_uv0(s, 0), sprite_get_uv1(s, 0), col);
 	}
 }
 
@@ -2034,7 +2034,7 @@ void Editor::update(float delta) {
 					}
 
 					ImGui::PushID(id++);
-					ImageButtonActive("object button", get_texture(s.texture_index).ID, ImVec2(s.width, s.height), sprite_get_uv0(s, 0), sprite_get_uv1(s, 0), false);
+					ImageButtonActive("object button", s.texture.ID, ImVec2(s.width, s.height), sprite_get_uv0(s, 0), sprite_get_uv1(s, 0), false);
 					ImGui::PopID();
 
 					ImGui::SameLine();

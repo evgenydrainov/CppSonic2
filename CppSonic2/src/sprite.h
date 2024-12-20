@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.h"
+#include "texture.h"
 
 struct SpriteFrame {
 	int u;
@@ -10,7 +11,7 @@ struct SpriteFrame {
 };
 
 struct Sprite {
-	u32 texture_index;
+	Texture texture;
 	array<SpriteFrame> frames;
 	int xorigin;
 	int yorigin;
@@ -20,7 +21,7 @@ struct Sprite {
 	int height;
 };
 
-Sprite make_sprite(u32 texture_index,
+Sprite make_sprite(const Texture& t,
 				   int u, int v,
 				   int width, int height,
 				   int xorigin, int yorigin,
