@@ -805,6 +805,23 @@ void Editor::import_s1_level(const char* level_data_path,
 	//heightmap_view.scrolling = (io.DisplaySize - ImVec2(tileset_texture.width, tileset_texture.height)) / 2.0f;
 }
 
+static void draw_tilemap(ImDrawList* draw_list,
+						 const Tilemap& tm, int layer_index,
+						 ImVec2 tilemap_pos, ImVec2 tilemap_size,
+						 const View& tilemap_view) {
+	for (int y = 0; y < tm.height; y++) {
+		for (int x = 0; x < tm.width; x++) {
+			Tile tile = get_tile(tm, x, y, layer_index);
+			ImU32 col = IM_COL32(255, 255, 255, 255);
+
+			if (tile.index != 0) {
+				AddTile(draw_list, tile, tilemap_pos, tilemap_size,
+						tilemap_view, x, y, editor.tileset_texture, col);
+			}
+		}
+	}
+}
+
 void Editor::clear_state() {
 	free_tileset(&ts);
 	free_texture(&tileset_texture);
@@ -905,7 +922,7 @@ void Editor::update(float delta) {
 		}
 
 #if 1
-		// SDL overrides main and converts command line args to utf8, so process_name is utf8
+		// SDL converts argv to utf8, and we get process_name from argv, so process_name is utf8
 		auto str = current_level_dir.u8string();
 		const char *command_line[] = {process_name, "--game", str.c_str(), NULL};
 
@@ -1580,17 +1597,15 @@ void Editor::update(float delta) {
 				}
 
 				// draw tilemap
-				auto draw_tilemap = [&](int layer_index, bool selected) {
+				auto draw_tilemap_special = [&](int layer_index) {
 					int mouse_tile_x = -1;
 					int mouse_tile_y = -1;
-					if (selected) {
-						if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
-							if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
-								ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
+					if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
+						if (pos_in_rect(ImGui::GetMousePos(), tilemap_pos, tilemap_size)) {
+							ImVec2 pos = get_mouse_pos_in_view(tilemap_view);
 
-								mouse_tile_x = clamp((int)(pos.x / 16), 0, tm.width  - 1);
-								mouse_tile_y = clamp((int)(pos.y / 16), 0, tm.height - 1);
-							}
+							mouse_tile_x = clamp((int)(pos.x / 16), 0, tm.width  - 1);
+							mouse_tile_y = clamp((int)(pos.y / 16), 0, tm.height - 1);
 						}
 					}
 
@@ -1681,9 +1696,15 @@ void Editor::update(float delta) {
 					}
 				};
 
-				if (layer_visible[0]) draw_tilemap(0, layer_index == 0);
-				if (layer_visible[1]) draw_tilemap(1, layer_index == 1);
-				if (layer_visible[2]) draw_tilemap(2, layer_index == 2);
+				for (int i = 0; i < 3; i++) {
+					if (layer_visible[i]) {
+						if (i == layer_index) {
+							draw_tilemap_special(i);
+						} else {
+							draw_tilemap(draw_list, tm, i, tilemap_pos, tilemap_size, tilemap_view);
+						}
+					}
+				}
 
 				draw_objects(draw_list, objects, tilemap_pos, tilemap_view);
 
@@ -1999,22 +2020,8 @@ void Editor::update(float delta) {
 				}
 
 				// draw tilemap
-				auto draw_tilemap = [&](int layer_index) {
-					for (int y = 0; y < tm.height; y++) {
-						for (int x = 0; x < tm.width; x++) {
-							Tile tile = get_tile(tm, x, y, layer_index);
-							ImU32 col = IM_COL32(255, 255, 255, 255);
-
-							if (tile.index != 0) {
-								AddTile(draw_list, tile, tilemap_pos, tilemap_size,
-										tilemap_view, x, y, tileset_texture, col);
-							}
-						}
-					}
-				};
-
-				draw_tilemap(0);
-				draw_tilemap(2);
+				draw_tilemap(draw_list, tm, 0, tilemap_pos, tilemap_size, tilemap_view);
+				draw_tilemap(draw_list, tm, 2, tilemap_pos, tilemap_size, tilemap_view);
 
 				// draw objects
 				draw_objects(draw_list, objects, tilemap_pos, tilemap_view);

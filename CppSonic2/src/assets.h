@@ -5,6 +5,7 @@
 #include "texture.h"
 #include "font.h"
 #include "sprite.h"
+#include "sound_mixer.h"
 
 enum {
 	tex_fnt_menu,
@@ -52,6 +53,13 @@ enum {
 	NUM_FONTS,
 };
 
+enum {
+	snd_jump,
+	snd_ring,
+
+	NUM_SOUNDS,
+};
+
 void load_global_assets();
 void load_assets_for_game();
 void load_assets_for_editor();
@@ -59,5 +67,7 @@ void load_assets_for_editor();
 void free_all_assets();
 
 const Texture& get_texture(u32 texture_index);
-const Sprite&  get_sprite(u32 sprite_index);
-const Font&    get_font(u32 font_index);
+const Sprite&  get_sprite (u32 sprite_index);
+const Font&    get_font   (u32 font_index);
+
+Mix_Chunk* get_sound(u32 sound_index);

@@ -5,6 +5,7 @@
 #include "package.h"
 #include "console.h"
 #include "assets.h"
+#include "particle_system.h"
 
 Game game;
 
@@ -118,6 +119,8 @@ void Game::init(int argc, char* argv[]) {
 		path = argv[2];
 	}
 
+	init_particles();
+
 	load_level(path);
 
 	camera_pos.x = player.pos.x - window.game_width  / 2;
@@ -141,6 +144,8 @@ void Game::deinit() {
 	free_texture(&widthmap);
 
 	free_tilemap(&tm);
+
+	deinit_particles();
 }
 
 constexpr float PLAYER_ACC = 0.046875f;
@@ -1096,6 +1101,8 @@ static bool player_try_jump(Player* p) {
 	p->frame_duration = fmaxf(0, 4 - fabsf(p->ground_speed));
 	p->jumped = true;
 
+	play_sound(get_sound(snd_jump));
+
 	return true;
 }
 
@@ -1510,7 +1517,18 @@ static void player_update(Player* p, float delta) {
 				}
 			} else if (it->type == OBJ_RING) {
 				game.player_rings++;
-				// TODO: create particle
+
+				Particle p = {};
+				p.pos = it->pos;
+				p.sprite_index = spr_ring_disappear;
+
+				const Sprite& s = get_sprite(p.sprite_index);
+				p.lifespan = (1.0f / s.anim_spd) * s.frames.count;
+
+				add_particle(p);
+
+				play_sound(get_sound(snd_ring));
+
 				Remove(it, game.objects);
 				continue;
 			}
@@ -1612,6 +1630,8 @@ void Game::update(float delta) {
 
 			camera_lock = fmaxf(camera_lock - delta, 0);
 		}
+
+		update_particles(delta);
 	}
 
 	{
@@ -1765,6 +1785,9 @@ void Game::draw(float delta) {
 
 		draw_sprite(s, frame_index, it->pos);
 	}
+
+	// draw particles
+	draw_particles(delta);
 
 #ifdef DEVELOPER
 	// draw player hitbox

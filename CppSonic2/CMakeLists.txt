@@ -59,6 +59,8 @@ set(SOURCES
 	src/single_header.cpp
 	src/assets.cpp
 	src/sprite.cpp
+	src/particle_system.cpp
+	src/sound_mixer.cpp
 	src/imgui/imgui_single_file.cpp
 	src/nfd/nfd_zenity.cpp
 	src/nfd/nfd_common.cpp)

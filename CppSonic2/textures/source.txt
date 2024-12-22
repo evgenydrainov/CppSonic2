@@ -1,0 +1,3 @@
+https://www.spriters-resource.com/sega_cd/sonicthehedgehogcd/
+https://www.spriters-resource.com/sega_genesis_32x/sonicth2/
+https://github.com/VectorSatyr/sonic-for-gms

@@ -94,17 +94,6 @@ void init_window_and_opengl(const char* title,
 		log_info("Current video backend: %s", SDL_GetCurrentVideoDriver());
 	}
 
-	{
-		log_info("Available audio backends:");
-
-		int num_drivers = SDL_GetNumAudioDrivers();
-		for (int i = 0; i < num_drivers; i++) {
-			log_info("%s", SDL_GetAudioDriver(i));
-		}
-
-		log_info("Current audio backend: %s", SDL_GetCurrentAudioDriver());
-	}
-
 	window.handle = SDL_CreateWindow(title,
 									 SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 									 width * init_window_scale, height * init_window_scale,

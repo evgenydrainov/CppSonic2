@@ -1,8 +1,10 @@
 #include "assets.h"
 
-static Texture textures[NUM_TEXTURES] = {};
-static Sprite  sprites[NUM_SPRITES]   = {};
-static Font    fonts[NUM_FONTS]       = {};
+static Texture textures[NUM_TEXTURES];
+static Sprite  sprites [NUM_SPRITES];
+static Font    fonts   [NUM_FONTS];
+
+static Mix_Chunk* sounds[NUM_SOUNDS];
 
 void load_global_assets() {
 	textures[tex_sonic_sprites]  = load_texture_from_file("textures/sonic_sprites.png");
@@ -30,7 +32,7 @@ void load_global_assets() {
 
 		sprites[spr_spindash_smoke] = make_sprite(t, 0,  0, 32, 32, 32, 11, 7);
 		sprites[spr_ring]           = make_sprite(t, 0, 32, 16, 16,  8,  8, 4);
-		sprites[spr_ring_disappear] = make_sprite(t, 0, 48, 16, 16,  8,  8, 4);
+		sprites[spr_ring_disappear] = make_sprite(t, 0, 48, 16, 16,  8,  8, 4, 4, 1.0f / 6.0f);
 	}
 }
 
@@ -43,6 +45,9 @@ void load_assets_for_game() {
 
 	textures[tex_fnt_menu] = load_texture_from_file("fonts/fnt_menu.png");
 	fonts[fnt_menu] = load_font_from_texture(get_texture(tex_fnt_menu), 16, 16, 8, 9, 17);
+
+	sounds[snd_jump] = load_sound("sounds/jump.wav");
+	sounds[snd_ring] = load_sound("sounds/ring.wav");
 }
 
 void load_assets_for_editor() {
@@ -64,13 +69,21 @@ void free_all_assets() {
 	for (int i = 0; i < NUM_TEXTURES; i++) {
 		free_texture(&textures[i]);
 	}
+
+	for (int i = 0; i < NUM_SOUNDS; i++) {
+		if (sounds[i]) {
+			Mix_FreeChunk(sounds[i]);
+			sounds[i] = nullptr;
+		}
+	}
 }
 
 const Texture& get_texture(u32 texture_index) {
 	Assert(texture_index < NUM_TEXTURES);
 
-	Assert(textures[texture_index].ID != 0
-		   && "Trying to access a texture that hasn't been loaded.");
+	if (textures[texture_index].ID == 0) {
+		log_error("Trying to access texture %u that hasn't been loaded.", texture_index);
+	}
 
 	return textures[texture_index];
 }
@@ -78,8 +91,9 @@ const Texture& get_texture(u32 texture_index) {
 const Sprite& get_sprite(u32 sprite_index) {
 	Assert(sprite_index < NUM_SPRITES);
 
-	Assert(sprites[sprite_index].frames.count != 0
-		   && "Trying to access a sprite that hasn't been loaded.");
+	if (sprites[sprite_index].frames.count == 0) {
+		log_error("Trying to access sprite %u that hasn't been loaded.", sprite_index);
+	}
 
 	return sprites[sprite_index];
 }
@@ -87,8 +101,19 @@ const Sprite& get_sprite(u32 sprite_index) {
 const Font& get_font(u32 font_index) {
 	Assert(font_index < NUM_FONTS);
 
-	Assert(fonts[font_index].glyphs.count != 0
-		   && "Trying to access a font that hasn't been loaded.");
+	if (fonts[font_index].glyphs.count == 0) {
+		log_error("Trying to access font %u that hasn't been loaded.", font_index);
+	}
 
 	return fonts[font_index];
+}
+
+Mix_Chunk* get_sound(u32 sound_index) {
+	Assert(sound_index < NUM_SOUNDS);
+
+	if (!sounds[sound_index]) {
+		log_error("Trying to access sound %u that hasn't been loaded.", sound_index);
+	}
+
+	return sounds[sound_index];
 }
