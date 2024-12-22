@@ -1530,7 +1530,11 @@ void Editor::update(float delta) {
 					rectangle_select(tilemap_select_tool_selection, is_item_active,
 									 tilemap_pos, tilemap_size, tilemap_view, tm.width, tm.height);
 
-					if (ImGui::IsKeyPressed(ImGuiKey_C, false) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+					// cut and copy
+					if ((ImGui::IsKeyPressed(ImGuiKey_C, false)
+						 || ImGui::IsKeyPressed(ImGuiKey_X, false))
+						&& ImGui::IsKeyDown(ImGuiKey_LeftCtrl))
+					{
 						if (tilemap_select_tool_selection.w > 0 && tilemap_select_tool_selection.h > 0) {
 							free(brush.data);
 							brush = {};
@@ -1544,6 +1548,11 @@ void Editor::update(float delta) {
 									int xx = tilemap_select_tool_selection.x + x;
 									int yy = tilemap_select_tool_selection.y + y;
 									brush[i] = get_tile(tm, xx, yy, layer_index);
+
+									if (ImGui::IsKeyPressed(ImGuiKey_X, false)) {
+										set_tile(&tm, xx, yy, layer_index, {});
+									}
+
 									i++;
 								}
 							}
