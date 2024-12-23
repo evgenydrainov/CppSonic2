@@ -55,6 +55,16 @@ void init_mixer() {
 		float sound_volume  = 0.5f;
 		float music_volume  = 0.5f;
 
+		char* MASTER_VOLUME = SDL_getenv("MASTER_VOLUME"); // @Leak
+		if (MASTER_VOLUME) {
+			master_volume = (float) SDL_atof(MASTER_VOLUME);
+		}
+
+		char* SOUND_VOLUME = SDL_getenv("SOUND_VOLUME"); // @Leak
+		if (SOUND_VOLUME) {
+			sound_volume = (float) SDL_atof(SOUND_VOLUME);
+		}
+
 		char* MUSIC_VOLUME = SDL_getenv("MUSIC_VOLUME"); // @Leak
 		if (MUSIC_VOLUME) {
 			music_volume = (float) SDL_atof(MUSIC_VOLUME);

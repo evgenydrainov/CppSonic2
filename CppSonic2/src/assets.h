@@ -54,8 +54,12 @@ enum {
 };
 
 enum {
-	snd_jump,
+	snd_jump_cd,
+	snd_jump_s2,
 	snd_ring,
+	snd_spindash,
+	snd_spindash_end,
+	snd_skid,
 
 	NUM_SOUNDS,
 };

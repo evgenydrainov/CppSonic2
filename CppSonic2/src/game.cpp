@@ -63,7 +63,7 @@ void Game::load_level(const char* path) {
 }
 
 #ifdef DEVELOPER
-static string console_commands_buf[] = {
+static string s_ConsoleCommandsBuf[] = {
 	"help",
 	"collision_test",
 	"show_height",
@@ -71,6 +71,8 @@ static string console_commands_buf[] = {
 	"show_player_hitbox",
 	"show_debug_info",
 };
+
+array<string> g_ConsoleCommands = s_ConsoleCommandsBuf;
 
 bool console_callback(string str, void* userdata) {
 	eat_whitespace(&str);
@@ -113,25 +115,23 @@ bool console_callback(string str, void* userdata) {
 #endif
 
 void Game::init(int argc, char* argv[]) {
-	const char* path = "levels/EEZ_Act1";
-
-	if (argc >= 3) {
-		path = argv[2];
-	}
-
 	init_particles();
 
-	load_level(path);
+	{
+		const char* path = "levels/EEZ_Act1";
+
+		if (argc >= 2 && strcmp(argv[1], "--game") == 0) {
+			if (argc >= 3) path = argv[2];
+		}
+
+		load_level(path);
+	}
 
 	camera_pos.x = player.pos.x - window.game_width  / 2;
 	camera_pos.y = player.pos.y - window.game_height / 2;
 
 	show_debug_info = true;
 	show_player_hitbox = true;
-
-#ifdef DEVELOPER
-	console_commands = console_commands_buf;
-#endif
 }
 
 void Game::deinit() {
@@ -974,6 +974,8 @@ static void ground_sensor_collision(Player* p) {
 
 		if (player_roll_condition(p)) {
 			p->state = STATE_ROLL;
+
+			play_sound(get_sound(snd_spindash));
 		} else {
 			p->state = STATE_GROUND;
 		}
@@ -1101,7 +1103,7 @@ static bool player_try_jump(Player* p) {
 	p->frame_duration = fmaxf(0, 4 - fabsf(p->ground_speed));
 	p->jumped = true;
 
-	play_sound(get_sound(snd_jump));
+	play_sound(get_sound(snd_jump_cd));
 
 	return true;
 }
@@ -1146,8 +1148,12 @@ static void player_state_ground(Player* p, float delta) {
 				p->ground_speed += input_h * PLAYER_DEC * delta;
 
 				if (fabsf(p->ground_speed) >= 4) {
-					p->next_anim = anim_skid;
-					p->frame_duration = 8;
+					if (p->anim != anim_skid) {
+						p->next_anim = anim_skid;
+						p->frame_duration = 8;
+
+						play_sound(get_sound(snd_skid));
+					}
 				}
 			} else {
 				if (fabsf(p->ground_speed) < PLAYER_TOP_SPEED) {
@@ -1248,15 +1254,21 @@ static void player_state_ground(Player* p, float delta) {
 			p->next_anim = anim_spindash;
 			p->frame_duration = 1;
 			p->spinrev = 0;
+
+			play_sound(get_sound(snd_spindash));
 		} else if (p->anim == anim_look_up) {
 			// start peelout
 			p->peelout = true;
 			p->spinrev = 0;
+
+			play_sound(get_sound(snd_spindash));
 		} else if (p->anim == anim_spindash) {
 			// charge up spindash
 			p->spinrev += 2;
 			p->spinrev = fminf(p->spinrev, 8);
 			p->frame_index = 0;
+
+			play_sound(get_sound(snd_spindash));
 		} else if (p->peelout) {
 			// do nothing
 		} else {
@@ -1275,6 +1287,9 @@ static void player_state_ground(Player* p, float delta) {
 			p->next_anim = anim_roll;
 			p->frame_duration = fmaxf(0, 4 - fabsf(p->ground_speed));
 			game.camera_lock = 24 - floorf(fabsf(p->ground_speed));
+
+			stop_sound(get_sound(snd_spindash));
+			play_sound(get_sound(snd_spindash_end));
 			return;
 		}
 	}
@@ -1301,6 +1316,9 @@ static void player_state_ground(Player* p, float delta) {
 				game.camera_lock = 24 - floorf(fabsf(p->ground_speed));
 			}
 			p->peelout = false;
+
+			stop_sound(get_sound(snd_spindash));
+			play_sound(get_sound(snd_spindash_end));
 			return;
 		}
 	}
@@ -1308,6 +1326,7 @@ static void player_state_ground(Player* p, float delta) {
 	// Check for starting a roll.
 	if (player_roll_condition(p)) {
 		p->state = STATE_ROLL;
+		play_sound(get_sound(snd_spindash));
 		return;
 	}
 }
@@ -1926,13 +1945,6 @@ void Game::draw(float delta) {
 		str = Sprintf(buf, "%d", player_rings);
 		draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
 		pos.y += 16;
-	}
-
-	// draw fps
-	{
-		char buf[16];
-		string str = Sprintf(buf, "%.0f", roundf(window.avg_fps));
-		draw_text(get_font(fnt_hud), str, {window.game_width, window.game_height}, HALIGN_RIGHT, VALIGN_BOTTOM);
 	}
 
 	break_batch();

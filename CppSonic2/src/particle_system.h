@@ -23,7 +23,7 @@ struct Particle {
 
 constexpr size_t MAX_PARTICLES = 10'000;
 
-extern bump_array<Particle> g_particles;
+extern bump_array<Particle> g_Particles;
 
 void init_particles();
 void deinit_particles();

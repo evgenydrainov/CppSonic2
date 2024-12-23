@@ -4,6 +4,7 @@
 #include "renderer.h"
 #include "package.h"
 #include "assets.h"
+#include "program.h"
 
 #ifdef EDITOR
 #include "imgui_glue.h"
@@ -32,11 +33,11 @@ static int game_main(int argc, char* argv[]) {
 	init_renderer();
 	defer { deinit_renderer(); };
 
-	game.init(argc, argv);
-	defer { game.deinit(); };
+	program.init(argc, argv);
+	defer { program.deinit(); };
 
 #ifdef DEVELOPER
-	console.init(console_callback, nullptr, get_font(fnt_consolas_bold), game.console_commands);
+	console.init(console_callback, nullptr, get_font(fnt_consolas_bold), g_ConsoleCommands);
 	defer { console.deinit(); };
 #endif
 
@@ -52,25 +53,28 @@ static int game_main(int argc, char* argv[]) {
 #endif
 		}
 
+		float delta = window.delta;
+
 		// update
-		game.update(window.delta);
+		program.update(delta);
 
 #ifdef DEVELOPER
-		console.update(window.delta);
+		console.update(delta);
 #endif
 
-		// render
 		vec4 clear_color = color_cornflower_blue;
 		render_begin_frame(clear_color);
 
-		game.draw(window.delta);
+		// draw
+		program.draw(delta);
 
 		render_end_frame();
 
-		game.late_draw(window.delta);
+		// late draw
+		program.late_draw(delta);
 
 #ifdef DEVELOPER
-		console.draw(window.delta);
+		console.draw(delta);
 #endif
 
 		swap_buffers();
@@ -110,9 +114,11 @@ static int editor_main(int argc, char* argv[]) {
 			imgui_handle_event(ev);
 		}
 
+		float delta = window.delta;
+
 		// update
 		imgui_begin_frame();
-		editor.update(window.delta);
+		editor.update(delta);
 
 		// render
 		vec4 clear_color = color_cornflower_blue;

@@ -137,10 +137,10 @@ struct Tilemap {
 	// Solid and drawn
 	array<Tile> tiles_a;
 
-	// Solid and not drawn. For alternate collision layer (for ramps).
+	// Solid and not drawn. For alternate collision layer (for loops).
 	array<Tile> tiles_b;
 
-	// Not solid and drawn. For grass.
+	// Not solid and drawn. For visuals (grass).
 	array<Tile> tiles_c;
 };
 
@@ -177,8 +177,6 @@ struct Game {
 	bool skip_frame;
 	bool frame_advance;
 
-	array<string> console_commands;
-
 	void init(int argc, char* argv[]);
 	void deinit();
 
@@ -192,6 +190,8 @@ struct Game {
 extern Game game;
 
 #ifdef DEVELOPER
+extern array<string> g_ConsoleCommands;
+
 bool console_callback(string str, void* userdata);
 #endif
 

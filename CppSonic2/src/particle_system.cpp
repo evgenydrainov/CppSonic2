@@ -3,20 +3,20 @@
 #include "sprite.h"
 #include "assets.h"
 
-bump_array<Particle> g_particles;
+bump_array<Particle> g_Particles;
 
 void init_particles() {
-	g_particles = malloc_bump_array<Particle>(MAX_PARTICLES);
+	g_Particles = malloc_bump_array<Particle>(MAX_PARTICLES);
 }
 
 void deinit_particles() {
-	free(g_particles.data);
+	free(g_Particles.data);
 }
 
 void update_particles(float delta) {
-	For (p, g_particles) {
+	For (p, g_Particles) {
 		if (p->lifetime >= p->lifespan) {
-			Remove(p, g_particles);
+			Remove(p, g_Particles);
 			continue;
 		}
 
@@ -32,7 +32,7 @@ void update_particles(float delta) {
 }
 
 void draw_particles(float delta) {
-	For (p, g_particles) {
+	For (p, g_Particles) {
 		float f = p->lifetime / p->lifespan;
 
 		vec2 scale = lerp(p->scale_from, p->scale_to, f);
@@ -43,6 +43,6 @@ void draw_particles(float delta) {
 }
 
 Particle* add_particle(const Particle& p) {
-	Particle* result = array_add(&g_particles, p);
+	Particle* result = array_add(&g_Particles, p);
 	return result;
 }

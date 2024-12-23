@@ -193,7 +193,9 @@ copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll"
   <ItemGroup>
     <ClCompile Include="src\assets.cpp" />
     <ClCompile Include="src\console.cpp" />
+    <ClCompile Include="src\main_menu.cpp" />
     <ClCompile Include="src\particle_system.cpp" />
+    <ClCompile Include="src\program.cpp" />
     <ClCompile Include="src\renderer.cpp" />
     <ClCompile Include="src\editor.cpp" />
     <ClCompile Include="src\font.cpp" />
@@ -214,12 +216,15 @@ copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll"
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="src\texture.cpp" />
+    <ClCompile Include="src\title_screen.cpp" />
     <ClCompile Include="src\window_creation.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\assets.h" />
     <ClInclude Include="src\console.h" />
+    <ClInclude Include="src\main_menu.h" />
     <ClInclude Include="src\particle_system.h" />
+    <ClInclude Include="src\program.h" />
     <ClInclude Include="src\renderer.h" />
     <ClInclude Include="src\common.h" />
     <ClInclude Include="src\editor.h" />
@@ -231,6 +236,7 @@ copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll"
     <ClInclude Include="src\sprite.h" />
     <ClInclude Include="src\stdafx.h" />
     <ClInclude Include="src\texture.h" />
+    <ClInclude Include="src\title_screen.h" />
     <ClInclude Include="src\util.h" />
     <ClInclude Include="src\window_creation.h" />
   </ItemGroup>

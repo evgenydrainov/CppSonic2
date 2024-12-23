@@ -46,8 +46,12 @@ void load_assets_for_game() {
 	textures[tex_fnt_menu] = load_texture_from_file("fonts/fnt_menu.png");
 	fonts[fnt_menu] = load_font_from_texture(get_texture(tex_fnt_menu), 16, 16, 8, 9, 17);
 
-	sounds[snd_jump] = load_sound("sounds/jump.wav");
-	sounds[snd_ring] = load_sound("sounds/ring.wav");
+	sounds[snd_jump_cd]      = load_sound("sounds/jump_cd.wav");
+	sounds[snd_jump_s2]      = load_sound("sounds/jump_s2.wav");
+	sounds[snd_ring]         = load_sound("sounds/ring.wav");
+	sounds[snd_spindash]     = load_sound("sounds/spindash.wav");
+	sounds[snd_spindash_end] = load_sound("sounds/spindash_end.wav");
+	sounds[snd_skid]         = load_sound("sounds/skid.wav");
 }
 
 void load_assets_for_editor() {

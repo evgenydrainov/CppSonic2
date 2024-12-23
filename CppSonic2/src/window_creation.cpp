@@ -223,6 +223,18 @@ void handle_event(const SDL_Event& ev) {
 					}
 				}
 			}
+
+			switch (scancode) {
+				// fullscreen on alt+enter
+				case SDL_SCANCODE_RETURN: {
+					if (!ev.key.repeat) {
+						if (ev.key.keysym.mod & KMOD_ALT) {
+							set_fullscreen(!is_fullscreen());
+						}
+					}
+					break;
+				}
+			}
 			break;
 		}
 	}
