@@ -14,6 +14,15 @@ enum {
 	tex_global_objects,
 	tex_editor_sprites,
 
+	tex_title_medal,
+	tex_title_sonic,
+	tex_title_label,
+	tex_title_water,
+	tex_title_water_palette,
+	tex_title_mountains_left,
+	tex_title_mountains_right,
+	tex_title_clouds,
+
 	NUM_TEXTURES,
 };
 
@@ -38,6 +47,12 @@ enum {
 
 	spr_layer_set,
 	spr_layer_flip,
+
+	spr_title_medal,
+	spr_title_sonic,
+	spr_title_label,
+	spr_title_mountains_left,
+	spr_title_mountains_right,
 
 	NUM_SPRITES,
 };

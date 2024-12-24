@@ -223,7 +223,7 @@ inline constexpr vec4 get_color(u32 rgba) {
 			((rgba >>  0) & 0xFF) / 255.0f};
 }
 
-inline constexpr vec4 get_color(u8 r, u8 g, u8 b, u8 a) {
+inline constexpr vec4 get_color(u8 r, u8 g, u8 b, u8 a = 0xFF) {
 	return {r / 255.0f,
 			g / 255.0f,
 			b / 255.0f,

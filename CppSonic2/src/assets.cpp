@@ -52,6 +52,40 @@ void load_assets_for_game() {
 	sounds[snd_spindash]     = load_sound("sounds/spindash.wav");
 	sounds[snd_spindash_end] = load_sound("sounds/spindash_end.wav");
 	sounds[snd_skid]         = load_sound("sounds/skid.wav");
+
+	{
+		textures[tex_title_medal] = load_texture_from_file("textures/title_medal.png");
+		const Texture& t = get_texture(tex_title_medal);
+		sprites[spr_title_medal] = make_sprite(t, 0, 0, t.width, t.height, t.width, t.height / 2);
+	}
+
+	{
+		textures[tex_title_sonic] = load_texture_from_file("textures/title_sonic.png");
+		const Texture& t = get_texture(tex_title_sonic);
+		sprites[spr_title_sonic] = make_sprite(t, 0, 0, 103, 120, 103 / 2, 120 / 2, 7);
+	}
+
+	{
+		textures[tex_title_label] = load_texture_from_file("textures/title_label.png");
+		const Texture& t = get_texture(tex_title_label);
+		sprites[spr_title_label] = make_sprite(t, 0, 0, t.width, t.height, t.width / 2, t.height / 2);
+	}
+
+	{
+		textures[tex_title_mountains_left] = load_texture_from_file("textures/title_mountains_left.png");
+		const Texture& t = get_texture(tex_title_mountains_left);
+		sprites[spr_title_mountains_left] = make_sprite(t, 0, 0, t.width, t.height, 0, t.height);
+	}
+
+	{
+		textures[tex_title_mountains_right] = load_texture_from_file("textures/title_mountains_right.png");
+		const Texture& t = get_texture(tex_title_mountains_right);
+		sprites[spr_title_mountains_right] = make_sprite(t, 0, 0, t.width, t.height, t.width, t.height);
+	}
+
+	textures[tex_title_water] = load_texture_from_file("textures/title_water.png");
+	textures[tex_title_water_palette] = load_texture_from_file("textures/title_water_palette.png");
+	textures[tex_title_clouds] = load_texture_from_file("textures/title_clouds.png", GL_NEAREST, GL_REPEAT);
 }
 
 void load_assets_for_editor() {

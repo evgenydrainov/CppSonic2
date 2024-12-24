@@ -32,3 +32,9 @@ struct Program {
 };
 
 extern Program program;
+
+#ifdef DEVELOPER
+extern array<string> g_ConsoleCommands;
+
+bool console_callback(string str, void* userdata);
+#endif

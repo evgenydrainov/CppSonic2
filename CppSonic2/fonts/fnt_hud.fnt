@@ -83,7 +83,7 @@ char id=108  x=11    y=69    width=7     height=11    xoffset=0     yoffset=0   
 char id=109  x=130   y=69    width=10    height=11    xoffset=0     yoffset=0     xadvance=11
 char id=110  x=141   y=69    width=9     height=11    xoffset=0     yoffset=0     xadvance=10
 char id=111  x=151   y=69    width=7     height=11    xoffset=0     yoffset=0     xadvance=8
-char id=112  x=11    y=69    width=7     height=11    xoffset=0     yoffset=0     xadvance=8
+char id=112  x=1     y=86    width=7     height=11    xoffset=0     yoffset=0     xadvance=8
 char id=113  x=11    y=69    width=7     height=11    xoffset=0     yoffset=0     xadvance=8
 char id=114  x=21    y=86    width=7     height=11    xoffset=0     yoffset=0     xadvance=8
 char id=115  x=31    y=86    width=7     height=11    xoffset=0     yoffset=0     xadvance=8

@@ -5,6 +5,7 @@
 #include "assets.h"
 #include "game.h"
 #include "title_screen.h"
+#include "console.h"
 
 Program program;
 
@@ -151,3 +152,69 @@ void Program::set_program_mode(Program_Mode mode) {
 	next_program_mode = mode;
 	transition_t = 0;
 }
+
+#ifdef DEVELOPER
+static string s_ConsoleCommandsBuf[] = {
+	"help",
+	"title",
+	"game",
+	"collision_test",
+	"show_height",
+	"show_width",
+	"show_player_hitbox",
+	"show_debug_info",
+};
+
+array<string> g_ConsoleCommands = s_ConsoleCommandsBuf;
+
+bool console_callback(string str, void* userdata) {
+	eat_whitespace(&str);
+	string command = eat_non_whitespace(&str);
+
+	if (command == "h" || command == "help") {
+		console.write("Commands: collision_test show_width show_height show_player_hitbox show_debug_info\n");
+		return true;
+	}
+
+	if (command == "title") {
+		program.set_program_mode(PROGRAM_TITLE);
+		return true;
+	}
+
+	if (command == "game") {
+		program.set_program_mode(PROGRAM_GAME);
+		return true;
+	}
+
+	if (program.program_mode == PROGRAM_GAME) {
+		if (command == "collision_test") {
+			game.collision_test ^= true;
+			return true;
+		}
+
+		if (command == "show_height") {
+			game.show_height ^= true;
+			if (game.show_height) game.show_width = false;
+			return true;
+		}
+
+		if (command == "show_width") {
+			game.show_width ^= true;
+			if (game.show_width) game.show_height = false;
+			return true;
+		}
+
+		if (command == "show_player_hitbox") {
+			game.show_player_hitbox ^= true;
+			return true;
+		}
+
+		if (command == "show_debug_info") {
+			game.show_debug_info ^= true;
+			return true;
+		}
+	}
+
+	return false;
+}
+#endif

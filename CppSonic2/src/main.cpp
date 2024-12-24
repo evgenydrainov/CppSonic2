@@ -17,7 +17,7 @@
 
 
 static int game_main(int argc, char* argv[]) {
-	init_window_and_opengl("CppSonic2", 424, 240, 2, true, true);
+	init_window_and_opengl("Sonic VHS", 424, 240, 2, true, true);
 	defer { deinit_window_and_opengl(); };
 
 	init_mixer();

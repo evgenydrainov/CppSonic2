@@ -189,12 +189,6 @@ struct Game {
 
 extern Game game;
 
-#ifdef DEVELOPER
-extern array<string> g_ConsoleCommands;
-
-bool console_callback(string str, void* userdata);
-#endif
-
 void free_tilemap(Tilemap* tm);
 void free_tileset(Tileset* ts);
 

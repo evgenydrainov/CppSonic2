@@ -62,58 +62,6 @@ void Game::load_level(const char* path) {
 	gen_widthmap_texture (&widthmap,  ts, tileset_texture);
 }
 
-#ifdef DEVELOPER
-static string s_ConsoleCommandsBuf[] = {
-	"help",
-	"collision_test",
-	"show_height",
-	"show_width",
-	"show_player_hitbox",
-	"show_debug_info",
-};
-
-array<string> g_ConsoleCommands = s_ConsoleCommandsBuf;
-
-bool console_callback(string str, void* userdata) {
-	eat_whitespace(&str);
-	string command = eat_non_whitespace(&str);
-
-	if (command == "h" || command == "help") {
-		console.write("Commands: collision_test show_width show_height show_player_hitbox show_debug_info\n");
-		return true;
-	}
-
-	if (command == "collision_test") {
-		game.collision_test ^= true;
-		return true;
-	}
-
-	if (command == "show_height") {
-		game.show_height ^= true;
-		if (game.show_height) game.show_width = false;
-		return true;
-	}
-
-	if (command == "show_width") {
-		game.show_width ^= true;
-		if (game.show_width) game.show_height = false;
-		return true;
-	}
-
-	if (command == "show_player_hitbox") {
-		game.show_player_hitbox ^= true;
-		return true;
-	}
-
-	if (command == "show_debug_info") {
-		game.show_debug_info ^= true;
-		return true;
-	}
-
-	return false;
-}
-#endif
-
 void Game::init(int argc, char* argv[]) {
 	init_particles();
 

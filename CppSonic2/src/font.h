@@ -48,11 +48,11 @@ void free_font(Font* f);
 
 // Returns the position of the next-to-be-drawn character.
 // No Unicode, only Ascii.
-vec2 draw_text(Font font, string text, vec2 text_pos,
+vec2 draw_text(const Font& font, string text, vec2 text_pos,
 			   HAlign halign = HALIGN_LEFT, VAlign valign = VALIGN_TOP, vec4 color = color_white);
 
-vec2 draw_text_shadow(Font font, string text, vec2 text_pos,
+vec2 draw_text_shadow(const Font& font, string text, vec2 text_pos,
 					  HAlign halign = HALIGN_LEFT, VAlign valign = VALIGN_TOP, vec4 color = color_white);
 
 // The height of an empty string is font.size
-vec2 measure_text(Font font, string text, bool only_one_line = false);
+vec2 measure_text(const Font& font, string text, bool only_one_line = false);

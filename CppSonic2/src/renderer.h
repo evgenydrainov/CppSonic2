@@ -77,11 +77,16 @@ void render_end_frame();
 
 void break_batch(); // makes the draw call
 
-void draw_texture(Texture t, Rect src = {},
+void set_shader(u32 shader);
+void reset_shader();
+
+void draw_quad(const Texture& t, Vertex vertices[4]);
+
+void draw_texture(const Texture& t, Rect src = {},
 				  vec2 pos = {}, vec2 scale = {1, 1},
 				  vec2 origin = {}, float angle = 0, vec4 color = color_white, glm::bvec2 flip = {});
 
-void draw_texture_centered(Texture t,
+void draw_texture_centered(const Texture& t,
 						   vec2 pos = {}, vec2 scale = {1, 1},
 						   float angle = 0, vec4 color = color_white, glm::bvec2 flip = {});
 
