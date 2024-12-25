@@ -63,6 +63,7 @@ set(SOURCES
 	src/sound_mixer.cpp
 	src/main_menu.cpp
 	src/program.cpp
+	src/title_screen.cpp
 	src/imgui/imgui_single_file.cpp
 	src/nfd/nfd_zenity.cpp
 	src/nfd/nfd_common.cpp)
