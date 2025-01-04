@@ -789,13 +789,11 @@ static SensorResult push_sensor_f_check(Player* p, vec2 pos) {
 
 static bool player_roll_condition(Player* p) {
 	int input_h = 0;
-	if (p->control_lock == 0) {
-		if (is_key_held(SDL_SCANCODE_RIGHT)) input_h++;
-		if (is_key_held(SDL_SCANCODE_LEFT))  input_h--;
-	}
+	if (p->input & INPUT_RIGHT) input_h++;
+	if (p->input & INPUT_LEFT)  input_h--;
 
 	return (fabsf(p->ground_speed) >= 0.5f
-			&& is_key_held(SDL_SCANCODE_DOWN)
+			&& (p->input & INPUT_DOWN)
 			&& input_h == 0);
 }
 
@@ -1073,10 +1071,8 @@ static void player_keep_in_bounds(Player* p) {
 
 static void player_state_ground(Player* p, float delta) {
 	int input_h = 0;
-	if (p->control_lock == 0) {
-		if (is_key_held(SDL_SCANCODE_RIGHT)) input_h++;
-		if (is_key_held(SDL_SCANCODE_LEFT))  input_h--;
-	}
+	if (p->input & INPUT_RIGHT) input_h++;
+	if (p->input & INPUT_LEFT)  input_h--;
 
 	// TODO: Check for special animations that prevent control (such as balancing).
 
@@ -1164,10 +1160,10 @@ static void player_state_ground(Player* p, float delta) {
 
 	if (!dont_update_anim) {
 		if (p->ground_speed == 0.0f) {
-			if (is_key_held(SDL_SCANCODE_DOWN)) {
+			if (p->input & INPUT_DOWN) {
 				p->next_anim = anim_crouch;
 				p->frame_duration = 1;
-			} else if (is_key_held(SDL_SCANCODE_UP)) {
+			} else if (p->input & INPUT_UP) {
 				p->next_anim = anim_look_up;
 				p->frame_duration = 1;
 			} else {
@@ -1196,7 +1192,7 @@ static void player_state_ground(Player* p, float delta) {
 	}
 
 	// Check for starting a jump.
-	if (is_key_pressed(SDL_SCANCODE_Z)) {
+	if (p->input_press & INPUT_JUMP) {
 		if (p->anim == anim_crouch) {
 			// start spindash
 			p->next_anim = anim_spindash;
@@ -1229,7 +1225,7 @@ static void player_state_ground(Player* p, float delta) {
 	if (p->anim == anim_spindash) {
 		p->spinrev -= floorf(p->spinrev * 8) / 256 * delta;
 
-		if (!is_key_held(SDL_SCANCODE_DOWN)) {
+		if (!(p->input & INPUT_DOWN)) {
 			p->state = STATE_ROLL;
 			p->ground_speed = (8 + floorf(p->spinrev) / 2) * p->facing;
 			p->next_anim = anim_roll;
@@ -1257,7 +1253,7 @@ static void player_state_ground(Player* p, float delta) {
 		}
 		p->frame_duration = fmaxf(0, 8 - fabsf(speed));
 
-		if (!is_key_held(SDL_SCANCODE_UP)) {
+		if (!(p->input & INPUT_UP)) {
 			p->state = STATE_GROUND;
 			if (p->spinrev >= 15) {
 				p->ground_speed = speed;
@@ -1281,10 +1277,8 @@ static void player_state_ground(Player* p, float delta) {
 
 static void player_state_roll(Player* p, float delta) {
 	int input_h = 0;
-	if (p->control_lock == 0) {
-		if (is_key_held(SDL_SCANCODE_RIGHT)) input_h++;
-		if (is_key_held(SDL_SCANCODE_LEFT))  input_h--;
-	}
+	if (p->input & INPUT_RIGHT) input_h++;
+	if (p->input & INPUT_LEFT)  input_h--;
 
 	apply_slope_factor(p, delta);
 
@@ -1335,7 +1329,7 @@ static void player_state_roll(Player* p, float delta) {
 	}
 
 	// Check for starting a jump.
-	if (is_key_pressed(SDL_SCANCODE_Z)) {
+	if (p->input_press & INPUT_JUMP) {
 		if (player_try_jump(p)) {
 			return;
 		}
@@ -1344,13 +1338,11 @@ static void player_state_roll(Player* p, float delta) {
 
 static void player_state_air(Player* p, float delta) {
 	int input_h = 0;
-	if (p->control_lock == 0) {
-		if (is_key_held(SDL_SCANCODE_RIGHT)) input_h++;
-		if (is_key_held(SDL_SCANCODE_LEFT))  input_h--;
-	}
+	if (p->input & INPUT_RIGHT) input_h++;
+	if (p->input & INPUT_LEFT)  input_h--;
 
 	// Check for jump button release (variable jump velocity).
-	if (p->jumped && !is_key_held(SDL_SCANCODE_Z)) {
+	if (p->jumped && !(p->input & INPUT_JUMP)) {
 		if (p->speed.y < -4) {
 			p->speed.y = -4;
 		}
@@ -1417,6 +1409,41 @@ static void player_update(Player* p, float delta) {
 
 	p->prev_mode   = player_get_mode(p);
 	p->prev_radius = player_get_radius(p);
+
+	// set input state
+	{
+		u32 prev = p->input;
+		p->input = 0;
+
+		if (p->control_lock == 0) {
+			if (is_key_held(SDL_SCANCODE_RIGHT)) {
+				p->input |= INPUT_RIGHT;
+			}
+
+			if (is_key_held(SDL_SCANCODE_UP)) {
+				p->input |= INPUT_UP;
+			}
+
+			if (is_key_held(SDL_SCANCODE_LEFT)) {
+				p->input |= INPUT_LEFT;
+			}
+
+			if (is_key_held(SDL_SCANCODE_DOWN)) {
+				p->input |= INPUT_DOWN;
+			}
+
+			if (is_key_held(SDL_SCANCODE_Z)) {
+				p->input |= INPUT_Z;
+			}
+
+			if (is_key_held(SDL_SCANCODE_X)) {
+				p->input |= INPUT_X;
+			}
+		}
+
+		p->input_press   = p->input & (~prev);
+		p->input_release = (~p->input) & prev;
+	}
 
 	switch (p->state) {
 		case STATE_GROUND: {
