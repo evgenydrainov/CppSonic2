@@ -1259,7 +1259,9 @@ void Editor::update(float delta) {
 				if (hmode == HMODE_WIDTHS) {
 					draw_list->AddImage(widthmap.ID, texture_pos, texture_pos + texture_size, {0, 0}, {1, 1}, IM_COL32(255, 255, 255, 128));
 				}
-				if (hmode == HMODE_ANGLES) {
+
+				// draw tile angles
+				if (hmode == HMODE_ANGLES || htool == HTOOL_SELECT) {
 					for (int tile_index = 0; tile_index < ts.angles.count; tile_index++) {
 						float angle = ts.angles[tile_index];
 						if (angle == -1) {
@@ -1273,6 +1275,18 @@ void Editor::update(float delta) {
 						p2.x += dcos(angle) * 8 * heightmap_view.zoom;
 						p2.y -= dsin(angle) * 8 * heightmap_view.zoom;
 						AddArrow(draw_list, p1, p2, IM_COL32_WHITE, 0.5, heightmap_view.zoom);
+					}
+				}
+
+				// highlight selected tile
+				if (htool == HTOOL_SELECT) {
+					if (hmap_selected_tile != -1) {
+						int tile_x = hmap_selected_tile % (tileset_texture.width / 16);
+						int tile_y = hmap_selected_tile / (tileset_texture.width / 16);
+
+						ImVec2 p = texture_pos + ImVec2(tile_x * 16, tile_y * 16) * heightmap_view.zoom;
+						ImVec2 p2 = p + ImVec2(16, 16) * heightmap_view.zoom;
+						draw_list->AddRect(p, p2, IM_COL32_WHITE, 0, 0, 0.5f * heightmap_view.zoom);
 					}
 				}
 
@@ -1415,6 +1429,32 @@ void Editor::update(float delta) {
 				ImGui::Text("Tile ID: %d", hmap_selected_tile);
 
 				ImGui::DragFloat("Angle", &ts.angles[hmap_selected_tile]);
+
+				if (ImGui::CollapsingHeader("Heights")) {
+					auto heights = get_tile_heights(ts, hmap_selected_tile);
+
+					for (int i = 0; i < 16; i++) {
+						char buf[16];
+						stb_snprintf(buf, sizeof(buf), "%d##h", i);
+
+						if (ImGui::DragScalar(buf, ImGuiDataType_U8, &heights[i])) {
+							gen_heightmap_texture(&heightmap, ts, tileset_texture);
+						}
+					}
+				}
+
+				if (ImGui::CollapsingHeader("Widths")) {
+					auto widths = get_tile_widths(ts, hmap_selected_tile);
+
+					for (int i = 0; i < 16; i++) {
+						char buf[16];
+						stb_snprintf(buf, sizeof(buf), "%d##w", i);
+
+						if (ImGui::DragScalar(buf, ImGuiDataType_U8, &widths[i])) {
+							gen_widthmap_texture(&widthmap, ts, tileset_texture);
+						}
+					}
+				}
 			};
 
 			tile_properties_window();
