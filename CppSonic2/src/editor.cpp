@@ -215,6 +215,7 @@ void Editor::init(int argc, char* argv[]) {
 #endif
 
 	ImGui::LoadIniSettingsFromMemory(default_imgui_config, sizeof(default_imgui_config) - 1);
+	ImGui::GetIO().IniFilename = nullptr;
 
 	process_name = argv[0];
 }
@@ -481,7 +482,7 @@ static bool IconButtonActive(const char* label, bool active) {
 		ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
 	}
 
-	ImVec2 size = ImVec2(24, 0);
+	ImVec2 size = ImVec2(16 + ImGui::GetStyle().FramePadding.x * 2, 0);
 	bool res = ImGui::Button(label, size);
 
 	if (active) {

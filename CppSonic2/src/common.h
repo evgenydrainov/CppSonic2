@@ -275,6 +275,8 @@ inline T max(T a, T b) {
 
 template <typename T>
 inline T clamp(T a, T mn, T mx) {
+	// Prioritize lower bound for situations like
+	//   clamp(index, 0, size - 1) when size is 0.
 	return max(min(a, mx), mn);
 }
 
