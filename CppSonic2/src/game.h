@@ -134,9 +134,9 @@ static_assert(sizeof(Tile) == 4);
 struct SensorResult {
 	Tile tile;
 	int dist;
-	int tile_x;
-	int tile_y;
-	bool found;
+	int tile_x; // @Unused
+	int tile_y; // @Unused
+	bool found; // @Unused
 };
 
 struct Tileset {

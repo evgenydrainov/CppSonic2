@@ -886,6 +886,8 @@ void Editor::update(float delta) {
 			return;
 		}
 
+		log_info("Opening level %s...", path);
+
 		clear_state();
 
 		current_level_dir = std::filesystem::u8path(path);
@@ -898,6 +900,8 @@ void Editor::update(float delta) {
 
 		read_tilemap(&tm, (current_level_dir / "Tilemap.bin").u8string().c_str());
 		read_tileset(&ts, (current_level_dir / "Tileset.bin").u8string().c_str());
+
+		log_info("Read tilemap %d x %d.", tm.width, tm.height);
 
 		objects = malloc_bump_array<Object>(MAX_OBJECTS);
 		read_objects(&objects, (current_level_dir / "Objects.bin").u8string().c_str());

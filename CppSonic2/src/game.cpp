@@ -10,6 +10,8 @@
 Game game;
 
 void Game::load_level(const char* path) {
+	log_info("Loading level %s...", path);
+
 	// load tileset texture
 	static char buf[512];
 	stb_snprintf(buf, sizeof(buf), "%s/Tileset.png", path);
@@ -75,6 +77,7 @@ void Game::init(int argc, char* argv[]) {
 		load_level(path);
 	}
 
+	// Set camera pos after loading the level.
 	camera_pos.x = player.pos.x - window.game_width  / 2;
 	camera_pos.y = player.pos.y - window.game_height / 2;
 
@@ -850,9 +853,9 @@ static void ground_sensor_collision(Player* p) {
 		return;
 	}
 
-	if (res.dist < -14) {
-		return;
-	}
+	//if (res.dist < -14) {
+	//	return;
+	//}
 
 	switch (player_get_mode(p)) {
 		case MODE_FLOOR:      p->pos.y += res.dist; break;
