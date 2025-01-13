@@ -1766,21 +1766,45 @@ void Game::draw(float delta) {
 
 	// draw objects
 	For (it, objects) {
-		if (it->type == OBJ_PLAYER_INIT_POS
-			|| it->type == OBJ_LAYER_FLIP
-			|| it->type == OBJ_LAYER_SET)
-		{
-			continue;
+		switch (it->type) {
+			case OBJ_PLAYER_INIT_POS:
+			case OBJ_LAYER_FLIP:
+			case OBJ_LAYER_SET: {
+				// don't draw
+				break;
+			}
+
+			case OBJ_RING: {
+				const Sprite& s = get_object_sprite(it->type);
+				int frame_index = (SDL_GetTicks() / (int)(16.66 * 10)) % s.frames.count;
+				draw_sprite(s, frame_index, it->pos);
+				break;
+			}
+
+			case OBJ_MONITOR: {
+				const Sprite& s = get_object_sprite(it->type);
+				int frame_index = (SDL_GetTicks() / (int)(16.66 * 4)) % s.frames.count;
+				draw_sprite(s, frame_index, it->pos);
+
+				// draw monitor icon
+				if (SDL_GetTicks() % (int)(16.66 * 4) < (int)(16.66 * 3)) {
+					const Sprite& s = get_sprite(spr_monitor_icon);
+					int frame_index = it->monitor.icon;
+
+					vec2 pos = it->pos;
+					pos.y -= 3;
+					draw_sprite(s, frame_index, pos);
+				}
+				break;
+			}
+
+			default: {
+				const Sprite& s = get_object_sprite(it->type);
+				int frame_index = 0;
+				draw_sprite(s, frame_index, it->pos);
+				break;
+			}
 		}
-
-		const Sprite& s = get_object_sprite(it->type);
-		int frame_index = 0;
-
-		if (it->type == OBJ_RING) {
-			frame_index = (SDL_GetTicks() / (int)(16.66 * 10)) % s.frames.count;
-		}
-
-		draw_sprite(s, frame_index, it->pos);
 	}
 
 	// draw particles
@@ -2293,6 +2317,12 @@ void write_objects(array<Object> objects, const char* fname) {
 				break;
 			}
 
+			case OBJ_MONITOR: {
+				MonitorIcon icon = o.monitor.icon;
+				SDL_RWwrite(f, &icon, sizeof icon, 1);
+				break;
+			}
+
 			default: {
 				Assert(false);
 				break;
@@ -2363,6 +2393,13 @@ void read_objects(bump_array<Object>* objects, const char* fname) {
 				vec2 radius;
 				SDL_RWread(f, &radius, sizeof radius, 1);
 				o->layflip.radius = radius;
+				break;
+			}
+
+			case OBJ_MONITOR: {
+				MonitorIcon icon;
+				SDL_RWread(f, &icon, sizeof icon, 1);
+				o->monitor.icon = icon;
 				break;
 			}
 
@@ -2492,6 +2529,7 @@ const Sprite& get_object_sprite(ObjType type) {
 		case OBJ_LAYER_SET:       return get_sprite(spr_layer_set);
 		case OBJ_LAYER_FLIP:      return get_sprite(spr_layer_flip);
 		case OBJ_RING:            return get_sprite(spr_ring);
+		case OBJ_MONITOR:         return get_sprite(spr_monitor);
 	}
 
 	Assert(!"invalid object type");

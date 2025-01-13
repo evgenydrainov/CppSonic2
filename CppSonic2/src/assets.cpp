@@ -33,6 +33,8 @@ void load_global_assets() {
 		sprites[spr_spindash_smoke] = make_sprite(t, 0,  0, 32, 32, 32, 11, 7);
 		sprites[spr_ring]           = make_sprite(t, 0, 32, 16, 16,  8,  8, 4);
 		sprites[spr_ring_disappear] = make_sprite(t, 0, 48, 16, 16,  8,  8, 4, 4, 1.0f / 6.0f);
+		sprites[spr_monitor]        = make_sprite(t, 0, 64, 32, 32, 16, 16, 2);
+		sprites[spr_monitor_icon]   = make_sprite(t, 0, 96, 16, 16,  8,  8, 10);
 	}
 }
 

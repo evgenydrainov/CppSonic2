@@ -601,10 +601,27 @@ static void draw_objects(ImDrawList* draw_list,
 			}
 		}
 
-		ImVec2 p = tilemap_pos + ImVec2(it->pos.x - w / 2, it->pos.y - h / 2) * view.zoom;
+		ImVec2 p = tilemap_pos + ImVec2(it->pos.x - w/2, it->pos.y - h/2) * view.zoom;
 		ImVec2 p2 = p + ImVec2(w, h) * view.zoom;
 
 		draw_list->AddImage(s.texture.ID, p, p2, sprite_get_uv0(s, 0), sprite_get_uv1(s, 0), col);
+
+		switch (it->type) {
+			case OBJ_MONITOR: {
+				const Sprite& s = get_sprite(spr_monitor_icon);
+
+				int w = s.width;
+				int h = s.height;
+
+				ImVec2 p = tilemap_pos + ImVec2(it->pos.x - w/2, it->pos.y - h/2 - 3) * view.zoom;
+				ImVec2 p2 = p + ImVec2(w, h) * view.zoom;
+
+				MonitorIcon icon = it->monitor.icon;
+
+				draw_list->AddImage(s.texture.ID, p, p2, sprite_get_uv0(s, icon), sprite_get_uv1(s, icon), col);
+				break;
+			}
+		}
 	}
 }
 
@@ -2147,6 +2164,7 @@ void Editor::update(float delta) {
 				button(OBJ_LAYER_SET);
 				button(OBJ_LAYER_FLIP);
 				button(OBJ_RING);
+				button(OBJ_MONITOR);
 			};
 
 			object_list_window();
@@ -2187,6 +2205,23 @@ void Editor::update(float delta) {
 							} else {
 								o->flags &= ~FLAG_LAYER_FLIP_GROUNDED;
 							}
+						}
+						break;
+					}
+
+					case OBJ_MONITOR: {
+						if (ImGui::BeginCombo("Monitor Icon", GetMonitorIconName(o->monitor.icon))) {
+							for (int i = 0; i < NUM_MONITOR_ICONS; i++) {
+								if (ImGui::Selectable(GetMonitorIconName((MonitorIcon) i), i == o->monitor.icon)) {
+									o->monitor.icon = (MonitorIcon) i;
+								}
+
+								if (i == o->monitor.icon) {
+									ImGui::SetItemDefaultFocus();
+								}
+							}
+
+							ImGui::EndCombo();
 						}
 						break;
 					}

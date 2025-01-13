@@ -45,6 +45,9 @@ enum {
 	spr_ring,
 	spr_ring_disappear,
 
+	spr_monitor,
+	spr_monitor_icon,
+
 	spr_layer_set,
 	spr_layer_flip,
 

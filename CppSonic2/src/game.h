@@ -84,7 +84,8 @@ struct Player {
 	X(OBJ_PLAYER_INIT_POS) \
 	X(OBJ_LAYER_SET) \
 	X(OBJ_LAYER_FLIP) \
-	X(OBJ_RING)
+	X(OBJ_RING) \
+	X(OBJ_MONITOR)
 
 DEFINE_NAMED_ENUM(ObjType, OBJ_TYPE_ENUM)
 
@@ -93,6 +94,22 @@ typedef u32 instance_id;
 enum {
 	FLAG_LAYER_FLIP_GROUNDED = 1 << 16,
 };
+
+#define MONITOR_ICON_ENUM(X) \
+	X(MONITOR_ICON_ROBOTNIK) \
+	X(MONITOR_ICON_SUPER_RING) \
+	X(MONITOR_ICON_POWER_SNEAKERS) \
+	X(MONITOR_ICON_SHIELD) \
+	X(MONITOR_ICON_BUBBLE_SHIELD) \
+	X(MONITOR_ICON_LIGHTNING_SHIELD) \
+	X(MONITOR_ICON_FIRE_SHIELD) \
+	X(MONITOR_ICON_INVINCIBILITY) \
+	X(MONITOR_ICON_SUPER) \
+	X(MONITOR_ICON_1UP) \
+	\
+	X(NUM_MONITOR_ICONS)
+
+DEFINE_NAMED_ENUM(MonitorIcon, MONITOR_ICON_ENUM)
 
 struct Object {
 	instance_id id;
@@ -110,6 +127,10 @@ struct Object {
 		struct {
 			vec2 radius;
 		} layflip; // OBJ_LAYER_FLIP
+
+		struct {
+			MonitorIcon icon;
+		} monitor; // OBJ_MONITOR
 	};
 };
 
