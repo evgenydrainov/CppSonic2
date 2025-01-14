@@ -58,11 +58,11 @@ void draw_sprite(const Sprite& s, int frame_index, vec2 pos,
 float sprite_animate(const Sprite& s, float frame_index, float delta) {
 	frame_index += s.anim_spd * delta;
 
-	if (frame_index >= (float)s.frames.count) {
-		float a = frame_index - (float)s.loop_frame;
-		float b = (float)(s.frames.count - s.loop_frame);
+	if (frame_index >= s.frames.count) {
+		float a = frame_index - s.loop_frame;
+		float b = s.frames.count - s.loop_frame;
 		Assert(b != 0);
-		frame_index = (float)s.loop_frame + fmodf(a, b);
+		frame_index = s.loop_frame + fmodf(a, b);
 	}
 
 	return frame_index;

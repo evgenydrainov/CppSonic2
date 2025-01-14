@@ -44,9 +44,16 @@ enum {
 	spr_ring,
 	spr_ring_disappear,
 	spr_monitor,
+	spr_monitor_broken,
 	spr_monitor_icon,
+
+	// has to be in order
 	spr_spring_yellow,
 	spr_spring_red,
+
+	// has to be in order
+	spr_spring_bounce_yellow,
+	spr_spring_bounce_red,
 
 	spr_layer_set,
 	spr_layer_flip,
@@ -78,6 +85,8 @@ enum {
 	snd_spindash,
 	snd_spindash_end,
 	snd_skid,
+	snd_destroy_monitor,
+	snd_spring_bounce,
 
 	NUM_SOUNDS,
 };

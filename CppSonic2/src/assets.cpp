@@ -34,9 +34,14 @@ void load_global_assets() {
 		sprites[spr_ring]           = make_sprite(t,  0,  32, 16, 16,  8,  8, 4);
 		sprites[spr_ring_disappear] = make_sprite(t,  0,  48, 16, 16,  8,  8, 4, 4, 1.0f / 6.0f);
 		sprites[spr_monitor]        = make_sprite(t,  0,  64, 32, 32, 16, 16, 2);
+		sprites[spr_monitor_broken] = make_sprite(t, 64,  64, 32, 32, 16, 16);
 		sprites[spr_monitor_icon]   = make_sprite(t,  0,  96, 16, 16,  8,  8, 10);
-		sprites[spr_spring_yellow]  = make_sprite(t,  0, 112, 32, 32, 16, 28, 3);
-		sprites[spr_spring_red]     = make_sprite(t,  0, 144, 32, 32, 16, 28, 3);
+
+		sprites[spr_spring_yellow]  = make_sprite(t, 32, 112, 32, 32, 16, 24);
+		sprites[spr_spring_red]     = make_sprite(t, 32, 144, 32, 32, 16, 24);
+
+		sprites[spr_spring_bounce_yellow]  = make_sprite(t,  0, 112, 32, 32, 16, 24, 3, 3, 1.0f / 3.0f);
+		sprites[spr_spring_bounce_red]     = make_sprite(t,  0, 144, 32, 32, 16, 24, 3, 3, 1.0f / 3.0f);
 	}
 }
 
@@ -50,12 +55,14 @@ void load_assets_for_game() {
 	textures[tex_fnt_menu] = load_texture_from_file("fonts/fnt_menu.png");
 	fonts[fnt_menu] = load_font_from_texture(get_texture(tex_fnt_menu), 16, 16, 8, 9, 17);
 
-	sounds[snd_jump_cd]      = load_sound("sounds/jump_cd.wav");
-	sounds[snd_jump_s2]      = load_sound("sounds/jump_s2.wav");
-	sounds[snd_ring]         = load_sound("sounds/ring.wav");
-	sounds[snd_spindash]     = load_sound("sounds/spindash.wav");
-	sounds[snd_spindash_end] = load_sound("sounds/spindash_end.wav");
-	sounds[snd_skid]         = load_sound("sounds/skid.wav");
+	sounds[snd_jump_cd]         = load_sound("sounds/jump_cd.wav");
+	sounds[snd_jump_s2]         = load_sound("sounds/jump_s2.wav");
+	sounds[snd_ring]            = load_sound("sounds/ring.wav");
+	sounds[snd_spindash]        = load_sound("sounds/spindash.wav");
+	sounds[snd_spindash_end]    = load_sound("sounds/spindash_end.wav");
+	sounds[snd_skid]            = load_sound("sounds/skid.wav");
+	sounds[snd_destroy_monitor] = load_sound("sounds/destroy_monitor.wav");
+	sounds[snd_spring_bounce]   = load_sound("sounds/spring_bounce.wav");
 
 	{
 		textures[tex_title_medal] = load_texture_from_file("textures/title_medal.png");

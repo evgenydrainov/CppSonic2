@@ -88,13 +88,16 @@ struct Player {
 	X(OBJ_LAYER_FLIP) \
 	X(OBJ_RING) \
 	X(OBJ_MONITOR) \
-	X(OBJ_SPRING)
+	X(OBJ_SPRING) \
+	X(OBJ_MONITOR_BROKEN)
 
 DEFINE_NAMED_ENUM(ObjType, OBJ_TYPE_ENUM)
 
 typedef u32 instance_id;
 
 enum {
+	FLAG_INSTANCE_DEAD = 1 << 0,
+
 	FLAG_LAYER_FLIP_GROUNDED = 1 << 16,
 };
 
@@ -156,6 +159,9 @@ struct Object {
 		struct {
 			SpringColor color;
 			Direction direction;
+
+			bool animating;
+			float frame_index;
 		} spring; // OBJ_SPRING
 	};
 };
@@ -199,7 +205,7 @@ struct Tilemap {
 	// Solid and drawn
 	array<Tile> tiles_a;
 
-	// Solid and not drawn. For alternate collision layer (for loops).
+	// Solid and not drawn. For alternate collision layer (to make loops work).
 	array<Tile> tiles_b;
 
 	// Not solid and drawn. For visuals (grass).

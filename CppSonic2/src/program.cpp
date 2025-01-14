@@ -172,7 +172,13 @@ bool console_callback(string str, void* userdata) {
 	string command = eat_non_whitespace(&str);
 
 	if (command == "h" || command == "help") {
-		console.write("Commands: collision_test show_width show_height show_player_hitbox show_debug_info\n");
+		console.write("Commands: ");
+		For (it, g_ConsoleCommands) {
+			console.write(*it);
+			console.write(' ');
+		}
+		console.write("\n");
+
 		return true;
 	}
 

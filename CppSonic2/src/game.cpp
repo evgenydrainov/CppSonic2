@@ -1090,9 +1090,72 @@ static bool object_is_solid(ObjType type) {
 static void player_collide_with_objects(Player* p) {
 	vec2 player_radius = player_get_radius(p);
 	
+	// reset the flag
 	p->landed_on_solid_object = false;
 
-	For (it, game.objects) {
+	auto player_land_on_object = [&](Player* p, Object* o) -> bool {
+		switch (o->type) {
+			case OBJ_MONITOR: {
+				if (p->anim != anim_roll) return false;
+
+				float bounce_speed = 0;
+
+				if (p->input & INPUT_JUMP) {
+					bounce_speed = fabsf(p->speed.y);
+				}
+
+				if (bounce_speed < 2) bounce_speed = 2;
+
+				p->state   = STATE_AIR;
+				p->speed.y = -bounce_speed;
+
+				o->flags |= FLAG_INSTANCE_DEAD;
+
+				{
+					Object broken_monitor = {};
+					broken_monitor.id = game.next_id++;
+					broken_monitor.type = OBJ_MONITOR_BROKEN;
+					broken_monitor.pos = o->pos;
+
+					array_add(&game.objects, broken_monitor);
+				}
+
+				play_sound(get_sound(snd_destroy_monitor));
+				
+				return true;
+			}
+
+			case OBJ_SPRING: {
+				if (o->spring.direction != DIR_UP) return false;
+
+				float force = 10;
+
+				if (o->spring.color == SPRING_COLOR_RED) {
+					force = 16;
+				}
+
+				p->state   = STATE_AIR;
+				p->speed.y = -force;
+				p->jumped  = false;
+
+				o->spring.animating = true;
+				o->spring.frame_index = 0;
+
+				play_sound(get_sound(snd_spring_bounce));
+
+				return true;
+			}
+		}
+
+		return false;
+	};
+
+	// because we add objects while iterating
+	int object_count = game.objects.count;
+
+	for (int i = 0; i < object_count; i++) {
+		Object* it = &game.objects[i];
+
 		if (!object_is_solid(it->type)) continue;
 
 		vec2 obj_size = get_object_size(*it);
@@ -1151,15 +1214,30 @@ static void player_collide_with_objects(Player* p) {
 
 				if (p->speed.y < 0) continue;
 
-				if (p->state == STATE_AIR) {
-					p->state = STATE_GROUND;
-					p->ground_speed = p->speed.x;
-					p->ground_angle = 0;
+				p->pos.y -= y_distance;
+
+				if (!player_land_on_object(p, it)) {
+					if (p->state == STATE_AIR) {
+						if (player_roll_condition(p)) {
+							p->state = STATE_ROLL;
+						} else {
+							p->state = STATE_GROUND;
+						}
+						p->ground_speed = p->speed.x;
+						p->ground_angle = 0;
+					}
+
+					p->speed.y = 0;
+					p->landed_on_solid_object = true;
 				}
 
-				p->speed.y = 0;
-				p->pos.y -= y_distance;
-				p->landed_on_solid_object = true;
+				// we could remove dead objects at the end of the frame but idk
+				if (it->flags & FLAG_INSTANCE_DEAD) {
+					array_remove(&game.objects, i);
+					i--;
+					object_count--;
+					continue;
+				}
 			} else {
 				// TODO: bump the ceiling
 
@@ -1171,8 +1249,8 @@ static void player_collide_with_objects(Player* p) {
 
 			if (fabsf(y_distance) <= 4) continue;
 
-			// if player is moving towards the object
 			if (x_distance != 0) {
+				// if player is moving towards the object
 				if ((x_distance > 0 && p->speed.x > 0)
 					|| (x_distance < 0 && p->speed.x < 0))
 				{
@@ -1761,6 +1839,23 @@ void Game::update(float delta) {
 			camera_lock = fmaxf(camera_lock - delta, 0);
 		}
 
+		// update game objects
+		For (it, objects) {
+			switch (it->type) {
+				case OBJ_SPRING: {
+					if (it->spring.animating) {
+						const Sprite& s = get_sprite(spr_spring_bounce_yellow + it->spring.color);
+
+						it->spring.frame_index += s.anim_spd * delta;
+						if (it->spring.frame_index >= s.frames.count) {
+							it->spring.animating = false;
+						}
+					}
+					break;
+				}
+			}
+		}
+
 		update_particles(delta);
 	}
 
@@ -1932,14 +2027,17 @@ void Game::draw(float delta) {
 			}
 
 			case OBJ_SPRING: {
-				u32 spr = spr_spring_yellow;
-				if (it->spring.color == SPRING_COLOR_RED) {
-					spr = spr_spring_red;
+				u32 spr = spr_spring_yellow + it->spring.color;
+				float frame_index = 0;
+
+				if (it->spring.animating) {
+					spr = spr_spring_bounce_yellow + it->spring.color;
+					frame_index = it->spring.frame_index;
 				}
 
 				float angle = it->spring.direction * 90 - 90;
 
-				draw_sprite(get_sprite(spr), 0, it->pos, {1, 1}, angle);
+				draw_sprite(get_sprite(spr), frame_index, it->pos, {1, 1}, angle);
 				break;
 			}
 
@@ -2695,6 +2793,7 @@ const Sprite& get_object_sprite(ObjType type) {
 		case OBJ_RING:            return get_sprite(spr_ring);
 		case OBJ_MONITOR:         return get_sprite(spr_monitor);
 		case OBJ_SPRING:          return get_sprite(spr_spring_yellow);
+		case OBJ_MONITOR_BROKEN:  return get_sprite(spr_monitor_broken);
 	}
 
 	Assert(!"invalid object type");
@@ -2707,7 +2806,7 @@ vec2 get_object_size(const Object& o) {
 		case OBJ_LAYER_SET:       return {o.layset.radius.x  * 2, o.layset.radius.y  * 2};
 		case OBJ_LAYER_FLIP:      return {o.layflip.radius.x * 2, o.layflip.radius.y * 2};
 		case OBJ_MONITOR:         return {30, 30};
-		case OBJ_SPRING:          return {32, 8};
+		case OBJ_SPRING:          return {32, 16};
 	}
 
 	const Sprite& s = get_object_sprite(o.type);
