@@ -71,6 +71,8 @@ struct Player {
 	float control_lock;
 	bool jumped;
 	bool peelout;
+	bool pushing;
+	bool landed_on_solid_object;
 
 	PlayerMode prev_mode;
 	vec2 prev_radius;
@@ -212,6 +214,8 @@ struct Game {
 	int player_rings;
 
 	bump_array<Object> objects;
+
+	instance_id next_id;
 
 	vec2 camera_pos;
 	float camera_lock;

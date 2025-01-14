@@ -41,6 +41,11 @@ void Game::load_level(const char* path) {
 	stb_snprintf(buf, sizeof(buf), "%s/Objects.bin", path);
 	read_objects(&objects, buf);
 
+	// give IDs to the objects
+	For (it, objects) {
+		it->id = next_id++;
+	}
+
 	// search for player init pos
 	{
 		bool found = false;
@@ -103,6 +108,7 @@ constexpr float PLAYER_ACC = 0.046875f;
 constexpr float PLAYER_DEC = 0.5f;
 constexpr float PLAYER_FRICTION = 0.046875f;
 constexpr float PLAYER_TOP_SPEED = 6.0f;
+constexpr float PLAYER_PUSH_RADIUS = 10.0f;
 
 static bool player_is_grounded(Player* p) {
 	return (p->state == STATE_GROUND
@@ -385,7 +391,6 @@ static void get_ceiling_sensors_pos(Player* p, vec2* sensor_c, vec2* sensor_d) {
 }
 
 static void get_push_sensors_pos(Player* p, vec2* sensor_e, vec2* sensor_f) {
-	const float PLAYER_PUSH_RADIUS = 10.0f;
 
 	switch (player_get_push_mode(p)) {
 		case MODE_FLOOR: {
@@ -805,6 +810,10 @@ static void ground_sensor_collision(Player* p) {
 		return;
 	}
 
+	if (p->landed_on_solid_object) {
+		return;
+	}
+
 	vec2 sensor_a;
 	vec2 sensor_b;
 	get_ground_sensors_pos(p, &sensor_a, &sensor_b);
@@ -963,8 +972,6 @@ static void push_sensor_collision(Player* p) {
 	vec2 sensor_f;
 	get_push_sensors_pos(p, &sensor_e, &sensor_f);
 
-	const int anim_push_frame_duration = fmaxf(0, 8 - fabsf(p->ground_speed)) * 4;
-
 	if (is_push_sensor_f_active(p)) {
 		SensorResult res = push_sensor_f_check(p, sensor_f);
 		if (res.dist <= 0) {
@@ -974,12 +981,12 @@ static void push_sensor_collision(Player* p) {
 				case MODE_CEILING:    p->pos.x -= res.dist; break;
 				case MODE_LEFT_WALL:  p->pos.y -= res.dist; break;
 			}
+
 			p->ground_speed = 0.0f;
 			p->speed.x = 0.0f;
 
-			if (p->state == STATE_GROUND) {
-				p->next_anim = anim_push;
-				p->frame_duration = anim_push_frame_duration;
+			if (p->input & INPUT_RIGHT) {
+				p->pushing = true;
 			}
 		}
 	}
@@ -993,12 +1000,12 @@ static void push_sensor_collision(Player* p) {
 				case MODE_CEILING:    p->pos.x += res.dist; break;
 				case MODE_LEFT_WALL:  p->pos.y += res.dist; break;
 			}
+
 			p->ground_speed = 0.0f;
 			p->speed.x = 0.0f;
 
-			if (p->state == STATE_GROUND) {
-				p->next_anim = anim_push;
-				p->frame_duration = anim_push_frame_duration;
+			if (p->input & INPUT_LEFT) {
+				p->pushing = true;
 			}
 		}
 	}
@@ -1072,12 +1079,123 @@ static void player_keep_in_bounds(Player* p) {
 	if (p->pos.y > bottom) {p->pos.y = bottom;}
 }
 
+static bool object_is_solid(ObjType type) {
+	switch (type) {
+		case OBJ_MONITOR: return true;
+		case OBJ_SPRING:  return true;
+	}
+	return false;
+}
+
+static void player_collide_with_objects(Player* p) {
+	vec2 player_radius = player_get_radius(p);
+	
+	p->landed_on_solid_object = false;
+
+	For (it, game.objects) {
+		if (!object_is_solid(it->type)) continue;
+
+		vec2 obj_size = get_object_size(*it);
+
+		float combined_x_radius = obj_size.x/2 + PLAYER_PUSH_RADIUS + 1;
+		float combined_y_radius = obj_size.y/2 + player_radius.y + 1;
+
+		float combined_x_diameter = combined_x_radius * 2;
+		float combined_y_diameter = combined_y_radius * 2;
+
+		float left_difference = (p->pos.x - it->pos.x) + combined_x_radius;
+
+		// the Player is too far to the left to be touching?
+		if (left_difference < 0) continue;
+		// the Player is too far to the right to be touching?
+		if (left_difference > combined_x_diameter) continue;
+
+		float top_difference = (p->pos.y - it->pos.y) + 4 + combined_y_radius;
+
+		// the Player is too far above to be touching
+		if (top_difference < 0) continue;
+		// the Player is too far down to be touching
+		if (top_difference > combined_y_diameter) continue;
+
+		float x_distance;
+		if (p->pos.x > it->pos.x) {
+			// player is on the right
+			x_distance = left_difference - combined_x_diameter;
+		} else {
+			// player is on the left
+			x_distance = left_difference;
+		}
+
+		float y_distance;
+		if (p->pos.y > it->pos.y) {
+			// player is on the bottom
+			y_distance = top_difference - 4 - combined_y_diameter;
+		} else {
+			// player is on the top
+			y_distance = top_difference;
+		}
+
+		if (fabsf(x_distance) > fabsf(y_distance)) {
+			// collide vertically
+
+			if (y_distance >= 0) {
+				// land
+
+				//if (y_distance >= 16) continue;
+
+				y_distance -= 4;
+
+				if (!(it->pos.x - obj_size.x/2 < p->pos.x && p->pos.x < it->pos.x + obj_size.x/2)) {
+					continue;
+				}
+
+				if (p->speed.y < 0) continue;
+
+				if (p->state == STATE_AIR) {
+					p->state = STATE_GROUND;
+					p->ground_speed = p->speed.x;
+					p->ground_angle = 0;
+				}
+
+				p->speed.y = 0;
+				p->pos.y -= y_distance;
+				p->landed_on_solid_object = true;
+			} else {
+				// TODO: bump the ceiling
+
+				p->speed.y = 0;
+				p->pos.y -= y_distance;
+			}
+		} else {
+			// collide horizontally
+
+			if (fabsf(y_distance) <= 4) continue;
+
+			// if player is moving towards the object
+			if (x_distance != 0) {
+				if ((x_distance > 0 && p->speed.x > 0)
+					|| (x_distance < 0 && p->speed.x < 0))
+				{
+					p->ground_speed = 0;
+					p->speed.x = 0;
+				}
+			}
+
+			if ((x_distance > 0 && (p->input & INPUT_RIGHT))
+				|| (x_distance < 0 && (p->input & INPUT_LEFT)))
+			{
+				p->pushing = true;
+			}
+
+			p->pos.x -= x_distance;
+		}
+	}
+}
+
 static void player_state_ground(Player* p, float delta) {
 	int input_h = 0;
 	if (p->input & INPUT_RIGHT) input_h++;
 	if (p->input & INPUT_LEFT)  input_h--;
-
-	// TODO: Check for special animations that prevent control (such as balancing).
 
 	// Adjust Ground Speed based on current Ground Angle (Slope Factor).
 	apply_slope_factor(p, delta);
@@ -1111,8 +1229,6 @@ static void player_state_ground(Player* p, float delta) {
 		}
 	}
 
-	// TODO: Check for starting crouching, balancing on ledges, etc.
-
 	auto physics_step = [&](float delta) {
 		// Move the Player object
 		p->speed.x =  dcos(p->ground_angle) * p->ground_speed;
@@ -1132,56 +1248,62 @@ static void player_state_ground(Player* p, float delta) {
 		physics_step(delta / (float)num_physics_steps);
 	}
 
+	// collide with objects
+	player_collide_with_objects(p);
+
 	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
 	player_keep_in_bounds(p);
 
-	bool dont_update_anim = false;
+	if (p->pushing) {
+		const int anim_push_frame_duration = fmaxf(0, 8 - fabsf(p->ground_speed)) * 4;
 
-	if (p->anim == anim_spindash) {
-		dont_update_anim = true;
-	}
+		p->next_anim = anim_push;
+		p->frame_duration = anim_push_frame_duration;
+	} else {
+		bool dont_update_anim = false;
 
-	if ((p->next_anim == anim_balance || p->next_anim == anim_balance2) && p->ground_speed == 0) {
-		dont_update_anim = true;
-	}
+		if (p->anim == anim_spindash) {
+			dont_update_anim = true;
+		}
 
-	if (p->next_anim == anim_push && input_h == p->facing) {
-		dont_update_anim = true;
-	}
+		if ((p->next_anim == anim_balance || p->next_anim == anim_balance2) && p->ground_speed == 0) {
+			dont_update_anim = true;
+		}
 
-	if (p->next_anim == anim_skid) {
-		if (sign_int(p->ground_speed) == p->facing) {
-			if (input_h != p->facing) {
-				dont_update_anim = true;
+		if (p->next_anim == anim_skid) {
+			if (sign_int(p->ground_speed) == p->facing) {
+				if (input_h != p->facing) {
+					dont_update_anim = true;
+				}
 			}
 		}
-	}
 
-	if (p->peelout) {
-		dont_update_anim = true;
-	}
+		if (p->peelout) {
+			dont_update_anim = true;
+		}
 
-	if (!dont_update_anim) {
-		if (p->ground_speed == 0.0f) {
-			if (p->input & INPUT_DOWN) {
-				p->next_anim = anim_crouch;
-				p->frame_duration = 1;
-			} else if (p->input & INPUT_UP) {
-				p->next_anim = anim_look_up;
-				p->frame_duration = 1;
+		if (!dont_update_anim) {
+			if (p->ground_speed == 0.0f) {
+				if (p->input & INPUT_DOWN) {
+					p->next_anim = anim_crouch;
+					p->frame_duration = 1;
+				} else if (p->input & INPUT_UP) {
+					p->next_anim = anim_look_up;
+					p->frame_duration = 1;
+				} else {
+					p->next_anim = anim_idle;
+					p->frame_duration = 1;
+				}
 			} else {
-				p->next_anim = anim_idle;
-				p->frame_duration = 1;
+				if (fabsf(p->ground_speed) >= 12) {
+					p->next_anim = anim_peelout;
+				} else if (fabsf(p->ground_speed) >= PLAYER_TOP_SPEED) {
+					p->next_anim = anim_run;
+				} else {
+					p->next_anim = anim_walk;
+				}
+				p->frame_duration = fmaxf(0, 8 - fabsf(p->ground_speed));
 			}
-		} else {
-			if (fabsf(p->ground_speed) >= 12) {
-				p->next_anim = anim_peelout;
-			} else if (fabsf(p->ground_speed) >= PLAYER_TOP_SPEED) {
-				p->next_anim = anim_run;
-			} else {
-				p->next_anim = anim_walk;
-			}
-			p->frame_duration = fmaxf(0, 8 - fabsf(p->ground_speed));
 		}
 	}
 
@@ -1273,6 +1395,7 @@ static void player_state_ground(Player* p, float delta) {
 	// Check for starting a roll.
 	if (player_roll_condition(p)) {
 		p->state = STATE_ROLL;
+		// p->pos.y += 5;
 		play_sound(get_sound(snd_spindash));
 		return;
 	}
@@ -1313,6 +1436,9 @@ static void player_state_roll(Player* p, float delta) {
 	for (int i = 0; i < num_physics_steps; i++) {
 		physics_step(delta / (float)num_physics_steps);
 	}
+
+	// collide with objects
+	player_collide_with_objects(p);
 
 	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
 	player_keep_in_bounds(p);
@@ -1386,6 +1512,9 @@ static void player_state_air(Player* p, float delta) {
 		physics_step(delta / (float)num_physics_steps);
 	}
 
+	// collide with objects
+	player_collide_with_objects(p);
+
 	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
 	player_keep_in_bounds(p);
 
@@ -1409,6 +1538,7 @@ static void player_update(Player* p, float delta) {
 	if (p->state != STATE_GROUND) {
 		p->peelout = false;
 	}
+	p->pushing = false;
 
 	p->prev_mode   = player_get_mode(p);
 	p->prev_radius = player_get_radius(p);
@@ -1453,14 +1583,17 @@ static void player_update(Player* p, float delta) {
 			player_state_ground(p, delta);
 			break;
 		}
+
 		case STATE_ROLL: {
 			player_state_roll(p, delta);
 			break;
 		}
+
 		case STATE_AIR: {
 			player_state_air(p, delta);
 			break;
 		}
+
 		case STATE_DEBUG: {
 			float spd = 8;
 
@@ -2573,6 +2706,8 @@ vec2 get_object_size(const Object& o) {
 		case OBJ_PLAYER_INIT_POS: return {30, 44};
 		case OBJ_LAYER_SET:       return {o.layset.radius.x  * 2, o.layset.radius.y  * 2};
 		case OBJ_LAYER_FLIP:      return {o.layflip.radius.x * 2, o.layflip.radius.y * 2};
+		case OBJ_MONITOR:         return {30, 30};
+		case OBJ_SPRING:          return {32, 8};
 	}
 
 	const Sprite& s = get_object_sprite(o.type);
