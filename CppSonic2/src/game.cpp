@@ -1798,10 +1798,21 @@ void Game::draw(float delta) {
 				break;
 			}
 
+			case OBJ_SPRING: {
+				u32 spr = spr_spring_yellow;
+				if (it->spring.color == SPRING_COLOR_RED) {
+					spr = spr_spring_red;
+				}
+
+				float angle = it->spring.direction * 90 - 90;
+
+				draw_sprite(get_sprite(spr), 0, it->pos, {1, 1}, angle);
+				break;
+			}
+
 			default: {
 				const Sprite& s = get_object_sprite(it->type);
-				int frame_index = 0;
-				draw_sprite(s, frame_index, it->pos);
+				draw_sprite(s, 0, it->pos);
 				break;
 			}
 		}
@@ -2323,6 +2334,15 @@ void write_objects(array<Object> objects, const char* fname) {
 				break;
 			}
 
+			case OBJ_SPRING: {
+				SpringColor color = o.spring.color;
+				SDL_RWwrite(f, &color, sizeof color, 1);
+
+				Direction direction = o.spring.direction;
+				SDL_RWwrite(f, &direction, sizeof direction, 1);
+				break;
+			}
+
 			default: {
 				Assert(false);
 				break;
@@ -2400,6 +2420,17 @@ void read_objects(bump_array<Object>* objects, const char* fname) {
 				MonitorIcon icon;
 				SDL_RWread(f, &icon, sizeof icon, 1);
 				o->monitor.icon = icon;
+				break;
+			}
+
+			case OBJ_SPRING: {
+				SpringColor color;
+				SDL_RWread(f, &color, sizeof color, 1);
+				o->spring.color = color;
+
+				Direction direction;
+				SDL_RWread(f, &direction, sizeof direction, 1);
+				o->spring.direction = direction;
 				break;
 			}
 
@@ -2530,6 +2561,7 @@ const Sprite& get_object_sprite(ObjType type) {
 		case OBJ_LAYER_FLIP:      return get_sprite(spr_layer_flip);
 		case OBJ_RING:            return get_sprite(spr_ring);
 		case OBJ_MONITOR:         return get_sprite(spr_monitor);
+		case OBJ_SPRING:          return get_sprite(spr_spring_yellow);
 	}
 
 	Assert(!"invalid object type");

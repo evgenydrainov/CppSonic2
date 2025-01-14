@@ -5,6 +5,7 @@
 #include "common.h"
 #include "texture.h"
 #include "game.h"
+#include "renderer.h"
 
 #include "imgui/imgui.h"
 

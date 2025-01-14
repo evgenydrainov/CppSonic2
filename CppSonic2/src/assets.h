@@ -41,12 +41,12 @@ enum {
 	spr_sonic_push,
 
 	spr_spindash_smoke,
-
 	spr_ring,
 	spr_ring_disappear,
-
 	spr_monitor,
 	spr_monitor_icon,
+	spr_spring_yellow,
+	spr_spring_red,
 
 	spr_layer_set,
 	spr_layer_flip,

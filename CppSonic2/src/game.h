@@ -85,7 +85,8 @@ struct Player {
 	X(OBJ_LAYER_SET) \
 	X(OBJ_LAYER_FLIP) \
 	X(OBJ_RING) \
-	X(OBJ_MONITOR)
+	X(OBJ_MONITOR) \
+	X(OBJ_SPRING)
 
 DEFINE_NAMED_ENUM(ObjType, OBJ_TYPE_ENUM)
 
@@ -111,6 +112,24 @@ enum {
 
 DEFINE_NAMED_ENUM(MonitorIcon, MONITOR_ICON_ENUM)
 
+#define SPRING_COLOR_ENUM(X) \
+	X(SPRING_COLOR_YELLOW) \
+	X(SPRING_COLOR_RED) \
+	\
+	X(NUM_SPING_COLORS)
+
+DEFINE_NAMED_ENUM(SpringColor, SPRING_COLOR_ENUM)
+
+#define DIRECTION_ENUM(X) \
+	X(DIR_RIGHT) \
+	X(DIR_UP) \
+	X(DIR_LEFT) \
+	X(DIR_DOWN) \
+	\
+	X(NUM_DIRS)
+
+DEFINE_NAMED_ENUM(Direction, DIRECTION_ENUM)
+
 struct Object {
 	instance_id id;
 	ObjType type;
@@ -131,6 +150,11 @@ struct Object {
 		struct {
 			MonitorIcon icon;
 		} monitor; // OBJ_MONITOR
+
+		struct {
+			SpringColor color;
+			Direction direction;
+		} spring; // OBJ_SPRING
 	};
 };
 

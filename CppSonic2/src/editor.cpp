@@ -260,7 +260,8 @@ static ImVec2 get_mouse_pos_in_view(View view) {
 static char cnl_folder[512];
 static char cnl_tileset[512];
 
-static void pan_and_zoom(View& view) {
+static void pan_and_zoom(View& view,
+						 bool dont_move_view_with_arrow_keys = false) {
 	ImGuiIO& io = ImGui::GetIO();
 
 	// Using InvisibleButton() as a convenience 1) it will advance the layout cursor and 2) allows us to use IsItemHovered()/IsItemActive()
@@ -285,11 +286,13 @@ static void pan_and_zoom(View& view) {
 		view.scrolling.y += io.MouseDelta.y;
 	}
 
-	if (ImGui::IsWindowFocused()) {
-		if (ImGui::IsKeyDown(ImGuiKey_UpArrow))    view.scrolling.y += 10;
-		if (ImGui::IsKeyDown(ImGuiKey_DownArrow))  view.scrolling.y -= 10;
-		if (ImGui::IsKeyDown(ImGuiKey_LeftArrow))  view.scrolling.x += 10;
-		if (ImGui::IsKeyDown(ImGuiKey_RightArrow)) view.scrolling.x -= 10;
+	if (!dont_move_view_with_arrow_keys) {
+		if (ImGui::IsWindowFocused()) {
+			if (ImGui::IsKeyDown(ImGuiKey_UpArrow))    view.scrolling.y += 10;
+			if (ImGui::IsKeyDown(ImGuiKey_DownArrow))  view.scrolling.y -= 10;
+			if (ImGui::IsKeyDown(ImGuiKey_LeftArrow))  view.scrolling.x += 10;
+			if (ImGui::IsKeyDown(ImGuiKey_RightArrow)) view.scrolling.x -= 10;
+		}
 	}
 
 	ImVec2 texture_pos = canvas_p0 + view.scrolling;
@@ -553,9 +556,8 @@ static ImVec2 sprite_get_uv1(const Sprite& s, int frame_index) {
 	return {u2, v2};
 }
 
-static ImVec2 make_imvec2(vec2 v) {
-	return ImVec2(v.x, v.y);
-}
+static ImVec2 to_imvec2(vec2 v) { return ImVec2(v.x, v.y); }
+static ImVec4 to_imvec4(vec4 v) { return ImVec4(v.x, v.y, v.z, v.w); }
 
 static bool IsKeyPressedNoMod(ImGuiKey key) {
 	if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) return false;
@@ -568,61 +570,6 @@ static bool IsKeyPressedNoMod(ImGuiKey key) {
 	if (ImGui::IsKeyDown(ImGuiKey_RightAlt)) return false;
 
 	return ImGui::IsKeyPressed(key, false);
-}
-
-static void draw_objects(ImDrawList* draw_list,
-						 array<Object> objects,
-						 ImVec2 tilemap_pos,
-						 const View& view) {
-	For (it, objects) {
-		const Sprite& s = get_object_sprite(it->type);
-
-		int w = s.width;
-		int h = s.height;
-
-		ImU32 col = IM_COL32_WHITE;
-
-		switch (it->type) {
-			case OBJ_LAYER_SET: {
-				w = it->layset.radius.x * 2;
-				h = it->layset.radius.y * 2;
-				if (it->layset.layer == 0) {
-					col = IM_COL32(128, 128, 255, 128);
-				} else {
-					col = IM_COL32(255, 128, 128, 128);
-				}
-				break;
-			}
-			case OBJ_LAYER_FLIP: {
-				w = it->layflip.radius.x * 2;
-				h = it->layflip.radius.y * 2;
-				col = IM_COL32(255, 255, 255, 128);
-				break;
-			}
-		}
-
-		ImVec2 p = tilemap_pos + ImVec2(it->pos.x - w/2, it->pos.y - h/2) * view.zoom;
-		ImVec2 p2 = p + ImVec2(w, h) * view.zoom;
-
-		draw_list->AddImage(s.texture.ID, p, p2, sprite_get_uv0(s, 0), sprite_get_uv1(s, 0), col);
-
-		switch (it->type) {
-			case OBJ_MONITOR: {
-				const Sprite& s = get_sprite(spr_monitor_icon);
-
-				int w = s.width;
-				int h = s.height;
-
-				ImVec2 p = tilemap_pos + ImVec2(it->pos.x - w/2, it->pos.y - h/2 - 3) * view.zoom;
-				ImVec2 p2 = p + ImVec2(w, h) * view.zoom;
-
-				MonitorIcon icon = it->monitor.icon;
-
-				draw_list->AddImage(s.texture.ID, p, p2, sprite_get_uv0(s, icon), sprite_get_uv1(s, icon), col);
-				break;
-			}
-		}
-	}
 }
 
 void Editor::import_s1_level(const char* level_data_path,
@@ -835,6 +782,169 @@ static void draw_tilemap(ImDrawList* draw_list,
 			if (tile.index != 0) {
 				AddTile(draw_list, tile, tilemap_pos, tilemap_size,
 						tilemap_view, x, y, editor.tileset_texture, col);
+			}
+		}
+	}
+}
+
+template <typename T>
+static void combo_menu_for_enum(const char* label,
+								const char* (*get_name_fn)(T t),
+								T* obj_member,
+								T num_enums) {
+	if (ImGui::BeginCombo(label, get_name_fn(*obj_member))) {
+		for (int i = 0; i < num_enums; i++) {
+			if (ImGui::Selectable(get_name_fn((T) i), i == *obj_member)) {
+				*obj_member = (T) i;
+			}
+
+			if (i == *obj_member) {
+				ImGui::SetItemDefaultFocus();
+			}
+		}
+
+		ImGui::EndCombo();
+	}
+}
+
+static void AddTexture(ImDrawList* draw_list,
+					   const Texture& t, Rect src,
+					   ImVec2 pos, ImVec2 scale,
+					   ImVec2 origin, float angle, ImU32 color, glm::bvec2 flip) {
+	if (src.w == 0 && src.h == 0) {
+		src.w = t.width;
+		src.h = t.height;
+	}
+
+	float x1 = -origin.x;
+	float y1 = -origin.y;
+	float x2 = src.w - origin.x;
+	float y2 = src.h - origin.y;
+
+	float u1 =  src.x          / (float)t.width;
+	float v1 =  src.y          / (float)t.height;
+	float u2 = (src.x + src.w) / (float)t.width;
+	float v2 = (src.y + src.h) / (float)t.height;
+
+	if (flip.x) {
+		float temp = u1;
+		u1 = u2;
+		u2 = temp;
+	}
+
+	if (flip.y) {
+		float temp = v1;
+		v1 = v2;
+		v2 = temp;
+	}
+
+	Vertex vertices[] = {
+		{{x1, y1, 0.0f}, {}, {}, {u1, v1}}, // LT
+		{{x2, y1, 0.0f}, {}, {}, {u2, v1}}, // RT
+		{{x2, y2, 0.0f}, {}, {}, {u2, v2}}, // RB
+		{{x1, y2, 0.0f}, {}, {}, {u1, v2}}, // LB
+	};
+
+	mat4 model = glm::translate(mat4{1.0f}, {pos.x, pos.y, 0.0f});
+	model = glm::rotate(model, glm::radians(-angle), {0.0f, 0.0f, 1.0f});
+	model = glm::scale(model, {scale.x, scale.y, 1.0f});
+
+	vertices[0].pos = model * vec4{vertices[0].pos, 1.0f};
+	vertices[1].pos = model * vec4{vertices[1].pos, 1.0f};
+	vertices[2].pos = model * vec4{vertices[2].pos, 1.0f};
+	vertices[3].pos = model * vec4{vertices[3].pos, 1.0f};
+
+	draw_list->AddImageQuad(t.ID,
+							to_imvec2(vertices[0].pos),
+							to_imvec2(vertices[1].pos),
+							to_imvec2(vertices[2].pos),
+							to_imvec2(vertices[3].pos),
+							to_imvec2(vertices[0].uv),
+							to_imvec2(vertices[1].uv),
+							to_imvec2(vertices[2].uv),
+							to_imvec2(vertices[3].uv),
+							color);
+}
+
+static void AddSprite(ImDrawList* draw_list,
+					  const Sprite& s, int frame_index, ImVec2 pos,
+					  ImVec2 scale, float angle,
+					  ImU32 color, glm::bvec2 flip) {
+	const Texture& t = s.texture;
+
+	Assert(frame_index >= 0);
+	Assert(frame_index < s.frames.count);
+
+	const SpriteFrame& frame = s.frames[frame_index];
+
+	AddTexture(draw_list,
+			   t, {frame.u, frame.v, frame.w, frame.h},
+			   pos, scale, {(float)s.xorigin, (float)s.yorigin}, angle,
+			   color, flip);
+}
+
+static void draw_objects(ImDrawList* draw_list,
+						 array<Object> objects,
+						 ImVec2 tilemap_pos,
+						 const View& view) {
+	For (it, objects) {
+		// cause we reassign `s` later
+		Sprite s = get_object_sprite(it->type);
+
+		int w = s.width;
+		int h = s.height;
+
+		ImU32 col = IM_COL32_WHITE;
+
+		float angle = 0;
+
+		switch (it->type) {
+			case OBJ_LAYER_SET: {
+				w = it->layset.radius.x * 2;
+				h = it->layset.radius.y * 2;
+				if (it->layset.layer == 0) {
+					col = IM_COL32(128, 128, 255, 128);
+				} else {
+					col = IM_COL32(255, 128, 128, 128);
+				}
+				break;
+			}
+
+			case OBJ_LAYER_FLIP: {
+				w = it->layflip.radius.x * 2;
+				h = it->layflip.radius.y * 2;
+				col = IM_COL32(255, 255, 255, 128);
+				break;
+			}
+
+			case OBJ_SPRING: {
+				if (it->spring.color == SPRING_COLOR_RED) {
+					s = get_sprite(spr_spring_red);
+					w = s.width;
+					h = s.height;
+				}
+				angle = it->spring.direction * 90 - 90;
+				break;
+			}
+		}
+
+		ImVec2 p = tilemap_pos + to_imvec2(it->pos) * view.zoom;
+		AddSprite(draw_list, s, 0, p, {view.zoom, view.zoom}, angle, col, {});
+
+		switch (it->type) {
+			case OBJ_MONITOR: {
+				const Sprite& s = get_sprite(spr_monitor_icon);
+
+				int w = s.width;
+				int h = s.height;
+
+				ImVec2 p = tilemap_pos + ImVec2(it->pos.x - s.xorigin, it->pos.y - s.yorigin - 3) * view.zoom;
+				ImVec2 p2 = p + ImVec2(w, h) * view.zoom;
+
+				MonitorIcon icon = it->monitor.icon;
+
+				draw_list->AddImage(s.texture.ID, p, p2, sprite_get_uv0(s, icon), sprite_get_uv1(s, icon), col);
+				break;
 			}
 		}
 	}
@@ -1981,7 +2091,10 @@ void Editor::update(float delta) {
 					return;
 				}
 
-				pan_and_zoom(tilemap_view);
+				static bool dont_move_tilemap_view_with_arrow_keys = false;
+
+				pan_and_zoom(tilemap_view,
+							 dont_move_tilemap_view_with_arrow_keys);
 				bool is_item_active = ImGui::IsItemActive();
 
 				ImDrawList* draw_list = ImGui::GetWindowDrawList();
@@ -2010,8 +2123,14 @@ void Editor::update(float delta) {
 								o.layset.radius = {8, 24};
 								break;
 							}
+
 							case OBJ_LAYER_FLIP: {
 								o.layflip.radius = {8, 24};
+								break;
+							}
+
+							case OBJ_SPRING: {
+								o.spring.direction = DIR_UP;
 								break;
 							}
 						}
@@ -2033,7 +2152,7 @@ void Editor::update(float delta) {
 						int new_selected_object = -1;
 						for (int i = 0; i < objects.count; i++) {
 							const Object& it = objects[i];
-							auto size = make_imvec2(get_object_size(it));
+							auto size = to_imvec2(get_object_size(it));
 							auto mouse = get_mouse_pos_in_view(tilemap_view);
 							if (point_in_rect({mouse.x, mouse.y}, {it.pos.x - size.x / 2, it.pos.y - size.y / 2, size.x, size.y})) {
 								new_selected_object = i;
@@ -2073,6 +2192,51 @@ void Editor::update(float delta) {
 							dragging = false;
 						}
 					}
+
+					// move object with arrow keys
+					if (selected_object != -1) {
+						Object& obj = objects[selected_object];
+
+						if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+							if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+								obj.pos.y = ceilf_to(obj.pos.y, 16);
+								obj.pos.y -= 16;
+							} else {
+								obj.pos.y -= 1;
+							}
+						}
+
+						if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+							if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+								obj.pos.y = floorf_to(obj.pos.y, 16);
+								obj.pos.y += 16;
+							} else {
+								obj.pos.y += 1;
+							}
+						}
+
+						if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
+							if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+								obj.pos.x = ceilf_to(obj.pos.x, 16);
+								obj.pos.x -= 16;
+							} else {
+								obj.pos.x -= 1;
+							}
+						}
+
+						if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
+							if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+								obj.pos.x = floorf_to(obj.pos.x, 16);
+								obj.pos.x += 16;
+							} else {
+								obj.pos.x += 1;
+							}
+						}
+
+						dont_move_tilemap_view_with_arrow_keys = true;
+					} else {
+						dont_move_tilemap_view_with_arrow_keys = false;
+					}
 				}
 
 				// tilemap background
@@ -2092,9 +2256,10 @@ void Editor::update(float delta) {
 				if (selected_object != -1) {
 					const Object& o = objects[selected_object];
 
-					auto size = make_imvec2(get_object_size(o));
+					// const Sprite& s = get_object_sprite(o.type);
+					auto size = to_imvec2(get_object_size(o));
 
-					ImVec2 p = tilemap_pos + ImVec2(o.pos.x - size.x / 2, o.pos.y - size.y / 2) * tilemap_view.zoom;
+					ImVec2 p = tilemap_pos + ImVec2(o.pos.x - size.x/2, o.pos.y - size.y/2) * tilemap_view.zoom;
 					ImVec2 p2 = p + size * tilemap_view.zoom;
 
 					draw_list->AddRect(p, p2, IM_COL32(255, 0, 0, 255), 0, 0, 0.5 * tilemap_view.zoom);
@@ -2165,6 +2330,7 @@ void Editor::update(float delta) {
 				button(OBJ_LAYER_FLIP);
 				button(OBJ_RING);
 				button(OBJ_MONITOR);
+				button(OBJ_SPRING);
 			};
 
 			object_list_window();
@@ -2210,19 +2376,23 @@ void Editor::update(float delta) {
 					}
 
 					case OBJ_MONITOR: {
-						if (ImGui::BeginCombo("Monitor Icon", GetMonitorIconName(o->monitor.icon))) {
-							for (int i = 0; i < NUM_MONITOR_ICONS; i++) {
-								if (ImGui::Selectable(GetMonitorIconName((MonitorIcon) i), i == o->monitor.icon)) {
-									o->monitor.icon = (MonitorIcon) i;
-								}
+						combo_menu_for_enum("Monitor Icon",
+											GetMonitorIconName,
+											&o->monitor.icon,
+											NUM_MONITOR_ICONS);
+						break;
+					}
 
-								if (i == o->monitor.icon) {
-									ImGui::SetItemDefaultFocus();
-								}
-							}
+					case OBJ_SPRING: {
+						combo_menu_for_enum("Spring Color",
+											GetSpringColorName,
+											&o->spring.color,
+											NUM_SPING_COLORS);
 
-							ImGui::EndCombo();
-						}
+						combo_menu_for_enum("Direction",
+											GetDirectionName,
+											&o->spring.direction,
+											NUM_DIRS);
 						break;
 					}
 				}
