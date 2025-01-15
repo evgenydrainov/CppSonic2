@@ -720,11 +720,10 @@ static void draw_objects(ImDrawList* draw_list,
 						 ImVec2 tilemap_pos,
 						 const View& view) {
 	For (it, objects) {
-		// cause we reassign `s` later
+		// not a const ref cause we reassign `s` later
 		Sprite s = get_object_sprite(it->type);
 
-		int w = s.width;
-		int h = s.height;
+		ImVec2 scale = {1, 1};
 
 		ImU32 col = IM_COL32_WHITE;
 
@@ -732,8 +731,8 @@ static void draw_objects(ImDrawList* draw_list,
 
 		switch (it->type) {
 			case OBJ_LAYER_SET: {
-				w = it->layset.radius.x * 2;
-				h = it->layset.radius.y * 2;
+				scale.x = (it->layset.radius.x * 2) / (float)s.width;
+				scale.y = (it->layset.radius.y * 2) / (float)s.height;
 				if (it->layset.layer == 0) {
 					col = IM_COL32(128, 128, 255, 128);
 				} else {
@@ -743,8 +742,8 @@ static void draw_objects(ImDrawList* draw_list,
 			}
 
 			case OBJ_LAYER_FLIP: {
-				w = it->layflip.radius.x * 2;
-				h = it->layflip.radius.y * 2;
+				scale.x = (it->layflip.radius.x * 2) / (float)s.width;
+				scale.y = (it->layflip.radius.y * 2) / (float)s.height;
 				col = IM_COL32(255, 255, 255, 128);
 				break;
 			}
@@ -752,8 +751,6 @@ static void draw_objects(ImDrawList* draw_list,
 			case OBJ_SPRING: {
 				if (it->spring.color == SPRING_COLOR_RED) {
 					s = get_sprite(spr_spring_red);
-					w = s.width;
-					h = s.height;
 				}
 				angle = it->spring.direction * 90 - 90;
 				break;
@@ -761,17 +758,14 @@ static void draw_objects(ImDrawList* draw_list,
 		}
 
 		ImVec2 p = tilemap_pos + to_imvec2(it->pos) * view.zoom;
-		AddSprite(draw_list, s, 0, p, {view.zoom, view.zoom}, angle, col, {});
+		AddSprite(draw_list, s, 0, p, scale * view.zoom, angle, col, {});
 
 		switch (it->type) {
 			case OBJ_MONITOR: {
 				const Sprite& s = get_sprite(spr_monitor_icon);
 
-				int w = s.width;
-				int h = s.height;
-
 				ImVec2 p = tilemap_pos + ImVec2(it->pos.x - s.xorigin, it->pos.y - s.yorigin - 3) * view.zoom;
-				ImVec2 p2 = p + ImVec2(w, h) * view.zoom;
+				ImVec2 p2 = p + ImVec2(s.width, s.height) * view.zoom;
 
 				MonitorIcon icon = it->monitor.icon;
 
