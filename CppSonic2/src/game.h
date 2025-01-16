@@ -82,16 +82,17 @@ struct Player {
 	u32 input_release;
 };
 
+// has to be forward compatible
 #define OBJ_TYPE_ENUM(X) \
-	X(OBJ_PLAYER_INIT_POS) \
-	X(OBJ_LAYER_SET) \
-	X(OBJ_LAYER_FLIP) \
-	X(OBJ_RING) \
-	X(OBJ_MONITOR) \
-	X(OBJ_SPRING) \
-	X(OBJ_MONITOR_BROKEN)
+	X(OBJ_PLAYER_INIT_POS, 0) \
+	X(OBJ_LAYER_SET,       1) \
+	X(OBJ_LAYER_FLIP,      2) \
+	X(OBJ_RING,            3) \
+	X(OBJ_MONITOR,         4) \
+	X(OBJ_SPRING,          5) \
+	X(OBJ_MONITOR_BROKEN,  6)
 
-DEFINE_NAMED_ENUM(ObjType, OBJ_TYPE_ENUM)
+DEFINE_NAMED_ENUM_WITH_VALUES(ObjType, OBJ_TYPE_ENUM)
 
 typedef u32 instance_id;
 

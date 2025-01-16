@@ -172,6 +172,18 @@ public:
 		return names[val]; \
 	}
 
+#define GENERATE_ENUM_WITH_VALUES(name, value) name = value,
+#define GENERATE_ENUM_CASE(name, value) case name: return #name;
+
+#define DEFINE_NAMED_ENUM_WITH_VALUES(Type, List) \
+	enum Type { List(GENERATE_ENUM_WITH_VALUES) }; \
+	inline const char* Get##Type##Name(Type val) { \
+		switch (val) { \
+			List(GENERATE_ENUM_CASE) \
+		} \
+		return "unknown"; \
+	}
+
 // 
 // Human-readable printing for filesizes.
 // 
