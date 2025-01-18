@@ -39,6 +39,7 @@ enum {
 	spr_sonic_balance,
 	spr_sonic_balance2,
 	spr_sonic_push,
+	spr_sonic_rise,
 
 	spr_spindash_smoke,
 	spr_ring,

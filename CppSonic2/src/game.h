@@ -33,6 +33,7 @@ enum anim_index {
 	anim_balance,
 	anim_balance2,
 	anim_push,
+	anim_rise,
 
 	NUM_ANIMS,
 };
@@ -244,6 +245,7 @@ struct Game {
 	bool show_width;
 	bool show_debug_info;
 	bool show_player_hitbox;
+	bool show_hitboxes;
 
 	bool skip_frame;
 	bool frame_advance;

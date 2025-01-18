@@ -25,6 +25,7 @@ void load_global_assets() {
 		sprites[spr_sonic_balance]  = make_sprite(t, 0,  9 * 59, 59, 59, 30, 30, 4);
 		sprites[spr_sonic_balance2] = make_sprite(t, 0, 10 * 59, 59, 59, 30, 30, 4);
 		sprites[spr_sonic_push]     = make_sprite(t, 0, 11 * 59, 59, 59, 30, 30, 4);
+		sprites[spr_sonic_rise]     = make_sprite(t, 0, 12 * 59, 59, 59, 30, 30, 5);
 	}
 
 	{

@@ -163,6 +163,7 @@ static string s_ConsoleCommandsBuf[] = {
 	"show_width",
 	"show_player_hitbox",
 	"show_debug_info",
+	"show_hitboxes",
 };
 
 array<string> g_ConsoleCommands = s_ConsoleCommandsBuf;
@@ -217,6 +218,11 @@ bool console_callback(string str, void* userdata) {
 
 		if (command == "show_debug_info") {
 			game.show_debug_info ^= true;
+			return true;
+		}
+
+		if (command == "show_hitboxes") {
+			game.show_hitboxes ^= true;
 			return true;
 		}
 	}

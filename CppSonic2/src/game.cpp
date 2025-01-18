@@ -796,6 +796,8 @@ static SensorResult push_sensor_f_check(Player* p, vec2 pos) {
 }
 
 static bool player_roll_condition(Player* p) {
+	if (p->control_lock > 0) return false;
+
 	int input_h = 0;
 	if (p->input & INPUT_RIGHT) input_h++;
 	if (p->input & INPUT_LEFT)  input_h--;
@@ -1087,6 +1089,16 @@ static bool object_is_solid(ObjType type) {
 	return false;
 }
 
+static Direction opposite_dir(Direction dir) {
+	/*switch (dir) {
+		case DIR_RIGHT: return DIR_LEFT;
+		case DIR_UP:    return DIR_DOWN;
+		case DIR_LEFT:  return DIR_RIGHT;
+		case DIR_DOWN:  return DIR_UP;
+	}*/
+	return (Direction) ((dir + 2) % 4);
+}
+
 static void player_collide_with_objects(Player* p) {
 	vec2 player_radius = player_get_radius(p);
 	
@@ -1138,6 +1150,60 @@ static void player_collide_with_objects(Player* p) {
 				p->speed.y = -force;
 				p->jumped  = false;
 
+				p->next_anim = anim_rise;
+				p->frame_duration = 5;
+
+				o->spring.animating = true;
+				o->spring.frame_index = 0;
+
+				play_sound(get_sound(snd_spring_bounce));
+
+				return true;
+			}
+		}
+
+		return false;
+	};
+
+	auto player_collide_object_side = [&](Player* p, Object* o, Direction dir) {
+		switch (o->type) {
+			case OBJ_MONITOR: {
+				if (p->anim != anim_roll) return false;
+
+				o->flags |= FLAG_INSTANCE_DEAD;
+
+				{
+					Object broken_monitor = {};
+					broken_monitor.id = game.next_id++;
+					broken_monitor.type = OBJ_MONITOR_BROKEN;
+					broken_monitor.pos = o->pos;
+
+					array_add(&game.objects, broken_monitor);
+				}
+
+				play_sound(get_sound(snd_destroy_monitor));
+				
+				return true;
+			}
+
+			case OBJ_SPRING: {
+				if (o->spring.direction != opposite_dir(dir)) return false;
+
+				float force = 10;
+
+				if (o->spring.color == SPRING_COLOR_RED) {
+					force = 16;
+				}
+
+				if (o->spring.direction == DIR_RIGHT) {
+					p->ground_speed = force;
+					p->speed.x = force;
+				} else {
+					p->ground_speed = -force;
+					p->speed.x = -force;
+				}
+				p->control_lock = 30;
+
 				o->spring.animating = true;
 				o->spring.frame_index = 0;
 
@@ -1160,8 +1226,8 @@ static void player_collide_with_objects(Player* p) {
 
 		vec2 obj_size = get_object_size(*it);
 
-		float combined_x_radius = obj_size.x/2 + PLAYER_PUSH_RADIUS + 1;
-		float combined_y_radius = obj_size.y/2 + player_radius.y + 1;
+		float combined_x_radius = obj_size.x/2 + (player_radius.x + 1) + 1;
+		float combined_y_radius = obj_size.y/2 + player_radius.y       + 1;
 
 		float combined_x_diameter = combined_x_radius * 2;
 		float combined_y_diameter = combined_y_radius * 2;
@@ -1189,6 +1255,8 @@ static void player_collide_with_objects(Player* p) {
 			x_distance = left_difference;
 		}
 
+		//bool should_collide_vertically_anyway = false;
+
 		float y_distance;
 		if (p->pos.y > it->pos.y) {
 			// player is on the bottom
@@ -1196,9 +1264,13 @@ static void player_collide_with_objects(Player* p) {
 		} else {
 			// player is on the top
 			y_distance = top_difference;
+
+			//if (fabsf(top_difference - 4) <= 2) should_collide_vertically_anyway = true;
 		}
 
-		if (fabsf(x_distance) > fabsf(y_distance)) {
+		if (fabsf(x_distance) > fabsf(y_distance)
+			|| /*should_collide_vertically_anyway*/0)
+		{
 			// collide vertically
 
 			if (y_distance >= 0) {
@@ -1249,31 +1321,40 @@ static void player_collide_with_objects(Player* p) {
 
 			if (fabsf(y_distance) <= 4) continue;
 
+			p->pos.x -= x_distance;
+
 			if (x_distance != 0) {
 				// if player is moving towards the object
 				if ((x_distance > 0 && p->speed.x > 0)
 					|| (x_distance < 0 && p->speed.x < 0))
 				{
-					p->ground_speed = 0;
-					p->speed.x = 0;
+					Direction dir = (x_distance > 0) ? DIR_RIGHT : DIR_LEFT;
+
+					if (!player_collide_object_side(p, it, dir)) {
+						p->ground_speed = 0;
+						p->speed.x = 0;
+						p->pushing = true;
+					}
+
+					// we could remove dead objects at the end of the frame but idk
+					if (it->flags & FLAG_INSTANCE_DEAD) {
+						array_remove(&game.objects, i);
+						i--;
+						object_count--;
+						continue;
+					}
 				}
 			}
-
-			if ((x_distance > 0 && (p->input & INPUT_RIGHT))
-				|| (x_distance < 0 && (p->input & INPUT_LEFT)))
-			{
-				p->pushing = true;
-			}
-
-			p->pos.x -= x_distance;
 		}
 	}
 }
 
 static void player_state_ground(Player* p, float delta) {
 	int input_h = 0;
-	if (p->input & INPUT_RIGHT) input_h++;
-	if (p->input & INPUT_LEFT)  input_h--;
+	if (p->control_lock == 0) {
+		if (p->input & INPUT_RIGHT) input_h++;
+		if (p->input & INPUT_LEFT)  input_h--;
+	}
 
 	// Adjust Ground Speed based on current Ground Angle (Slope Factor).
 	apply_slope_factor(p, delta);
@@ -1481,8 +1562,10 @@ static void player_state_ground(Player* p, float delta) {
 
 static void player_state_roll(Player* p, float delta) {
 	int input_h = 0;
-	if (p->input & INPUT_RIGHT) input_h++;
-	if (p->input & INPUT_LEFT)  input_h--;
+	if (p->control_lock == 0) {
+		if (p->input & INPUT_RIGHT) input_h++;
+		if (p->input & INPUT_LEFT)  input_h--;
+	}
 
 	apply_slope_factor(p, delta);
 
@@ -1545,6 +1628,7 @@ static void player_state_roll(Player* p, float delta) {
 
 static void player_state_air(Player* p, float delta) {
 	int input_h = 0;
+	// control_lock is ignored
 	if (p->input & INPUT_RIGHT) input_h++;
 	if (p->input & INPUT_LEFT)  input_h--;
 
@@ -1602,6 +1686,13 @@ static void player_state_air(Player* p, float delta) {
 	if (p->speed.x != 0) {
 		p->facing = sign_int(p->speed.x);
 	}
+
+	if (p->anim == anim_rise) {
+		if (p->speed.y >= 0) {
+			p->next_anim = anim_walk;
+			p->frame_duration = fmaxf(0, 8 - fabsf(p->speed.x));
+		}
+	}
 }
 
 static const Sprite& anim_get_sprite(anim_index anim) {
@@ -1626,30 +1717,28 @@ static void player_update(Player* p, float delta) {
 		u32 prev = p->input;
 		p->input = 0;
 
-		if (p->control_lock == 0) {
-			if (is_key_held(SDL_SCANCODE_RIGHT)) {
-				p->input |= INPUT_RIGHT;
-			}
+		if (is_key_held(SDL_SCANCODE_RIGHT)) {
+			p->input |= INPUT_RIGHT;
+		}
 
-			if (is_key_held(SDL_SCANCODE_UP)) {
-				p->input |= INPUT_UP;
-			}
+		if (is_key_held(SDL_SCANCODE_UP)) {
+			p->input |= INPUT_UP;
+		}
 
-			if (is_key_held(SDL_SCANCODE_LEFT)) {
-				p->input |= INPUT_LEFT;
-			}
+		if (is_key_held(SDL_SCANCODE_LEFT)) {
+			p->input |= INPUT_LEFT;
+		}
 
-			if (is_key_held(SDL_SCANCODE_DOWN)) {
-				p->input |= INPUT_DOWN;
-			}
+		if (is_key_held(SDL_SCANCODE_DOWN)) {
+			p->input |= INPUT_DOWN;
+		}
 
-			if (is_key_held(SDL_SCANCODE_Z)) {
-				p->input |= INPUT_Z;
-			}
+		if (is_key_held(SDL_SCANCODE_Z)) {
+			p->input |= INPUT_Z;
+		}
 
-			if (is_key_held(SDL_SCANCODE_X)) {
-				p->input |= INPUT_X;
-			}
+		if (is_key_held(SDL_SCANCODE_X)) {
+			p->input |= INPUT_X;
 		}
 
 		p->input_press   = p->input & (~prev);
@@ -2046,6 +2135,21 @@ void Game::draw(float delta) {
 				draw_sprite(s, 0, it->pos);
 				break;
 			}
+		}
+	}
+
+	// draw object hitboxes
+	if (show_hitboxes) {
+		For (it, objects) {
+			vec2 size = get_object_size(*it);
+
+			Rectf rect;
+			rect.x = it->pos.x - size.x / 2;
+			rect.y = it->pos.y - size.y / 2;
+			rect.w = size.x;
+			rect.h = size.y;
+
+			draw_rectangle_outline(rect, color_white);
 		}
 	}
 
@@ -2806,7 +2910,15 @@ vec2 get_object_size(const Object& o) {
 		case OBJ_LAYER_SET:       return {o.layset.radius.x  * 2, o.layset.radius.y  * 2};
 		case OBJ_LAYER_FLIP:      return {o.layflip.radius.x * 2, o.layflip.radius.y * 2};
 		case OBJ_MONITOR:         return {30, 30};
-		case OBJ_SPRING:          return {32, 16};
+		case OBJ_SPRING: {
+			vec2 size = {32, 16};
+			if (o.spring.direction == DIR_LEFT || o.spring.direction == DIR_RIGHT) {
+				float temp = size.x;
+				size.x = size.y;
+				size.y = temp;
+			}
+			return size;
+		}
 	}
 
 	const Sprite& s = get_object_sprite(o.type);
