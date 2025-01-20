@@ -6,6 +6,7 @@
 #include "console.h"
 #include "assets.h"
 #include "particle_system.h"
+#include "program.h"
 
 Game game;
 
@@ -1099,6 +1100,16 @@ static Direction opposite_dir(Direction dir) {
 	return (Direction) ((dir + 2) % 4);
 }
 
+static float get_spring_force(const Object& o) {
+	float force = 10.5f; // just enough to reach 16 tiles
+
+	if (o.spring.color == SPRING_COLOR_RED) {
+		force = 16;
+	}
+
+	return force;
+}
+
 static void player_collide_with_objects(Player* p) {
 	vec2 player_radius = player_get_radius(p);
 	
@@ -1140,11 +1151,7 @@ static void player_collide_with_objects(Player* p) {
 			case OBJ_SPRING: {
 				if (o->spring.direction != DIR_UP) return false;
 
-				float force = 10;
-
-				if (o->spring.color == SPRING_COLOR_RED) {
-					force = 16;
-				}
+				float force = get_spring_force(*o);
 
 				p->state   = STATE_AIR;
 				p->speed.y = -force;
@@ -1189,11 +1196,7 @@ static void player_collide_with_objects(Player* p) {
 			case OBJ_SPRING: {
 				if (o->spring.direction != opposite_dir(dir)) return false;
 
-				float force = 10;
-
-				if (o->spring.color == SPRING_COLOR_RED) {
-					force = 16;
-				}
+				float force = get_spring_force(*o);
 
 				if (o->spring.direction == DIR_RIGHT) {
 					p->ground_speed = force;
@@ -1881,6 +1884,14 @@ void Game::update(float delta) {
 		show_debug_info ^= true;
 	}
 
+	if (is_key_pressed(SDL_SCANCODE_F4)) {
+		set_fullscreen(!is_fullscreen());
+	}
+
+	if (program.transition_t != 0) {
+		return;
+	}
+
 	if (!skip_frame) {
 		player_update(&player, delta);
 
@@ -1896,10 +1907,10 @@ void Game::update(float delta) {
 				float cam_target_y = p->pos.y + radius.y - 19 - window.game_height / 2;
 
 				if (camera_pos.x < cam_target_x - 8) {
-					camera_pos.x = fminf(camera_pos.x + 16 * delta, cam_target_x - 8);
+					Approach(&camera_pos.x, cam_target_x - 8, 16 * delta);
 				}
 				if (camera_pos.x > cam_target_x + 8) {
-					camera_pos.x = fmaxf(camera_pos.x - 16 * delta, cam_target_x + 8);
+					Approach(&camera_pos.x, cam_target_x + 8, 16 * delta);
 				}
 
 				if (player_is_grounded(p)) {
@@ -1912,12 +1923,15 @@ void Game::update(float delta) {
 					Approach(&camera_pos.y, cam_target_y, camera_speed * delta);
 				} else {
 					if (camera_pos.y < cam_target_y - 32) {
-						camera_pos.y = fminf(camera_pos.y + 16 * delta, cam_target_y - 32);
+						Approach(&camera_pos.y, cam_target_y - 32, 16 * delta);
 					}
 					if (camera_pos.y > cam_target_y + 32) {
-						camera_pos.y = fmaxf(camera_pos.y - 16 * delta, cam_target_y + 32);
+						Approach(&camera_pos.y, cam_target_y + 32, 16 * delta);
 					}
 				}
+
+				Clamp(&camera_pos.x, cam_target_x - window.game_width  / 2, cam_target_x + window.game_width  / 2);
+				Clamp(&camera_pos.y, cam_target_y - window.game_height / 2, cam_target_y + window.game_height / 2);
 
 				camera_pos = glm::floor(camera_pos);
 
@@ -1958,10 +1972,6 @@ void Game::update(float delta) {
 		mouse_pos_rel.y = ((mouse_y - renderer.game_texture_rect.y) / (float)renderer.game_texture_rect.h) * (float)window.game_height;
 
 		mouse_world_pos = glm::floor(mouse_pos_rel + camera_pos);
-	}
-
-	if (is_key_pressed(SDL_SCANCODE_F4)) {
-		set_fullscreen(!is_fullscreen());
 	}
 }
 

@@ -55,14 +55,14 @@ static u32 shd_palette;
 
 void Title_Screen::init() {
 	if (!shd_palette) {
-		u32 shd_palette_vert = compile_shader(GL_VERTEX_SHADER, shd_palette_vert_src);
+		u32 shd_palette_vert = compile_shader(GL_VERTEX_SHADER, shd_palette_vert_src, "shd_palette_vert");
 		defer { glDeleteShader(shd_palette_vert); };
 
-		u32 shd_palette_frag = compile_shader(GL_FRAGMENT_SHADER, shd_palette_frag_src);
+		u32 shd_palette_frag = compile_shader(GL_FRAGMENT_SHADER, shd_palette_frag_src, "shd_palette_frag");
 		defer { glDeleteShader(shd_palette_frag); };
 
 		// @Leak
-		shd_palette = link_program(shd_palette_vert, shd_palette_frag);
+		shd_palette = link_program(shd_palette_vert, shd_palette_frag, "shd_palette");
 	}
 }
 

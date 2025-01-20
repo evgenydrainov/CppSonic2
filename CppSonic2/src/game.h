@@ -60,8 +60,8 @@ struct Player {
 
 	int layer;
 
-	anim_index anim;
-	anim_index next_anim;
+	anim_index anim      = anim_idle;
+	anim_index next_anim = anim_idle;
 	int frame_index;
 	int frame_duration;
 	float frame_timer;

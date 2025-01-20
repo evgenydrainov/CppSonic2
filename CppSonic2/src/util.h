@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-inline u32 compile_shader(GLenum type, const char* source) {
+inline u32 compile_shader(GLenum type, const char* source, const char* debug_name = nullptr) {
 	u32 shader = glCreateShader(type);
 
 	const char* sources[] = {source};
@@ -15,13 +15,15 @@ inline u32 compile_shader(GLenum type, const char* source) {
 	if (!success) {
 		char buf[512];
 		glGetShaderInfoLog(shader, sizeof(buf), NULL, buf);
-		log_error("Shader Compile Error: %s", buf);
+
+		if (debug_name) log_error("While compiling %s...", debug_name);
+		log_error("Shader Compile Error:\n%s", buf);
 	}
 
 	return shader;
 }
 
-inline u32 link_program(u32 vertex_shader, u32 fragment_shader) {
+inline u32 link_program(u32 vertex_shader, u32 fragment_shader, const char* debug_name = nullptr) {
 	u32 program = glCreateProgram();
 
 	glAttachShader(program, vertex_shader);
@@ -34,7 +36,9 @@ inline u32 link_program(u32 vertex_shader, u32 fragment_shader) {
 	if (!success) {
 		char buf[512];
 		glGetProgramInfoLog(program, sizeof(buf), NULL, buf);
-		log_error("Shader Link Error: %s", buf);
+
+		if (debug_name) log_error("While linking %s...", debug_name);
+		log_error("Shader Link Error:\n%s", buf);
 	}
 
 	return program;

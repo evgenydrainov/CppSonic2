@@ -43,6 +43,10 @@ function find_tile_layer(map, layerName) {
 		}
 	}
 	
+	if (result == null) {
+		throw new Error("Layer \"" + layerName + "\" not found.");
+	}
+	
 	return result;
 }
 
@@ -55,6 +59,10 @@ function find_obj_layer(map) {
 			result = layer;
 			break;
 		}
+	}
+	
+	if (result == null) {
+		throw new Error("Object Layer not found.");
 	}
 	
 	return result;
@@ -79,6 +87,19 @@ function write_layer(binaryFile, map, layer) {
 				} else {
 					write_tile(binaryFile, cell.tileId, cell.flippedHorizontally, cell.flippedVertically, true, true);
 				}
+			}
+		}
+	}
+}
+
+function write_layer2(binaryFile, cells) {
+	for (var y = 0; y < cells.length; y++) {
+		for (var x = 0; x < cells[0].length; x++) {
+			var cell = cells[y][x];
+			if (cell.tileId == -1) {
+				write_tile(binaryFile, 0, false, false, false, false);
+			} else {
+				write_tile(binaryFile, cell.tileId, cell.flippedHorizontally, cell.flippedVertically, cell.top_solid, cell.lrb_solid);
 			}
 		}
 	}
@@ -110,6 +131,10 @@ function get_obj_type(o) {
 		return OBJ_MONITOR;
 	} else if (o.tile.id == 16 || o.tile.id == 17) {
 		return OBJ_SPRING;
+	} else if (o.tile.id == 18) {
+		return OBJ_LAYER_FLIP;
+	} else if (o.tile.id == 19) {
+		return OBJ_LAYER_SET;
 	}
 	
 	throw new Error("Unknown object type.");
@@ -138,8 +163,61 @@ var customMapFormat = {
 		
 		write_int(file, map.height);
 		
-		var layer_a = find_tile_layer(map, "Ground");
-		write_layer(file, map, layer_a);
+		{
+			var layer = find_tile_layer(map, "Ground");
+			
+			var cells = [];
+			for (var y = 0; y < layer.height; y++) {
+				var row = [];
+				for (var x = 0; x < layer.width; x++) {
+					var cell = layer.cellAt(x, y);
+					row.push({
+						tileId: cell.tileId,
+						flippedHorizontally: cell.flippedHorizontally,
+						flippedVertically: cell.flippedVertically,
+						top_solid: true,
+						lrb_solid: true,
+					});
+				}
+				cells.push(row);
+			}
+			
+			layer = find_tile_layer(map, "BG");
+			
+			for (var y = 0; y < layer.height; y++) {
+				for (var x = 0; x < layer.width; x++) {
+					var cell = layer.cellAt(x, y);
+					if (cell.tileId != -1) {
+						cells[y][x] = {
+							tileId: cell.tileId,
+							flippedHorizontally: cell.flippedHorizontally,
+							flippedVertically: cell.flippedVertically,
+							top_solid: false,
+							lrb_solid: false,
+						};
+					}
+				}
+			}
+			
+			layer = find_tile_layer(map, "Top Solid");
+			
+			for (var y = 0; y < layer.height; y++) {
+				for (var x = 0; x < layer.width; x++) {
+					var cell = layer.cellAt(x, y);
+					if (cell.tileId != -1) {
+						cells[y][x] = {
+							tileId: cell.tileId,
+							flippedHorizontally: cell.flippedHorizontally,
+							flippedVertically: cell.flippedVertically,
+							top_solid: true,
+							lrb_solid: false,
+						};
+					}
+				}
+			}
+			
+			write_layer2(file, cells);
+		}
 		
 		var layer_b = find_tile_layer(map, "Ground B");
 		write_layer(file, map, layer_b);
@@ -174,6 +252,11 @@ var customMapFormat = {
 			write_int(file, get_obj_type(o));
 			
 			var flags = 0;
+			if (o.tile.id == 18) {
+				if (o.property("Grounded")) {
+					flags |= 1 << 16;
+				}
+			}
 			write_u32(file, flags);
 			
 			var x = o.x;
@@ -223,6 +306,19 @@ var customMapFormat = {
 				}
 				
 				write_int(file, direction);
+			} else if (o.tile.id == 18) {
+				var radius_x = o.width  / 2;
+				var radius_y = o.height / 2;
+				write_float32(file, radius_x);
+				write_float32(file, radius_y);
+			} else if (o.tile.id == 19) {
+				var radius_x = o.width  / 2;
+				var radius_y = o.height / 2;
+				write_float32(file, radius_x);
+				write_float32(file, radius_y);
+				
+				var _layer = o.property("Layer");
+				write_int(file, _layer);
 			} else {
 				throw new Error("Object type not serialized.");
 			}

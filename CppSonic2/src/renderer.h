@@ -37,6 +37,7 @@ struct Renderer {
 	bump_array<Vertex> vertices;
 
 	u32 texture_shader;  // These shaders should be handled by an asset system maybe
+	u32 color_shader;
 	u32 circle_shader;
 	u32 sharp_bilinear_shader;
 
