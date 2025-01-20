@@ -23,6 +23,8 @@ enum {
 	tex_title_mountains_right,
 	tex_title_clouds,
 
+	tex_bg_EE,
+
 	NUM_TEXTURES,
 };
 

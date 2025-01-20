@@ -1982,6 +1982,34 @@ void Game::draw(float delta) {
 	renderer.model_mat = {1};
 	glViewport(0, 0, window.game_width, window.game_height);
 
+	// draw bg
+	{
+		const Texture& t = get_texture(tex_bg_EE);
+
+		auto draw_part = [&](Rect src, float parallax) {
+			vec2 pos;
+			pos.x = camera_pos.x * parallax;
+			pos.y = lerp(0.0f, tm.height * 16.0f - t.height, camera_pos.y / (tm.height * 16.0f - window.game_height));
+
+			pos.y += src.y;
+
+			while (pos.x + t.width < camera_pos.x) {
+				pos.x += t.width;
+			}
+
+			draw_texture(t, src, pos);
+
+			if (pos.x + t.width < camera_pos.x + window.game_width) {
+				pos.x += t.width;
+				draw_texture(t, src, pos);
+			}
+		};
+
+		draw_part({0,   0, 1024, 176}, 0.95f);
+		draw_part({0, 176, 1024, 208}, 0.93f);
+		draw_part({0, 384, 1024, 128}, 0.91f);
+	}
+
 	// draw tilemap
 	{
 		int xfrom = clamp((int)camera_pos.x / 16, 0, tm.width  - 1);

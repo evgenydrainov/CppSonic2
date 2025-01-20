@@ -98,6 +98,8 @@ void load_assets_for_game() {
 	textures[tex_title_water] = load_texture_from_file("textures/title_water.png");
 	textures[tex_title_water_palette] = load_texture_from_file("textures/title_water_palette.png");
 	textures[tex_title_clouds] = load_texture_from_file("textures/title_clouds.png", GL_NEAREST, GL_REPEAT);
+
+	textures[tex_bg_EE] = load_texture_from_file("textures/bg_EE.png");
 }
 
 void load_assets_for_editor() {
