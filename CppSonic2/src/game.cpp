@@ -1720,6 +1720,8 @@ static void player_update(Player* p, float delta) {
 		u32 prev = p->input;
 		p->input = 0;
 
+		// Keyboard
+
 		if (is_key_held(SDL_SCANCODE_RIGHT)) {
 			p->input |= INPUT_RIGHT;
 		}
@@ -1742,6 +1744,52 @@ static void player_update(Player* p, float delta) {
 
 		if (is_key_held(SDL_SCANCODE_X)) {
 			p->input |= INPUT_X;
+		}
+
+		// Controller
+
+		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) {
+			p->input |= INPUT_RIGHT;
+		}
+
+		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_DPAD_UP)) {
+			p->input |= INPUT_UP;
+		}
+
+		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_DPAD_LEFT)) {
+			p->input |= INPUT_LEFT;
+		}
+
+		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_DPAD_DOWN)) {
+			p->input |= INPUT_DOWN;
+		}
+
+		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_A)) {
+			p->input |= INPUT_Z;
+		}
+
+		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_B)) {
+			p->input |= INPUT_X;
+		}
+
+		// Controller Axis
+
+		const float deadzone = 0.3f;
+
+		float leftx = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTX);
+		if (leftx < -deadzone) {
+			p->input |= INPUT_LEFT;
+		}
+		if (leftx > deadzone) {
+			p->input |= INPUT_RIGHT;
+		}
+
+		float lefty = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTY);
+		if (lefty < -deadzone) {
+			p->input |= INPUT_UP;
+		}
+		if (lefty > deadzone) {
+			p->input |= INPUT_DOWN;
 		}
 
 		p->input_press   = p->input & (~prev);
@@ -1771,10 +1819,10 @@ static void player_update(Player* p, float delta) {
 			p->ground_speed = 0;
 			p->ground_angle = 0;
 
-			if (is_key_held(SDL_SCANCODE_UP))    { p->speed.y -= spd; }
-			if (is_key_held(SDL_SCANCODE_DOWN))  { p->speed.y += spd; }
-			if (is_key_held(SDL_SCANCODE_LEFT))  { p->speed.x -= spd; }
-			if (is_key_held(SDL_SCANCODE_RIGHT)) { p->speed.x += spd; }
+			if (p->input & INPUT_UP)    { p->speed.y -= spd; }
+			if (p->input & INPUT_DOWN)  { p->speed.y += spd; }
+			if (p->input & INPUT_LEFT)  { p->speed.x -= spd; }
+			if (p->input & INPUT_RIGHT) { p->speed.x += spd; }
 
 			p->pos += p->speed * delta;
 			break;
@@ -1857,7 +1905,9 @@ static void player_update(Player* p, float delta) {
 	}
 
 #ifdef DEVELOPER
-	if (is_key_pressed(SDL_SCANCODE_A)) {
+	if (is_key_pressed(SDL_SCANCODE_A)
+		|| is_controller_button_pressed(SDL_CONTROLLER_BUTTON_Y))
+	{
 		if (p->state == STATE_DEBUG) {
 			p->state = STATE_AIR;
 			p->speed = {};

@@ -67,7 +67,8 @@ void init_window_and_opengl(const char* title,
 
 	SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "system");
 
-	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+	if (SDL_Init(SDL_INIT_VIDEO
+				 | SDL_INIT_GAMECONTROLLER) != 0) {
 		panic_and_abort("Couldn't initialize SDL: %s", SDL_GetError());
 	}
 
@@ -237,6 +238,42 @@ void handle_event(const SDL_Event& ev) {
 			}
 			break;
 		}
+
+		case SDL_CONTROLLERDEVICEADDED: {
+			if (!window.controller) {
+				window.controller = SDL_GameControllerOpen(ev.cdevice.which);
+
+				log_info("Opened controller %s.", SDL_GameControllerName(window.controller));
+			}
+			break;
+		}
+
+		case SDL_CONTROLLERDEVICEREMOVED: {
+			if (window.controller) {
+				SDL_Joystick* joystick = SDL_GameControllerGetJoystick(window.controller);
+				if (SDL_JoystickInstanceID(joystick) == ev.cdevice.which) {
+					log_info("Closing controller %s...", SDL_GameControllerName(window.controller));
+
+					SDL_GameControllerClose(window.controller);
+					window.controller = nullptr;
+				}
+			}
+			break;
+		}
+
+		case SDL_CONTROLLERBUTTONDOWN: {
+			if (window.controller) {
+				SDL_Joystick* joystick = SDL_GameControllerGetJoystick(window.controller);
+				if (SDL_JoystickInstanceID(joystick) == ev.cbutton.which) {
+					SDL_GameControllerButton button = (SDL_GameControllerButton) ev.cbutton.button;
+
+					if (button >= 0 && button < window.NUM_CONTROLLER_BUTTONS) {
+						window.controller_button_pressed[button / 32] |= 1 << (button % 32);
+					}
+				}
+			}
+			break;
+		}
 	}
 }
 
@@ -268,8 +305,9 @@ void begin_frame() {
 
 	window.fps = (float)(1.0 / (time - prev_time));
 
-	memset(window.key_pressed, 0, sizeof(window.key_pressed));
-	memset(window.key_repeat,  0, sizeof(window.key_repeat));
+	memset(window.key_pressed,               0, sizeof(window.key_pressed));
+	memset(window.key_repeat,                0, sizeof(window.key_repeat));
+	memset(window.controller_button_pressed, 0, sizeof(window.controller_button_pressed));
 
 	window.avg_fps_sum += window.fps;
 	window.avg_fps_num_samples += 1;
@@ -330,6 +368,36 @@ bool is_key_held(SDL_Scancode key) {
 
 	const u8* state = SDL_GetKeyboardState(nullptr);
 	return (state[key] != 0);
+}
+
+bool is_controller_button_held(SDL_GameControllerButton button) {
+	bool result = false;
+
+	if (window.controller) {
+		result = SDL_GameControllerGetButton(window.controller, button);
+	}
+
+	return result;
+}
+
+bool is_controller_button_pressed(SDL_GameControllerButton button) {
+	if (!(button >= 0 && button < window.NUM_CONTROLLER_BUTTONS)) {
+		return false;
+	}
+
+	bool result = (window.controller_button_pressed[button / 32] & (1 << (button % 32))) != 0;
+
+	return result;
+}
+
+float controller_get_axis(SDL_GameControllerAxis axis) {
+	float result = 0;
+
+	if (window.controller) {
+		result = SDL_GameControllerGetAxis(window.controller, axis) / 32768.0f;
+	}
+
+	return result;
 }
 
 SDL_Window* get_window_handle() {

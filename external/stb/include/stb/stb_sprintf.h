@@ -160,6 +160,8 @@ PERFORMANCE vs MSVC 2008 32-/64-bit (GCC is even slower than MSVC):
  #if defined(__SANITIZE_ADDRESS__) && __SANITIZE_ADDRESS__
   #define STBSP__ASAN __attribute__((__no_sanitize_address__))
  #endif
+#elif defined(_MSC_VER)
+ #define STBSP__ASAN __declspec(no_sanitize_address)
 #endif
 
 #ifndef STBSP__ASAN
@@ -229,7 +231,7 @@ STBSP__PUBLICDEC int STB_SPRINTF_DECORATE(sprintf)(char *buf, char const *fmt, .
 STBSP__PUBLICDEC int STB_SPRINTF_DECORATE(snprintf)(char *buf, int count, char const *fmt, ...) STBSP__ATTRIBUTE_FORMAT(3,4);
 #endif
 
-STBSP__PUBLICDEC int STB_SPRINTF_DECORATE(vsprintfcb)(STBSP_SPRINTFCB *callback, void *user, char *buf, char const *fmt, va_list va);
+STBSP__PUBLICDEC STBSP__ASAN int STB_SPRINTF_DECORATE(vsprintfcb)(STBSP_SPRINTFCB *callback, void *user, char *buf, char const *fmt, va_list va);
 STBSP__PUBLICDEC void STB_SPRINTF_DECORATE(set_separators)(char comma, char period);
 
 #endif // STB_SPRINTF_H_INCLUDE

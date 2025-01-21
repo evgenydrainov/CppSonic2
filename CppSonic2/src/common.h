@@ -58,11 +58,12 @@ struct Rectf {
 // Logging and assert
 // 
 
-#define log_info(fmt, ...)  _my_log(SDL_LOG_PRIORITY_INFO,  fmt, ##__VA_ARGS__)
-#define log_warn(fmt, ...)  _my_log(SDL_LOG_PRIORITY_WARN,  fmt, ##__VA_ARGS__)
-#define log_error(fmt, ...) _my_log(SDL_LOG_PRIORITY_ERROR, fmt, ##__VA_ARGS__)
+#define log_info(fmt, ...)  log_internal(SDL_LOG_PRIORITY_INFO,  fmt, ##__VA_ARGS__)
+#define log_warn(fmt, ...)  log_internal(SDL_LOG_PRIORITY_WARN,  fmt, ##__VA_ARGS__)
+#define log_error(fmt, ...) log_internal(SDL_LOG_PRIORITY_ERROR, fmt, ##__VA_ARGS__)
 
-inline void SDL_PRINTF_VARARG_FUNC(2) _my_log(SDL_LogPriority priority, SDL_PRINTF_FORMAT_STRING const char* fmt, ...) {
+inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(SDL_LogPriority priority, SDL_PRINTF_FORMAT_STRING const char* fmt, ...) {
+#if 1
 	static char buf[512];
 
 	// SDL_snprintf doesn't support %g.
@@ -72,6 +73,63 @@ inline void SDL_PRINTF_VARARG_FUNC(2) _my_log(SDL_LogPriority priority, SDL_PRIN
 	va_end(va);
 
 	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, priority, "%s", buf);
+#else
+	static char buf[STB_SPRINTF_MIN];
+
+	switch (priority) {
+		case SDL_LOG_PRIORITY_VERBOSE: {
+			static const char buf[] = "VERBOSE: ";
+			fwrite(buf, 1, sizeof buf, stdout);
+			break;
+		}
+
+		case SDL_LOG_PRIORITY_DEBUG: {
+			static const char buf[] = "DEBUG: ";
+			fwrite(buf, 1, sizeof buf, stdout);
+			break;
+		}
+
+		case SDL_LOG_PRIORITY_INFO: {
+			static const char buf[] = "INFO: ";
+			fwrite(buf, 1, sizeof buf, stdout);
+			break;
+		}
+
+		case SDL_LOG_PRIORITY_WARN: {
+			static const char buf[] = "WARN: ";
+			fwrite(buf, 1, sizeof buf, stdout);
+			break;
+		}
+
+		case SDL_LOG_PRIORITY_ERROR: {
+			static const char buf[] = "ERROR: ";
+			fwrite(buf, 1, sizeof buf, stdout);
+			break;
+		}
+
+		case SDL_LOG_PRIORITY_CRITICAL: {
+			static const char buf[] = "CRITICAL: ";
+			fwrite(buf, 1, sizeof buf, stdout);
+			break;
+		}
+	}
+
+	va_list va;
+	va_start(va, fmt);
+
+	stb_vsprintfcb([](const char *buf, void *user, int len) -> char* {
+		char* orig_buf = (char*) user;
+
+		fwrite(buf, 1, len, stdout);
+
+		return orig_buf;
+	}, buf, buf, fmt, va);
+
+	va_end(va);
+
+	char newl = '\n';
+	fwrite(&newl, 1, 1, stdout);
+#endif
 }
 
 //

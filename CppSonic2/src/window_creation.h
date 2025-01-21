@@ -9,6 +9,8 @@
 struct Window {
 	static constexpr int NUM_KEYS = SDL_SCANCODE_UP + 1;
 
+	static constexpr int NUM_CONTROLLER_BUTTONS = SDL_CONTROLLER_BUTTON_MAX;
+
 	/*   modify these   */
 
 	bool should_quit;  // Set this to true when game should terminate.
@@ -19,6 +21,7 @@ struct Window {
 
 	SDL_Window* handle;
 	SDL_GLContext gl_context;
+	SDL_GameController* controller;
 
 	bool vsync;
 
@@ -36,6 +39,8 @@ struct Window {
 
 	u32 key_pressed[(NUM_KEYS + 31) / 32];
 	u32 key_repeat [(NUM_KEYS + 31) / 32];
+
+	u32 controller_button_pressed[(NUM_CONTROLLER_BUTTONS + 31) / 32];
 
 	double prev_time;
 	double frame_end_time;
@@ -76,6 +81,10 @@ void handle_event(const SDL_Event& ev);
 
 bool is_key_held(SDL_Scancode key);
 bool is_key_pressed(SDL_Scancode key, bool repeat = false);
+
+bool is_controller_button_held(SDL_GameControllerButton button);
+bool is_controller_button_pressed(SDL_GameControllerButton button);
+float controller_get_axis(SDL_GameControllerAxis axis);
 
 SDL_Window* get_window_handle(); // for common.h
 
