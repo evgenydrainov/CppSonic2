@@ -1,5 +1,8 @@
 #include "window_creation.h"
 
+// @Cleanup?
+#include "renderer.h"
+
 Window window;
 
 
@@ -67,6 +70,8 @@ void init_window_and_opengl(const char* title,
 
 	SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "system");
 
+	SDL_SetHint("SDL_IOS_ORIENTATIONS", "LandscapeLeft");
+
 	if (SDL_Init(SDL_INIT_VIDEO
 				 | SDL_INIT_GAMECONTROLLER) != 0) {
 		panic_and_abort("Couldn't initialize SDL: %s", SDL_GetError());
@@ -95,12 +100,29 @@ void init_window_and_opengl(const char* title,
 		log_info("Current video backend: %s", SDL_GetCurrentVideoDriver());
 	}
 
+	u32 window_flags =
+		SDL_WINDOW_OPENGL
+		| SDL_WINDOW_RESIZABLE
+		| SDL_WINDOW_ALLOW_HIGHDPI /*for Mac*/;
+
+#ifdef __ANDROID__
+	window_flags |= SDL_WINDOW_FULLSCREEN;
+
+	{
+		SDL_DisplayMode mode;
+		SDL_GetDesktopDisplayMode(0, &mode);
+
+		log_info("mode.w %d", mode.w);
+		log_info("mode.h %d", mode.h);
+
+		width = height / (float)mode.h * (float)mode.w;
+	}
+#endif
+
 	window.handle = SDL_CreateWindow(title,
 									 SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 									 width * init_window_scale, height * init_window_scale,
-									 SDL_WINDOW_OPENGL
-									 | SDL_WINDOW_RESIZABLE
-									 | SDL_WINDOW_ALLOW_HIGHDPI /*for Mac*/);
+									 window_flags);
 	window.game_width  = width;
 	window.game_height = height;
 
@@ -118,9 +140,15 @@ void init_window_and_opengl(const char* title,
 
 	SDL_SetWindowMinimumSize(window.handle, width, height);
 
+#ifdef __ANDROID__
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#else
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+#endif
 
 #ifdef _DEBUG
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
@@ -130,14 +158,20 @@ void init_window_and_opengl(const char* title,
 	SDL_GL_MakeCurrent(window.handle, window.gl_context);
 
 	{
-		int version = gladLoadGL([](const char* name) {
+#ifdef __ANDROID__
+		auto load = gladLoadGLES2;
+#else
+		auto load = gladLoadGL;
+#endif
+
+		int version = load([](const char* name) {
 			return (GLADapiproc) SDL_GL_GetProcAddress(name);
 		});
 
 		log_info("Loaded GL %d.%d", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
 
 		if (GLAD_VERSION_MAJOR(version) < 3) {
-			panic_and_abort("Couldn't load OpenGL.");
+			panic_and_abort("Couldn't load OpenGL. Got version %d.%d", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
 		}
 	}
 
@@ -320,6 +354,15 @@ void begin_frame() {
 
 		window.avg_fps_last_time_updated = time;
 	}
+
+	// handle mouse
+	{
+		SDL_GetMouseState(&window.mouse_x, &window.mouse_y);
+
+		auto rect = renderer.game_texture_rect;
+		window.mouse_x_world = (window.mouse_x - rect.x) / (float)rect.w * (float)window.game_width;
+		window.mouse_y_world = (window.mouse_y - rect.y) / (float)rect.h * (float)window.game_height;
+	}
 }
 
 void swap_buffers() {
@@ -395,6 +438,17 @@ float controller_get_axis(SDL_GameControllerAxis axis) {
 
 	if (window.controller) {
 		result = SDL_GameControllerGetAxis(window.controller, axis) / 32768.0f;
+	}
+
+	return result;
+}
+
+bool is_mouse_button_held(u32 button) {
+	bool result = false;
+
+	u32 state = SDL_GetMouseState(nullptr, nullptr);
+	if (state & SDL_BUTTON(button)) {
+		result = true;
 	}
 
 	return result;

@@ -100,6 +100,21 @@ void load_assets_for_game() {
 	textures[tex_title_clouds] = load_texture_from_file("textures/title_clouds.png", GL_NEAREST, GL_REPEAT);
 
 	textures[tex_bg_EE] = load_texture_from_file("textures/bg_EE.png");
+
+#if defined(__ANDROID__) || defined(PRETEND_MOBILE)
+	{
+		textures[tex_mobile_controls] = load_texture_from_file("textures/mobile_controls.png");
+		const Texture& t = get_texture(tex_mobile_controls);
+
+		sprites[spr_mobile_dpad]       = make_sprite(t,  0,  0, 62, 62, 0, 0);
+		sprites[spr_mobile_dpad_up]    = make_sprite(t, 64,  0, 13, 25, 0, 0, 2);
+		sprites[spr_mobile_dpad_down]  = make_sprite(t, 64, 26, 13, 25, 0, 0, 2);
+		sprites[spr_mobile_dpad_left]  = make_sprite(t, 90, 14, 27, 13, 0, 0, 2);
+		sprites[spr_mobile_dpad_right] = make_sprite(t, 90,  0, 27, 13, 0, 0, 2);
+
+		sprites[spr_mobile_action_button] = make_sprite(t, 0, 64, 48, 48, 0, 0, 2);
+	}
+#endif
 }
 
 void load_assets_for_editor() {

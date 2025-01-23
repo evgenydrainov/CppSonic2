@@ -15,6 +15,7 @@
 
 
 #define GLAD_GL_IMPLEMENTATION
+#define GLAD_GLES2_IMPLEMENTATION
 #include <glad/gl.h>
 #undef GLAD_GL_IMPLEMENTATION
 

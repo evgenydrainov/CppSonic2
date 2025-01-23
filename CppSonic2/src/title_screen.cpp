@@ -11,7 +11,11 @@
 Title_Screen title_screen;
 
 static const char shd_palette_vert_src[] = R"(
-#version 330 core
+#version 320 es
+
+#ifdef GL_ES
+precision mediump float;
+#endif
 
 layout(location = 0) in vec3 in_Position;
 layout(location = 1) in vec3 in_Normal;
@@ -32,7 +36,11 @@ void main() {
 )";
 
 static const char shd_palette_frag_src[] = R"(
-#version 330 core
+#version 320 es
+
+#ifdef GL_ES
+precision mediump float;
+#endif
 
 layout(location = 0) out vec4 FragColor;
 
@@ -75,7 +83,13 @@ void Title_Screen::update(float delta) {
 		return;
 	}
 
-	if (is_key_pressed(SDL_SCANCODE_Z)) {
+	bool press = is_key_pressed(SDL_SCANCODE_Z);
+
+#if defined(__ANDROID__) || defined(PRETEND_MOBILE)
+	press |= is_mouse_button_held(SDL_BUTTON_LEFT);
+#endif
+
+	if (press) {
 		program.set_program_mode(PROGRAM_GAME);
 	}
 }

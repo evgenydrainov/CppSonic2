@@ -52,6 +52,9 @@ struct Renderer {
 	u32 game_framebuffer;  // rendered to the screen.
 	Rect game_texture_rect;
 
+	int backbuffer_width;
+	int backbuffer_height;
+
 	mat4 proj_mat = {1};
 	mat4 view_mat = {1};
 	mat4 model_mat = {1};

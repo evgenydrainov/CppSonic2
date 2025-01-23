@@ -13,6 +13,7 @@ enum {
 	tex_sonic_sprites,
 	tex_global_objects,
 	tex_editor_sprites,
+	tex_mobile_controls,
 
 	tex_title_medal,
 	tex_title_sonic,
@@ -66,6 +67,13 @@ enum {
 	spr_title_label,
 	spr_title_mountains_left,
 	spr_title_mountains_right,
+
+	spr_mobile_dpad,
+	spr_mobile_dpad_up,
+	spr_mobile_dpad_down,
+	spr_mobile_dpad_left,
+	spr_mobile_dpad_right,
+	spr_mobile_action_button,
 
 	NUM_SPRITES,
 };

@@ -15,7 +15,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #set(CMAKE_SHARED_LINKER_FLAGS "-pg")
 
 add_compile_definitions($<$<CONFIG:Debug>:_DEBUG>)
-add_compile_definitions($<$<CONFIG:Debug>:DEBUG>)
 add_compile_definitions($<$<NOT:$<CONFIG:Debug>>:NDEBUG>)
 
 add_compile_definitions(EDITOR)

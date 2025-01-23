@@ -23,6 +23,11 @@ struct Window {
 	SDL_GLContext gl_context;
 	SDL_GameController* controller;
 
+	int mouse_x;
+	int mouse_y;
+	float mouse_x_world;
+	float mouse_y_world;
+
 	bool vsync;
 
 	int game_width;
@@ -85,6 +90,8 @@ bool is_key_pressed(SDL_Scancode key, bool repeat = false);
 bool is_controller_button_held(SDL_GameControllerButton button);
 bool is_controller_button_pressed(SDL_GameControllerButton button);
 float controller_get_axis(SDL_GameControllerAxis axis);
+
+bool is_mouse_button_held(u32 button);
 
 SDL_Window* get_window_handle(); // for common.h
 

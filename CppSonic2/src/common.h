@@ -9,6 +9,8 @@
 #error You have to define _DEBUG or NDEBUG.
 #endif
 
+// #define PRETEND_MOBILE
+
 #include <SDL.h>
 #include <stb/stb_sprintf.h>
 #include <glm/glm.hpp>
@@ -423,6 +425,21 @@ inline bool point_in_rect(vec2 p, Rectf r) {
 			&& p.x < r.x + r.w
 			&& p.y >= r.y
 			&& p.y < r.y + r.h);
+}
+
+inline bool point_in_triangle(vec2 pt, vec2 v1, vec2 v2, vec2 v3) {
+	auto sign = [](vec2 p1, vec2 p2, vec2 p3) {
+		return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
+	};
+
+	float d1 = sign(pt, v1, v2);
+	float d2 = sign(pt, v2, v3);
+	float d3 = sign(pt, v3, v1);
+
+	bool has_neg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+	bool has_pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+
+	return !(has_neg && has_pos);
 }
 
 inline bool circle_vs_rotated_rect(float circle_x, float circle_y, float circle_radius,

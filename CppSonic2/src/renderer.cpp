@@ -8,7 +8,11 @@ Renderer renderer = {};
 
 
 static char texture_vert_shader_src[] = R"(
-#version 330 core
+#version 320 es
+
+#ifdef GL_ES
+precision mediump float;
+#endif
 
 layout(location = 0) in vec3 in_Position;
 layout(location = 1) in vec3 in_Normal;
@@ -31,7 +35,11 @@ void main() {
 
 
 static char texture_frag_shader_src[] = R"(
-#version 330 core
+#version 320 es
+
+#ifdef GL_ES
+precision mediump float;
+#endif
 
 layout(location = 0) out vec4 FragColor;
 
@@ -50,7 +58,11 @@ void main() {
 
 
 static char color_frag_shader_src[] = R"(
-#version 330 core
+#version 320 es
+
+#ifdef GL_ES
+precision mediump float;
+#endif
 
 layout(location = 0) out vec4 FragColor;
 
@@ -65,7 +77,11 @@ void main() {
 
 
 static char circle_frag_shader_src[] = R"(
-#version 330 core
+#version 320 es
+
+#ifdef GL_ES
+precision mediump float;
+#endif
 
 layout(location = 0) out vec4 FragColor;
 
@@ -88,7 +104,11 @@ void main() {
 
 
 static char sharp_bilinear_frag_shader_src[] = R"(
-#version 330 core
+#version 320 es
+
+#ifdef GL_ES
+precision mediump float;
+#endif
 
 /*
 	Author: rsn8887 (based on TheMaister)
@@ -313,6 +333,9 @@ void render_end_frame() {
 		renderer.game_texture_rect.h = (int) (window.game_height * scale);
 		renderer.game_texture_rect.x = (backbuffer_width  - renderer.game_texture_rect.w) / 2;
 		renderer.game_texture_rect.y = (backbuffer_height - renderer.game_texture_rect.h) / 2;
+
+		renderer.backbuffer_width  = backbuffer_width;
+		renderer.backbuffer_height = backbuffer_height;
 
 		{
 			int u_SourceSize = glGetUniformLocation(program, "u_SourceSize");

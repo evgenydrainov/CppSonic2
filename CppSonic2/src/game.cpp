@@ -74,7 +74,7 @@ void Game::init(int argc, char* argv[]) {
 	init_particles();
 
 	{
-		const char* path = "levels/EEZ_Act1";
+		const char* path = "levels/EEZ_Act1_tiled";
 
 		if (argc >= 2 && strcmp(argv[1], "--game") == 0) {
 			if (argc >= 3) path = argv[2];
@@ -1541,16 +1541,17 @@ static void player_state_ground(Player* p, float delta) {
 		p->frame_duration = fmaxf(0, 8 - fabsf(speed));
 
 		if (!(p->input & INPUT_UP)) {
-			p->state = STATE_GROUND;
-			if (p->spinrev >= 15) {
-				p->ground_speed = speed;
-				game.camera_lock = 24 - floorf(fabsf(p->ground_speed));
-			}
 			p->peelout = false;
 
-			stop_sound(get_sound(snd_spindash));
-			play_sound(get_sound(snd_spindash_end));
-			return;
+			if (p->spinrev >= 15) {
+				p->state = STATE_GROUND;
+				p->ground_speed = speed;
+				game.camera_lock = 24 - floorf(fabsf(p->ground_speed));
+
+				stop_sound(get_sound(snd_spindash));
+				play_sound(get_sound(snd_spindash_end));
+				return;
+			}
 		}
 	}
 
@@ -1702,6 +1703,38 @@ static const Sprite& anim_get_sprite(anim_index anim) {
 	return get_sprite(spr_sonic_crouch + anim);
 };
 
+#define MOBILE_DPAD_SIZE   64
+#define MOBILE_DPAD_OFFSET 64
+
+static void get_mobile_controls(glm::ivec2* dpad_pos,
+								glm::ivec2* action_pos,
+								Rect* action_rect,
+								Rect* pause_rect) {
+	dpad_pos->x	  = 48 - 32;
+	dpad_pos->y   = window.game_height - 48 - 32;
+	action_pos->x = window.game_width  - 48 - 24;
+	action_pos->y = window.game_height - 48 - 24;
+	
+	action_rect->x = window.game_width  * 0.6;
+	action_rect->y = window.game_height * 0.6;
+	action_rect->w = window.game_width  - action_rect->x;
+	action_rect->h = window.game_height - action_rect->y;
+
+	pause_rect->x = window.game_width * 0.6;
+	pause_rect->y = 0;
+	pause_rect->w = window.game_width        - pause_rect->y;
+	pause_rect->h = window.game_height * 0.4 - pause_rect->x;
+}
+
+static Rectf to_rectf(Rect r) {
+	Rectf result;
+	result.x = (float) r.x;
+	result.y = (float) r.y;
+	result.w = (float) r.w;
+	result.h = (float) r.h;
+	return result;
+}
+
 static void player_update(Player* p, float delta) {
 	// clear flags
 	if (p->state != STATE_AIR) {
@@ -1773,24 +1806,107 @@ static void player_update(Player* p, float delta) {
 		}
 
 		// Controller Axis
+		{
+			const float deadzone = 0.3f;
 
-		const float deadzone = 0.3f;
+			float leftx = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTX);
+			if (leftx < -deadzone) {
+				p->input |= INPUT_LEFT;
+			}
+			if (leftx > deadzone) {
+				p->input |= INPUT_RIGHT;
+			}
 
-		float leftx = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTX);
-		if (leftx < -deadzone) {
-			p->input |= INPUT_LEFT;
-		}
-		if (leftx > deadzone) {
-			p->input |= INPUT_RIGHT;
+			float lefty = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTY);
+			if (lefty < -deadzone) {
+				p->input |= INPUT_UP;
+			}
+			if (lefty > deadzone) {
+				p->input |= INPUT_DOWN;
+			}
 		}
 
-		float lefty = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTY);
-		if (lefty < -deadzone) {
-			p->input |= INPUT_UP;
+		// Touch
+#if defined(__ANDROID__) || defined(PRETEND_MOBILE)
+		{
+			glm::ivec2 dpad_pos;
+			glm::ivec2 action_pos;
+			Rect action_rect;
+			Rect pause_rect;
+			get_mobile_controls(&dpad_pos, &action_pos, &action_rect, &pause_rect);
+
+			int left   = dpad_pos.x;
+			int top    = dpad_pos.y;
+			int right  = left + MOBILE_DPAD_SIZE;
+			int bottom = top  + MOBILE_DPAD_SIZE;
+			int cent_x = left + MOBILE_DPAD_SIZE / 2;
+			int cent_y = top  + MOBILE_DPAD_SIZE / 2;
+
+			int act_x1 = action_rect.x;
+			int act_y1 = action_rect.y;
+			int act_x2 = action_rect.x + action_rect.w;
+			int act_y2 = action_rect.y + action_rect.h;
+
+			int pause_x1 = pause_rect.x;
+			int pause_y1 = pause_rect.y;
+			int pause_x2 = pause_rect.x + pause_rect.w;
+			int pause_y2 = pause_rect.y + pause_rect.h;
+
+			left   -= MOBILE_DPAD_OFFSET;
+			top    -= MOBILE_DPAD_OFFSET;
+			right  += MOBILE_DPAD_OFFSET;
+			bottom += MOBILE_DPAD_OFFSET;
+
+			int num_touch_devices = SDL_GetNumTouchDevices();
+			for (int i = 0; i < num_touch_devices; i++) {
+				SDL_TouchID touch_id = SDL_GetTouchDevice(i);
+
+				int num_fingers = SDL_GetNumTouchFingers(touch_id);
+				for (int i = 0; i < num_fingers; i++) {
+					SDL_Finger* finger = SDL_GetTouchFinger(touch_id, i);
+
+					if (!finger) {
+						log_warn("SDL_GetTouchFinger returned null.");
+						continue;
+					}
+
+					float mx = finger->x * renderer.backbuffer_width;
+					float my = finger->y * renderer.backbuffer_height;
+
+					auto rect = renderer.game_texture_rect;
+					mx = (mx - rect.x) / (float)rect.w * (float)window.game_width;
+					my = (my - rect.y) / (float)rect.h * (float)window.game_height;
+
+					if (point_in_triangle({mx, my},
+										  {left, top},
+										  {right, top},
+										  {cent_x, cent_y})) {
+						p->input |= INPUT_UP;
+					} else if (point_in_triangle({mx, my},
+												 {cent_x, cent_y},
+												 {left, bottom},
+												 {right, bottom})) {
+						p->input |= INPUT_DOWN;
+					} else if (point_in_triangle({mx, my},
+												 {left, top},
+												 {left, bottom},
+												 {cent_x, cent_y})) {
+						p->input |= INPUT_LEFT;
+					} else if (point_in_triangle({mx, my},
+												 {cent_x, cent_y},
+												 {right, top},
+												 {right, bottom})) {
+						p->input |= INPUT_RIGHT;
+					}
+
+					if (point_in_rect({mx, my},
+									  to_rectf(action_rect))) {
+						p->input |= INPUT_Z;
+					}
+				}
+			}
 		}
-		if (lefty > deadzone) {
-			p->input |= INPUT_DOWN;
-		}
+#endif
 
 		p->input_press   = p->input & (~prev);
 		p->input_release = (~p->input) & prev;
@@ -2340,6 +2456,7 @@ void Game::draw(float delta) {
 	renderer.model_mat = {1};
 	glViewport(0, 0, window.game_width, window.game_height);
 
+	// :ui
 	// draw hud
 	{
 		vec2 pos = {16, 8};
@@ -2382,6 +2499,30 @@ void Game::draw(float delta) {
 		draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
 		pos.y += 16;
 	}
+
+	// draw mobile controls
+#if defined(__ANDROID__) || defined(PRETEND_MOBILE)
+	{
+		glm::ivec2 dpad_pos;
+		glm::ivec2 action_pos;
+		Rect action_rect;
+		Rect pause_rect;
+		get_mobile_controls(&dpad_pos, &action_pos, &action_rect, &pause_rect);
+
+		vec4 color = {1, 1, 1, 0.85f};
+
+		// dpad
+		draw_sprite(get_sprite(spr_mobile_dpad), 0, dpad_pos, {1,1}, 0, color);
+
+		draw_sprite(get_sprite(spr_mobile_dpad_up),    (p->input & INPUT_UP)    > 0, dpad_pos + glm::ivec2{25,  0}, {1,1}, 0, color);
+		draw_sprite(get_sprite(spr_mobile_dpad_down),  (p->input & INPUT_DOWN)  > 0, dpad_pos + glm::ivec2{25, 37}, {1,1}, 0, color);
+		draw_sprite(get_sprite(spr_mobile_dpad_left),  (p->input & INPUT_LEFT)  > 0, dpad_pos + glm::ivec2{ 0, 24}, {1,1}, 0, color);
+		draw_sprite(get_sprite(spr_mobile_dpad_right), (p->input & INPUT_RIGHT) > 0, dpad_pos + glm::ivec2{37, 24}, {1,1}, 0, color);
+
+		// action button
+		draw_sprite(get_sprite(spr_mobile_action_button), (p->input & INPUT_JUMP) > 0, action_pos, {1,1}, 0, color);
+	}
+#endif
 
 	break_batch();
 }
