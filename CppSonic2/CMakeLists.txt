@@ -81,4 +81,4 @@ endif()
 
 target_link_libraries(${PROJECT_NAME} freetype)
 
-#target_precompile_headers(${PROJECT_NAME} PRIVATE src/stdafx.h)
+target_precompile_headers(${PROJECT_NAME} PRIVATE src/stdafx.h)

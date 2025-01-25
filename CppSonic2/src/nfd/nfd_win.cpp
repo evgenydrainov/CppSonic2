@@ -1,5 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
-
 #ifdef EDITOR
 
 /*
@@ -144,7 +142,11 @@ static int AppendExtensionToSpecBuf( const char *ext, char *specBuf, size_t spec
     
     if ( strlen(specBuf) > 0 )
     {
+#ifdef _MSC_VER
+        strncat_s( specBuf, NFD_MAX_STRLEN, SEP, specBufLen - strlen(specBuf) - 1 );
+#else
         strncat( specBuf, SEP, specBufLen - strlen(specBuf) - 1 );
+#endif
         specBufLen += strlen(SEP);
     }
 
@@ -153,7 +155,11 @@ static int AppendExtensionToSpecBuf( const char *ext, char *specBuf, size_t spec
     assert( bytesWritten == (int)(strlen(ext)+2) );
     _NFD_UNUSED(bytesWritten);
     
+#ifdef _MSC_VER
+    strncat_s( specBuf, NFD_MAX_STRLEN, extWildcard, specBufLen - strlen(specBuf) - 1 );
+#else
     strncat( specBuf, extWildcard, specBufLen - strlen(specBuf) - 1 );
+#endif
 
     return NFD_OKAY;
 }
