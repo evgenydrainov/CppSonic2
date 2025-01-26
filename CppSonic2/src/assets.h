@@ -24,7 +24,8 @@ enum {
 	tex_title_mountains_right,
 	tex_title_clouds,
 
-	tex_bg_EE,
+	tex_bg_EE_back,
+	tex_bg_EE_front,
 
 	NUM_TEXTURES,
 };

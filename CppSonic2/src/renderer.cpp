@@ -537,6 +537,32 @@ void reset_shader() {
 	}
 }
 
+void set_proj_mat(mat4 proj_mat) {
+	break_batch();
+	renderer.proj_mat = proj_mat;
+}
+
+void set_view_mat(mat4 view_mat) {
+	break_batch();
+	renderer.view_mat = view_mat;
+}
+
+void set_model_mat(mat4 model_mat) {
+	break_batch();
+	renderer.model_mat = model_mat;
+}
+
+void set_viewport(int x, int y, int width, int height) {
+	break_batch();
+	glViewport(x, y, width, height);
+}
+
+void render_clear_color(vec4 color) {
+	break_batch();
+	glClearColor(color.r, color.g, color.b, color.a);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
 void draw_quad(const Texture& t, Vertex vertices[4]) {
 	if (t.ID == 0) {
 		log_error("Trying to draw invalid texture.");

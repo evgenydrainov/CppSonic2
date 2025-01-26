@@ -2099,7 +2099,7 @@ void Game::update(float delta) {
 				Clamp(&camera_pos.x, cam_target_x - window.game_width  / 2, cam_target_x + window.game_width  / 2);
 				Clamp(&camera_pos.y, cam_target_y - window.game_height / 2, cam_target_y + window.game_height / 2);
 
-				camera_pos = glm::floor(camera_pos);
+				camera_pos = floor(camera_pos);
 
 				Clamp(&camera_pos.x, 0.0f, (float) (tm.width  * 16 - window.game_width));
 				Clamp(&camera_pos.y, 0.0f, (float) (tm.height * 16 - window.game_height));
@@ -2137,31 +2137,36 @@ void Game::update(float delta) {
 		mouse_pos_rel.x = ((mouse_x - renderer.game_texture_rect.x) / (float)renderer.game_texture_rect.w) * (float)window.game_width;
 		mouse_pos_rel.y = ((mouse_y - renderer.game_texture_rect.y) / (float)renderer.game_texture_rect.h) * (float)window.game_height;
 
-		mouse_world_pos = glm::floor(mouse_pos_rel + camera_pos);
+		mouse_world_pos = floor(mouse_pos_rel + camera_pos);
 	}
 }
 
 void Game::draw(float delta) {
-	break_batch();
-	renderer.proj_mat = glm::ortho<float>(0, window.game_width, window.game_height, 0);
-	renderer.view_mat = glm::translate(mat4{1}, vec3{-camera_pos.x, -camera_pos.y, 0});
-	renderer.model_mat = {1};
-	glViewport(0, 0, window.game_width, window.game_height);
+	set_proj_mat(get_ortho(0, window.game_width, window.game_height, 0));
+	defer { set_proj_mat({1}); };
+
+	set_view_mat(get_translation({-camera_pos.x, -camera_pos.y, 0}));
+	defer { set_view_mat({1}); };
+
+	set_viewport(0, 0, window.game_width, window.game_height);
+
+	render_clear_color(get_color(0x01abe8ff));
 
 	// draw bg
 	{
-		const Texture& t = get_texture(tex_bg_EE);
-
-		auto draw_part = [&](Rect src, float parallax) {
+		auto draw_part = [&](float bg_height, float bg_pos_y, const Texture& t, Rect src, float parallax) {
 			vec2 pos;
 			pos.x = camera_pos.x * parallax;
-			pos.y = lerp(0.0f, tm.height * 16.0f - t.height, camera_pos.y / (tm.height * 16.0f - window.game_height));
+			pos.y = lerp(0.0f, tm.height * 16.0f - bg_height, camera_pos.y / (tm.height * 16.0f - window.game_height));
 
 			pos.y += src.y;
+			pos.y += bg_pos_y;
 
 			while (pos.x + t.width < camera_pos.x) {
 				pos.x += t.width;
 			}
+
+			pos = floor(pos);
 
 			draw_texture(t, src, pos);
 
@@ -2171,9 +2176,22 @@ void Game::draw(float delta) {
 			}
 		};
 
-		draw_part({0,   0, 1024, 176}, 0.95f);
-		draw_part({0, 176, 1024, 208}, 0.93f);
-		draw_part({0, 384, 1024, 128}, 0.91f);
+		const Texture& back  = get_texture(tex_bg_EE_back);
+		const Texture& front = get_texture(tex_bg_EE_front);
+
+		float bg_height = 512;
+
+		draw_part(bg_height, 0, back, {0, 0, 1024, 96}, 0.96f);
+
+		for (int i = 0; i < 12; i++) {
+			float f = i / 11.0f;
+			float parallax = lerp(0.94f, 0.92f, f);
+			int y = 16 * (i + 6);
+			draw_part(bg_height, 0, back, {0, y, 1024, 16}, parallax);
+		}
+
+		draw_part(bg_height, 176, front, {0,   0, 1024, 208}, 0.90f);
+		draw_part(bg_height, 176, front, {0, 208, 1024, 128}, 0.88f);
 	}
 
 	// draw tilemap
@@ -2270,7 +2288,7 @@ void Game::draw(float delta) {
 			angle = 0;
 		}
 
-		draw_sprite(s, frame_index, glm::floor(player.pos), {p->facing, 1}, angle);
+		draw_sprite(s, frame_index, floor(player.pos), {p->facing, 1}, angle);
 
 		// draw spindash smoke
 		if (p->anim == anim_spindash) {
@@ -2279,7 +2297,7 @@ void Game::draw(float delta) {
 			int frame_index = SDL_GetTicks() / (16.66 * 2);
 			frame_index %= s.frames.count;
 
-			vec2 pos = glm::floor(p->pos);
+			vec2 pos = floor(p->pos);
 
 			draw_sprite(s, frame_index, pos, {p->facing, 1});
 		}
@@ -2390,8 +2408,8 @@ void Game::draw(float delta) {
 				vec2 sensor_b;
 				get_ground_sensors_pos(p, &sensor_a, &sensor_b);
 
-				draw_point(glm::floor(sensor_a), SENSOR_A_COLOR);
-				draw_point(glm::floor(sensor_b), SENSOR_B_COLOR);
+				draw_point(floor(sensor_a), SENSOR_A_COLOR);
+				draw_point(floor(sensor_b), SENSOR_B_COLOR);
 			}
 
 			if (are_ceiling_sensors_active(p)) {
@@ -2399,8 +2417,8 @@ void Game::draw(float delta) {
 				vec2 sensor_d;
 				get_ceiling_sensors_pos(p, &sensor_c, &sensor_d);
 
-				draw_point(glm::floor(sensor_c), SENSOR_C_COLOR);
-				draw_point(glm::floor(sensor_d), SENSOR_D_COLOR);
+				draw_point(floor(sensor_c), SENSOR_C_COLOR);
+				draw_point(floor(sensor_d), SENSOR_D_COLOR);
 			}
 
 			vec2 sensor_e;
@@ -2411,11 +2429,11 @@ void Game::draw(float delta) {
 				switch (player_get_push_mode(p)) {
 					case MODE_FLOOR:
 					case MODE_CEILING:
-						draw_line(glm::floor(vec2{p->pos.x, sensor.y}), glm::floor(sensor), color);
+						draw_line(floor(vec2{p->pos.x, sensor.y}), floor(sensor), color);
 						break;
 					case MODE_RIGHT_WALL:
 					case MODE_LEFT_WALL:
-						draw_line(glm::floor(vec2{sensor.x, p->pos.y}), glm::floor(sensor), color);
+						draw_line(floor(vec2{sensor.x, p->pos.y}), floor(sensor), color);
 						break;
 				}
 			};
@@ -2450,13 +2468,9 @@ void Game::draw(float delta) {
 	}
 #endif
 
-	break_batch();
-	renderer.proj_mat = glm::ortho<float>(0, window.game_width, window.game_height, 0);
-	renderer.view_mat = {1};
-	renderer.model_mat = {1};
-	glViewport(0, 0, window.game_width, window.game_height);
-
 	// :ui
+	set_view_mat({1});
+
 	// draw hud
 	{
 		vec2 pos = {16, 8};

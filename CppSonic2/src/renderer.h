@@ -84,6 +84,14 @@ void break_batch(); // makes the draw call
 void set_shader(u32 shader);
 void reset_shader();
 
+void set_proj_mat(mat4 proj_mat);
+void set_view_mat(mat4 view_mat);
+void set_model_mat(mat4 model_mat);
+
+void set_viewport(int x, int y, int width, int height);
+
+void render_clear_color(vec4 color);
+
 void draw_quad(const Texture& t, Vertex vertices[4]);
 
 void draw_texture(const Texture& t, Rect src = {},

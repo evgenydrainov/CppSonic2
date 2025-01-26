@@ -509,6 +509,14 @@ inline float ceilf_to(float a, float b) {
 	return ceilf(a / b) * b;
 }
 
+inline mat4 get_ortho(float left, float right, float bottom, float top) {
+	return glm::ortho<float>(left, right, bottom, top);
+}
+
+inline mat4 get_translation(vec3 v) {
+	return glm::translate<float>(mat4{1}, v);
+}
+
 // 
 // One-Liners
 // 
