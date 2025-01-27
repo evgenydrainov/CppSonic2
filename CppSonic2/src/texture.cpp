@@ -43,7 +43,7 @@ u8* decode_image_data(array<u8> buffer, int* out_width, int* out_height) {
 #endif
 	}
 
-	log_error("Unknown image format.");
+	log_error("Couldn't decode image data: Unknown image format.");
 	return {};
 }
 
@@ -74,8 +74,7 @@ Texture load_texture_from_memory(array<u8> buffer,
 	int height;
 	u8* pixel_data = decode_image_data(buffer, &width, &height);
 	if (!pixel_data) {
-		log_error("Couldn't decode image data.");
-		return {};
+		return create_texture_stub();
 	}
 
 	defer { free(pixel_data); };
@@ -87,16 +86,27 @@ Texture load_texture_from_file(const char* fname,
 							   int filter, int wrap) {
 	auto buffer = get_file_arr(fname);
 	if (buffer.count == 0) {
-		return {};
+		return create_texture_stub();
 	}
 
 	Texture t = load_texture_from_memory(buffer, filter, wrap);
 
 	if (t.ID != 0) {
-		log_info("Loaded texture %s", fname);
+		log_info("Loaded texture %s (%d x %d)", fname, t.width, t.height);
 	}
 
 	return t;
+}
+
+Texture create_texture_stub() {
+	const int width = 2;
+	const int height = 2;
+	u8 pixel_data[width * height * 4] = {
+		255, 0, 255, 255,    0,   0,   0, 255,
+		0,   0,   0, 255,    255, 0, 255, 255,
+	};
+
+	return load_texture_from_pixel_data(pixel_data, width, height, GL_NEAREST, GL_REPEAT);
 }
 
 void free_texture(Texture* t) {

@@ -20,6 +20,8 @@ Texture load_texture_from_memory(array<u8> buffer,
 Texture load_texture_from_file(const char* fname,
 							   int filter = GL_NEAREST, int wrap = GL_CLAMP_TO_BORDER);
 
+Texture create_texture_stub();
+
 void free_texture(Texture* t);
 
 SDL_Surface* load_surface_from_file(const char* fname);

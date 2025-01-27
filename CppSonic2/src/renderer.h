@@ -6,7 +6,7 @@
 /*
 * A basic 2D batch renderer.
 * 
-* Call break_batch() before making opengl calls or modifying renderer's matrices or renderer's current shader.
+* Call break_batch() before making raw OpenGL calls.
 */
 
 constexpr size_t BATCH_MAX_QUADS    = 10'000;

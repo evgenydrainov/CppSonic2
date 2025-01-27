@@ -126,12 +126,15 @@ Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath) {
 	return f;
 }
 
-Font load_font_from_texture(const Texture& texture,
+Font load_font_from_texture(const char* filepath,
 							int size, int line_height, int char_width,
 							int xoffset, int yoffset) {
 	Font f = {};
 
-	if (texture.width <= 0 || texture.height <= 0) {
+	f.atlas = load_texture_from_file(filepath);
+	f.should_free_atlas = true;
+
+	if (f.atlas.ID == 0) {
 		log_error("Couldn't create font: invalid texture.");
 		free_font(&f);
 		return {};
@@ -143,16 +146,13 @@ Font load_font_from_texture(const Texture& texture,
 		return {};
 	}
 
-	if (texture.width % xoffset != 0) {
+	if (f.atlas.width % xoffset != 0) {
 		log_error("Couldn't create font: texture width must be divisible by xoffset.");
 		free_font(&f);
 		return {};
 	}
 
-	int stride = texture.width / xoffset;
-
-	f.atlas = texture;
-	f.should_free_atlas = false;
+	int stride = f.atlas.width / xoffset;
 
 	f.glyphs = calloc_array<Glyph>(95); // [32..126]
 	f.should_free_glyphs = true;
@@ -174,7 +174,7 @@ Font load_font_from_texture(const Texture& texture,
 		f.glyphs[i] = glyph;
 	}
 
-	log_info("Loaded font (%d x %d) from texture (%d x %d).", char_width, size, texture.width, texture.height);
+	log_info("Loaded font (%d x %d) from texture (%d x %d).", char_width, size, f.atlas.width, f.atlas.height);
 
 	return f;
 }

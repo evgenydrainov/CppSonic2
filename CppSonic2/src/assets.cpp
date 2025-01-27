@@ -37,6 +37,8 @@ void load_global_assets() {
 		sprites[spr_monitor]        = make_sprite(t,  0,  64, 32, 32, 16, 16, 2);
 		sprites[spr_monitor_broken] = make_sprite(t, 64,  64, 32, 32, 16, 16);
 		sprites[spr_monitor_icon]   = make_sprite(t,  0,  96, 16, 16,  8,  8, 10);
+		sprites[spr_explosion]      = make_sprite(t,  0, 176, 32, 32, 16, 16, 5, 5, 1.0f / 6.0f);
+		sprites[spr_skid_dust]      = make_sprite(t,  0, 208, 16, 16,  8,  8, 4, 4, 1.0f / 4.0f);
 
 		sprites[spr_spring_yellow]  = make_sprite(t, 32, 112, 32, 32, 16, 24);
 		sprites[spr_spring_red]     = make_sprite(t, 32, 144, 32, 32, 16, 24);
@@ -53,8 +55,7 @@ void load_assets_for_game() {
 	fonts[fnt_consolas_bold] = load_bmfont_file("fonts/consolas_bold.fnt",  "fonts/consolas_bold_0.png");
 	fonts[fnt_hud]           = load_bmfont_file("fonts/fnt_hud.fnt",        "fonts/fnt_hud.png");
 
-	textures[tex_fnt_menu] = load_texture_from_file("fonts/fnt_menu.png");
-	fonts[fnt_menu] = load_font_from_texture(get_texture(tex_fnt_menu), 16, 16, 8, 9, 17);
+	fonts[fnt_menu] = load_font_from_texture("fonts/fnt_menu.png", 16, 16, 8, 9, 17);
 
 	sounds[snd_jump_cd]         = load_sound("sounds/jump_cd.wav");
 	sounds[snd_jump_s2]         = load_sound("sounds/jump_s2.wav");

@@ -83,9 +83,9 @@ static int game_main(int argc, char* argv[]) {
 	return 0;
 }
 
-#ifdef EDITOR
 
 static int editor_main(int argc, char* argv[]) {
+#ifdef EDITOR
 	init_window_and_opengl("CppSonic2", 424, 240, 2, true, true);
 	defer { deinit_window_and_opengl(); };
 
@@ -129,26 +129,36 @@ static int editor_main(int argc, char* argv[]) {
 
 		swap_buffers();
 	}
+#else
+	log_error("Trying to launch the editor but it wasn't compiled in.");
+#endif
 
 	return 0;
 }
 
-#endif
 
-#ifdef EDITOR
+enum Lauch_Mode {
+	LAUNCH_GAME,
+	LAUNCH_EDITOR,
+};
 
 int main(int argc, char* argv[]) {
-	if (argc >= 2 && strcmp(argv[1], "--game") == 0) {
-		return game_main(argc, argv);
+	Lauch_Mode launch_mode = LAUNCH_GAME;
+
+	if (argc >= 2) {
+		if (strcmp(argv[1], "--editor") == 0) {
+			launch_mode = LAUNCH_EDITOR;
+		} else if (strcmp(argv[1], "--game") == 0) {
+			launch_mode = LAUNCH_GAME;
+		}
 	}
 
-	return editor_main(argc, argv);
+	if (launch_mode == LAUNCH_GAME) {
+		return game_main(argc, argv);
+	} else if (launch_mode == LAUNCH_EDITOR) {
+		return editor_main(argc, argv);
+	}
+
+	return 0;
 }
 
-#else
-
-int main(int argc, char* argv[]) {
-	return game_main(argc, argv);
-}
-
-#endif

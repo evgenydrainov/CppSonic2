@@ -15,11 +15,6 @@ void deinit_particles() {
 
 void update_particles(float delta) {
 	For (p, g_Particles) {
-		if (p->lifetime >= p->lifespan) {
-			Remove(p, g_Particles);
-			continue;
-		}
-
 		p->pos.x += lengthdir_x(p->spd, p->dir) * delta;
 		p->pos.y += lengthdir_y(p->spd, p->dir) * delta;
 
@@ -28,6 +23,11 @@ void update_particles(float delta) {
 		p->frame_index = sprite_animate(get_sprite(p->sprite_index), p->frame_index, delta);
 
 		p->lifetime += delta;
+
+		if (p->lifetime >= p->lifespan) {
+			Remove(p, g_Particles);
+			continue;
+		}
 	}
 }
 

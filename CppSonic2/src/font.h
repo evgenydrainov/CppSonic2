@@ -40,7 +40,7 @@ enum VAlign {
 Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath);
 
 // Monospace.
-Font load_font_from_texture(const Texture& texture,
+Font load_font_from_texture(const char* filepath,
 							int size, int line_height, int char_width,
 							int xoffset, int yoffset);
 

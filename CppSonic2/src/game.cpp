@@ -88,7 +88,7 @@ void Game::init(int argc, char* argv[]) {
 	camera_pos.y = player.pos.y - window.game_height / 2;
 
 	show_debug_info = true;
-	show_player_hitbox = true;
+	// show_player_hitbox = true;
 }
 
 void Game::deinit() {
@@ -797,7 +797,7 @@ static SensorResult push_sensor_f_check(Player* p, vec2 pos) {
 }
 
 static bool player_roll_condition(Player* p) {
-	if (p->control_lock > 0) return false;
+	// if (p->control_lock > 0) return false;
 
 	int input_h = 0;
 	if (p->input & INPUT_RIGHT) input_h++;
@@ -1034,9 +1034,7 @@ static bool player_try_slip(Player* p) {
 static bool player_try_jump(Player* p) {
 	constexpr float PLAYER_JUMP_FORCE = 6.5f;
 
-	if (p->control_lock > 0) {
-		return false;
-	}
+	// if (p->control_lock > 0) return false;
 
 	{
 		// don't check if they're active cause they're not
@@ -1143,6 +1141,15 @@ static void player_collide_with_objects(Player* p) {
 					array_add(&game.objects, broken_monitor);
 				}
 
+				{
+					Particle p = {};
+					p.pos = o->pos;
+					p.sprite_index = spr_explosion;
+					p.lifespan = 30;
+
+					add_particle(p);
+				}
+
 				play_sound(get_sound(snd_destroy_monitor));
 				
 				return true;
@@ -1186,6 +1193,15 @@ static void player_collide_with_objects(Player* p) {
 					broken_monitor.pos = o->pos;
 
 					array_add(&game.objects, broken_monitor);
+				}
+
+				{
+					Particle p = {};
+					p.pos = o->pos;
+					p.sprite_index = spr_explosion;
+					p.lifespan = 30;
+
+					add_particle(p);
 				}
 
 				play_sound(get_sound(snd_destroy_monitor));
@@ -1561,6 +1577,26 @@ static void player_state_ground(Player* p, float delta) {
 		// p->pos.y += 5;
 		play_sound(get_sound(snd_spindash));
 		return;
+	}
+
+	if (p->anim == anim_skid) {
+		// @Cleanup
+		static float t = 0;
+
+		t += delta;
+		while (t >= 4) {
+			Particle dust_particle = {};
+			dust_particle.sprite_index = spr_skid_dust;
+			dust_particle.lifespan = 16;
+
+			dust_particle.pos = p->pos;
+			dust_particle.pos.y += player_get_radius(p).y;
+			dust_particle.pos.y -= 8;
+
+			add_particle(dust_particle);
+
+			t -= 4;
+		}
 	}
 }
 
@@ -2152,6 +2188,9 @@ void Game::draw(float delta) {
 
 	render_clear_color(get_color(0x01abe8ff));
 
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	//defer { glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); };
+
 	// draw bg
 	{
 		auto draw_part = [&](float bg_height, float bg_pos_y, const Texture& t, Rect src, float parallax) {
@@ -2496,7 +2535,11 @@ void Game::draw(float delta) {
 		char buf[32];
 		string str;
 
-		str = Sprintf(buf, "%d", player_score);
+		if (p->state == STATE_DEBUG) {
+			str = Sprintf(buf, "%x", (int)p->pos.x);
+		} else {
+			str = Sprintf(buf, "%d", player_score);
+		}
 		draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
 		pos.y += 16;
 
@@ -2504,7 +2547,11 @@ void Game::draw(float delta) {
 		int sec = (int)(player_time / 60.0f) % 60;
 		int ms  = (int)(player_time / 60.0f * 100.0f) % 100; // not actually milliseconds
 
-		str = Sprintf(buf, "%d'%02d\"%02d", min, sec, ms);
+		if (p->state == STATE_DEBUG) {
+			str = Sprintf(buf, "%x", (int)p->pos.y);
+		} else {
+			str = Sprintf(buf, "%d'%02d\"%02d", min, sec, ms);
+		}
 		draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
 		pos.y += 16;
 		pos.x -= 24;

@@ -8,8 +8,6 @@
 #include "sound_mixer.h"
 
 enum {
-	tex_fnt_menu,
-
 	tex_sonic_sprites,
 	tex_global_objects,
 	tex_editor_sprites,
@@ -51,6 +49,8 @@ enum {
 	spr_monitor,
 	spr_monitor_broken,
 	spr_monitor_icon,
+	spr_explosion,
+	spr_skid_dust,
 
 	// has to be in order
 	spr_spring_yellow,
