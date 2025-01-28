@@ -269,6 +269,27 @@ void handle_event(const SDL_Event& ev) {
 					}
 					break;
 				}
+
+				// fullscreen on F4
+				case SDL_SCANCODE_F4: {
+					if (!ev.key.repeat) {
+						set_fullscreen(!is_fullscreen());
+					}
+					break;
+				}
+
+				// enable frame advance mode/goto next frame
+				case SDL_SCANCODE_F5: {
+					window.frame_advance_mode = true;
+					window.should_skip_frame = false;
+					break;
+				}
+
+				// disable frame advance mode
+				case SDL_SCANCODE_F6: {
+					window.frame_advance_mode = false;
+					break;
+				}
 			}
 			break;
 		}
@@ -363,6 +384,8 @@ void begin_frame() {
 		window.mouse_x_world = (window.mouse_x - rect.x) / (float)rect.w * (float)window.game_width;
 		window.mouse_y_world = (window.mouse_y - rect.y) / (float)rect.h * (float)window.game_height;
 	}
+
+	window.should_skip_frame = window.frame_advance_mode;
 }
 
 void swap_buffers() {

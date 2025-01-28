@@ -42,7 +42,7 @@ Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath);
 // Monospace.
 Font load_font_from_texture(const char* filepath,
 							int size, int line_height, int char_width,
-							int xoffset, int yoffset);
+							int xoffset = 0, int yoffset = 0);
 
 void free_font(Font* f);
 

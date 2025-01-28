@@ -1,0 +1,100 @@
+info size=55
+common lineHeight=55
+page
+chars
+char id=32   x=0     y=0      width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=33   x=20    y=0      width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=34   x=40    y=0      width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=35   x=60    y=0      width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=36   x=80    y=0      width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=37   x=100   y=0      width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=38   x=120   y=0      width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=39   x=140   y=0      width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=40   x=160   y=0      width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=41   x=180   y=0      width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=42   x=200   y=0      width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=43   x=220   y=0      width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=44   x=240   y=0      width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=45   x=260   y=0      width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=46   x=280   y=0      width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=47   x=300   y=0      width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=48   x=0     y=55     width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=49   x=20    y=55     width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=50   x=40    y=55     width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=51   x=60    y=55     width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=52   x=80    y=55     width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=53   x=100   y=55     width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=54   x=120   y=55     width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=55   x=140   y=55     width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=56   x=160   y=55     width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=57   x=180   y=55     width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=58   x=200   y=55     width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=59   x=220   y=55     width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=60   x=240   y=55     width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=61   x=260   y=55     width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=62   x=280   y=55     width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=63   x=300   y=55     width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=64   x=0     y=110    width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=65   x=20    y=110    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #A
+char id=66   x=40    y=110    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #B
+char id=67   x=60    y=110    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #C
+char id=68   x=80    y=110    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #D
+char id=69   x=100   y=110    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #E
+char id=70   x=120   y=110    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #F
+char id=71   x=140   y=110    width=17   height=55    xoffset=0    yoffset=0    xadvance=18 #G
+char id=72   x=160   y=110    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #H
+char id=73   x=180   y=110    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #I
+char id=74   x=200   y=110    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #J
+char id=75   x=220   y=110    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #K
+char id=76   x=240   y=110    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #L
+char id=77   x=260   y=110    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #M
+char id=78   x=280   y=110    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #N
+char id=79   x=300   y=110    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #O
+char id=80   x=0     y=165    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #P
+char id=81   x=20    y=165    width=20   height=55    xoffset=0    yoffset=0    xadvance=21 #Q
+char id=82   x=40    y=165    width=20   height=55    xoffset=0    yoffset=0    xadvance=21 #R
+char id=83   x=60    y=165    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #S
+char id=84   x=80    y=165    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #T
+char id=85   x=100   y=165    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #U
+char id=86   x=120   y=165    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #V
+char id=87   x=140   y=165    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #W
+char id=88   x=160   y=165    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #X
+char id=89   x=180   y=165    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #Y
+char id=90   x=200   y=165    width=16   height=55    xoffset=0    yoffset=0    xadvance=17 #Z
+char id=91   x=220   y=165    width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=92   x=240   y=165    width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=93   x=260   y=165    width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=94   x=280   y=165    width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=95   x=300   y=165    width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=96   x=0     y=220    width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=97   x=20    y=220    width=11   height=23    xoffset=0    yoffset=0    xadvance=12 #a
+char id=98   x=40    y=220    width=11   height=23    xoffset=0    yoffset=0    xadvance=12 #b
+char id=99   x=60    y=220    width=9    height=23    xoffset=0    yoffset=0    xadvance=10 #c
+char id=100  x=80    y=220    width=11   height=23    xoffset=0    yoffset=0    xadvance=12 #d
+char id=101  x=100   y=220    width=9    height=23    xoffset=0    yoffset=0    xadvance=10 #e
+char id=102  x=120   y=220    width=11   height=23    xoffset=0    yoffset=0    xadvance=12 #f
+char id=103  x=140   y=220    width=10   height=23    xoffset=0    yoffset=0    xadvance=11 #g
+char id=104  x=160   y=220    width=11   height=23    xoffset=0    yoffset=0    xadvance=12 #h
+char id=105  x=180   y=220    width=5    height=23    xoffset=0    yoffset=0    xadvance=6  #i
+char id=106  x=200   y=220    width=11   height=23    xoffset=0    yoffset=0    xadvance=12 #j
+char id=107  x=220   y=220    width=11   height=23    xoffset=0    yoffset=0    xadvance=12 #k
+char id=108  x=240   y=220    width=9    height=23    xoffset=0    yoffset=0    xadvance=10 #l
+char id=109  x=260   y=220    width=17   height=23    xoffset=0    yoffset=0    xadvance=18 #m
+char id=110  x=280   y=220    width=11   height=23    xoffset=0    yoffset=0    xadvance=12 #n
+char id=111  x=300   y=220    width=11   height=23    xoffset=0    yoffset=0    xadvance=12 #o
+char id=112  x=0     y=275    width=11   height=23    xoffset=0    yoffset=0    xadvance=12 #p
+char id=113  x=20    y=275    width=13   height=23    xoffset=0    yoffset=0    xadvance=14 #q
+char id=114  x=40    y=275    width=12   height=23    xoffset=0    yoffset=0    xadvance=13 #r
+char id=115  x=60    y=275    width=11   height=23    xoffset=0    yoffset=0    xadvance=12 #s
+char id=116  x=80    y=275    width=10   height=23    xoffset=0    yoffset=0    xadvance=11 #t
+char id=117  x=100   y=275    width=11   height=23    xoffset=0    yoffset=0    xadvance=12 #u
+char id=118  x=120   y=275    width=11   height=23    xoffset=0    yoffset=0    xadvance=12 #v
+char id=119  x=140   y=275    width=20   height=23    xoffset=0    yoffset=0    xadvance=21 #w
+char id=120  x=160   y=275    width=11   height=23    xoffset=0    yoffset=0    xadvance=12 #x
+char id=121  x=180   y=275    width=11   height=23    xoffset=0    yoffset=0    xadvance=12 #y
+char id=122  x=200   y=275    width=9    height=23    xoffset=0    yoffset=0    xadvance=10 #z
+char id=123  x=220   y=275    width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=124  x=240   y=275    width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=125  x=260   y=275    width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=126  x=280   y=275    width=20   height=55    xoffset=0    yoffset=0    xadvance=20
+char id=127  x=300   y=275    width=20   height=55    xoffset=0    yoffset=0    xadvance=20

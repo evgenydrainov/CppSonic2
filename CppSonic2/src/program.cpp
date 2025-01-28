@@ -19,7 +19,9 @@ void Program::init(int argc, char* argv[]) {
 	}
 
 	set_program_mode(mode);
-	transition_t = 1; // skip the fade in and only fade out
+	transition_t = 1; // skip the fade in
+
+	show_debug_info = true;
 
 	this->argc = argc;
 	this->argv = argv;
@@ -30,6 +32,10 @@ void Program::deinit() {
 }
 
 void Program::update(float delta) {
+	if (is_key_pressed(SDL_SCANCODE_F1)) {
+		show_debug_info ^= true;
+	}
+
 	// change program mode
 	if (next_program_mode != PROGRAM_NONE) {
 		if (transition_t == 1) {
@@ -90,11 +96,10 @@ void Program::draw(float delta) {
 		}
 	}
 
-	break_batch();
-	renderer.proj_mat = glm::ortho<float>(0, window.game_width, window.game_height, 0);
-	renderer.view_mat = {1};
-	renderer.model_mat = {1};
-	glViewport(0, 0, window.game_width, window.game_height);
+	set_proj_mat(get_ortho(0, window.game_width, window.game_height, 0));
+	defer { set_proj_mat({1}); };
+
+	set_viewport(0, 0, window.game_width, window.game_height);
 
 	// fill the screen with black during transition
 	if (transition_t != 0) {
@@ -119,12 +124,55 @@ void Program::draw(float delta) {
 }
 
 void Program::late_draw(float delta) {
-	switch (program_mode) {
-		case PROGRAM_GAME: {
-			game.late_draw(delta);
-			break;
+	int backbuffer_width;
+	int backbuffer_height;
+	SDL_GL_GetDrawableSize(window.handle, &backbuffer_width, &backbuffer_height);
+
+	set_proj_mat(get_ortho(0, backbuffer_width, backbuffer_height, 0));
+	defer { set_proj_mat({1}); };
+
+	set_viewport(0, 0, backbuffer_width, backbuffer_height);
+
+	vec2 pos = {};
+
+	if (window.frame_advance_mode) {
+		string str = "F5 - Next Frame\nF6 - Disable Frame Advance Mode\n";
+		pos = draw_text_shadow(get_font(fnt_consolas_bold), str, pos);
+	}
+
+#ifdef DEVELOPER
+	if (program.show_debug_info) {
+		char buf[256];
+		string str = Sprintf(buf,
+							 "frame: %fms\n"
+							 "update: %fms\n"
+							 "draw: %fms\n"
+							 "draw calls: %d\n"
+							 "total triangles: %d\n",
+							 window.frame_took * 1000.0,
+							 (window.frame_took - renderer.draw_took) * 1000.0,
+							 renderer.draw_took * 1000.0,
+							 renderer.draw_calls,
+							 renderer.total_triangles);
+		pos = draw_text_shadow(get_font(fnt_consolas_bold), str, pos);
+
+		if (program_mode == PROGRAM_GAME) {
+			Player* p = &game.player;
+
+			char buf[256];
+			string str = Sprintf(buf,
+								 "state: %s\n"
+								 "ground speed: %f\n"
+								 "ground angle: %f\n",
+								 GetPlayerStateName(p->state),
+								 p->ground_speed,
+								 p->ground_angle);
+			pos = draw_text_shadow(get_font(fnt_consolas_bold), str, pos);
 		}
 	}
+#endif
+
+	break_batch();
 }
 
 void Program::deinit_program_mode() {
@@ -193,6 +241,11 @@ bool console_callback(string str, void* userdata) {
 		return true;
 	}
 
+	if (command == "show_debug_info") {
+		program.show_debug_info ^= true;
+		return true;
+	}
+
 	if (program.program_mode == PROGRAM_GAME) {
 		if (command == "collision_test") {
 			game.collision_test ^= true;
@@ -213,11 +266,6 @@ bool console_callback(string str, void* userdata) {
 
 		if (command == "show_player_hitbox") {
 			game.show_player_hitbox ^= true;
-			return true;
-		}
-
-		if (command == "show_debug_info") {
-			game.show_debug_info ^= true;
 			return true;
 		}
 

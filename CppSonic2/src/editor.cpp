@@ -20,7 +20,7 @@
 Editor editor;
 
 static void load_texture_from_file(Texture* t, const char* fname,
-								   int filter = GL_NEAREST, int wrap = GL_CLAMP_TO_BORDER) {
+								   int filter = GL_NEAREST, int wrap = GL_CLAMP_TO_EDGE) {
 	free_texture(t);
 	*t = load_texture_from_file(fname, filter, wrap);
 }

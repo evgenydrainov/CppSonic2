@@ -25,6 +25,8 @@ enum {
 	tex_bg_EE_back,
 	tex_bg_EE_front,
 
+	tex_titlecard_line,
+
 	NUM_TEXTURES,
 };
 
@@ -86,6 +88,7 @@ enum {
 	fnt_consolas_bold,
 	fnt_menu,
 	fnt_hud,
+	fnt_titlecard,
 
 	NUM_FONTS,
 };

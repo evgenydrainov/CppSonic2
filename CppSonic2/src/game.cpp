@@ -87,7 +87,6 @@ void Game::init(int argc, char* argv[]) {
 	camera_pos.x = player.pos.x - window.game_width  / 2;
 	camera_pos.y = player.pos.y - window.game_height / 2;
 
-	show_debug_info = true;
 	// show_player_hitbox = true;
 }
 
@@ -2071,30 +2070,17 @@ static void player_update(Player* p, float delta) {
 }
 
 void Game::update(float delta) {
-	skip_frame = frame_advance;
+	bool should_skip_frame = false;
 
-	if (is_key_pressed(SDL_SCANCODE_F5, true)) {
-		frame_advance = true;
-		skip_frame = false;
+	if (titlecard_state == TITLECARD_IN
+		|| titlecard_state == TITLECARD_WAIT)
+	{
+		should_skip_frame = true;
 	}
 
-	if (is_key_pressed(SDL_SCANCODE_F6)) {
-		frame_advance = false;
-	}
+	should_skip_frame |= window.should_skip_frame;
 
-	if (is_key_pressed(SDL_SCANCODE_F1)) {
-		show_debug_info ^= true;
-	}
-
-	if (is_key_pressed(SDL_SCANCODE_F4)) {
-		set_fullscreen(!is_fullscreen());
-	}
-
-	if (program.transition_t != 0) {
-		return;
-	}
-
-	if (!skip_frame) {
+	if (!should_skip_frame) {
 		player_update(&player, delta);
 
 		player_time += delta;
@@ -2174,6 +2160,37 @@ void Game::update(float delta) {
 		mouse_pos_rel.y = ((mouse_y - renderer.game_texture_rect.y) / (float)renderer.game_texture_rect.h) * (float)window.game_height;
 
 		mouse_world_pos = floor(mouse_pos_rel + camera_pos);
+	}
+
+	switch (titlecard_state) {
+		case TITLECARD_IN: {
+			Approach(&titlecard_t, TITLECARD_IN_TIME, delta);
+
+			if (titlecard_t == TITLECARD_IN_TIME) {
+				titlecard_state = TITLECARD_WAIT;
+				titlecard_t = 0;
+			}
+			break;
+		}
+
+		case TITLECARD_WAIT: {
+			Approach(&titlecard_t, TITLECARD_WAIT_TIME, delta);
+
+			if (titlecard_t == TITLECARD_WAIT_TIME) {
+				titlecard_state = TITLECARD_OUT;
+				titlecard_t = 0;
+			}
+			break;
+		}
+
+		case TITLECARD_OUT: {
+			Approach(&titlecard_t, TITLECARD_IN_TIME, delta);
+
+			if (titlecard_t == TITLECARD_IN_TIME) {
+				titlecard_state = TITLECARD_FINISHED;
+			}
+			break;
+		}
 	}
 }
 
@@ -2510,6 +2527,69 @@ void Game::draw(float delta) {
 	// :ui
 	set_view_mat({1});
 
+	// draw titlecard
+	if (titlecard_state != TITLECARD_FINISHED) {
+		const Texture& t = get_texture(tex_titlecard_line);
+		const Font& font = get_font(fnt_titlecard);
+
+		string str1 = "Emerald";
+		string str2 = "Era";
+
+		Rect src = {};
+		src.y = -(((int)SDL_GetTicks() / 16) % t.height);
+		src.w = t.width;
+		src.h = 200;
+
+		float f = 1;
+		switch (titlecard_state) {
+			case TITLECARD_IN:   f = titlecard_t / TITLECARD_IN_TIME; break;
+			case TITLECARD_WAIT: f = 1; break;
+			case TITLECARD_OUT:  f = 1 - titlecard_t / TITLECARD_IN_TIME; break;
+		}
+
+		// draw line
+		{
+			vec2 pos = {};
+			pos.x = window.game_width / 2;
+			pos.y = lerp<float>(-200, 0, f);
+
+			draw_texture(t, src, pos);
+		}
+
+		// draw text
+		const float text_target_x = window.game_width / 2 + 8;
+
+		float text_x;
+		if (titlecard_state == TITLECARD_OUT) {
+			text_x = lerp<float>(-64, text_target_x, f);
+		} else {
+			text_x = lerp<float>(window.game_width, text_target_x, f);
+		}
+
+		vec2 pos = {};
+		pos.x = text_x;
+		pos.y = window.game_height / 2 - font.size;
+
+		{
+			string s = str1;
+			s.count = 1;
+			pos.x = draw_text(font, s, pos).x;
+		}
+
+		pos.y += 32;
+
+		{
+			string s = str1;
+			advance(&s);
+			draw_text(font, s, pos);
+		}
+
+		pos.x = text_x;
+		pos.y = window.game_height / 2 - font.size + font.line_height + 1;
+
+		draw_text(font, str2, pos);
+	}
+
 	// draw hud
 	{
 		vec2 pos = {16, 8};
@@ -2584,63 +2664,6 @@ void Game::draw(float delta) {
 		draw_sprite(get_sprite(spr_mobile_action_button), (p->input & INPUT_JUMP) > 0, action_pos, {1,1}, 0, color);
 	}
 #endif
-
-	break_batch();
-}
-
-void Game::late_draw(float delta) {
-	{
-		int backbuffer_width;
-		int backbuffer_height;
-		SDL_GL_GetDrawableSize(window.handle, &backbuffer_width, &backbuffer_height);
-
-		break_batch();
-		renderer.proj_mat = glm::ortho<float>(0, backbuffer_width, backbuffer_height, 0);
-		renderer.view_mat = {1};
-		renderer.model_mat = {1};
-		glViewport(0, 0, backbuffer_width, backbuffer_height);
-	}
-
-	vec2 pos = {};
-
-#ifdef DEVELOPER
-	if (show_debug_info) {
-		{
-			char buf[256];
-			string str = Sprintf(buf,
-								 "frame: %fms\n"
-								 "update: %fms\n"
-								 "draw: %fms\n"
-								 "draw calls: %d\n"
-								 "total triangles: %d\n",
-								 window.frame_took * 1000.0,
-								 (window.frame_took - renderer.draw_took) * 1000.0,
-								 renderer.draw_took * 1000.0,
-								 renderer.draw_calls,
-								 renderer.total_triangles);
-			pos = draw_text_shadow(get_font(fnt_consolas_bold), str, pos);
-		}
-
-		{
-			Player* p = &player;
-
-			char buf[256];
-			string str = Sprintf(buf,
-								 "state: %s\n"
-								 "ground speed: %f\n"
-								 "ground angle: %f\n",
-								 GetPlayerStateName(p->state),
-								 p->ground_speed,
-								 p->ground_angle);
-			pos = draw_text_shadow(get_font(fnt_consolas_bold), str, pos);
-		}
-	}
-#endif
-
-	if (frame_advance) {
-		string str = "F5 - Next Frame\nF6 - Disable Frame Advance Mode\n";
-		pos = draw_text_shadow(get_font(fnt_consolas_bold), str, pos);
-	}
 
 	break_batch();
 }
@@ -3119,8 +3142,8 @@ void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture&
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, heightmap->width, heightmap->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, surf->pixels);
 
@@ -3171,8 +3194,8 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, widthmap->width, widthmap->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, wsurf->pixels);
 

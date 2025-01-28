@@ -140,11 +140,8 @@ Font load_font_from_texture(const char* filepath,
 		return {};
 	}
 
-	if (xoffset == 0) {
-		log_error("Couldn't create font: xoffset must not be zero.");
-		free_font(&f);
-		return {};
-	}
+	if (xoffset == 0) xoffset = char_width;
+	if (yoffset == 0) yoffset = size;
 
 	if (f.atlas.width % xoffset != 0) {
 		log_error("Couldn't create font: texture width must be divisible by xoffset.");

@@ -54,6 +54,7 @@ void load_assets_for_game() {
 	fonts[fnt_consolas]      = load_bmfont_file("fonts/consolas.fnt",       "fonts/consolas_0.png");
 	fonts[fnt_consolas_bold] = load_bmfont_file("fonts/consolas_bold.fnt",  "fonts/consolas_bold_0.png");
 	fonts[fnt_hud]           = load_bmfont_file("fonts/fnt_hud.fnt",        "fonts/fnt_hud.png");
+	fonts[fnt_titlecard]     = load_bmfont_file("fonts/fnt_titlecard.fnt",  "fonts/fnt_titlecard.png");
 
 	fonts[fnt_menu] = load_font_from_texture("fonts/fnt_menu.png", 16, 16, 8, 9, 17);
 
@@ -102,6 +103,8 @@ void load_assets_for_game() {
 
 	textures[tex_bg_EE_back]  = load_texture_from_file("textures/bg_EE_back.png");
 	textures[tex_bg_EE_front] = load_texture_from_file("textures/bg_EE_front.png");
+
+	textures[tex_titlecard_line] = load_texture_from_file("textures/titlecard_line.png", GL_NEAREST, GL_REPEAT);
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
 	{

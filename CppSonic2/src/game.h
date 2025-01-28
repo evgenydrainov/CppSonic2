@@ -238,24 +238,32 @@ struct Game {
 
 	Tilemap tm;
 
+	enum Titlecard_State {
+		TITLECARD_IN,
+		TITLECARD_WAIT,
+		TITLECARD_OUT,
+		TITLECARD_FINISHED,
+	};
+
+	static constexpr float TITLECARD_IN_TIME = 30;
+	static constexpr float TITLECARD_WAIT_TIME = 70;
+
+	Titlecard_State titlecard_state;
+	float titlecard_t;
+
 	vec2 mouse_world_pos;
 
 	bool collision_test;
 	bool show_height;
 	bool show_width;
-	bool show_debug_info;
 	bool show_player_hitbox;
 	bool show_hitboxes;
-
-	bool skip_frame;
-	bool frame_advance;
 
 	void init(int argc, char* argv[]);
 	void deinit();
 
 	void update(float delta);
 	void draw(float delta);
-	void late_draw(float delta);
 
 	void load_level(const char* path);
 };

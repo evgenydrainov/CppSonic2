@@ -17,6 +17,8 @@ struct Program {
 	Program_Mode next_program_mode;
 	float transition_t;
 
+	bool show_debug_info;
+
 	int argc;
 	char** argv;
 

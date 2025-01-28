@@ -39,6 +39,9 @@ struct Window {
 	float avg_fps;
 
 	double frame_took;
+
+	bool frame_advance_mode;
+	bool should_skip_frame;
 	
 	/*   don't touch   */
 
