@@ -116,6 +116,8 @@ const OBJ_RING            = 3;
 const OBJ_MONITOR         = 4;
 const OBJ_SPRING          = 5;
 const OBJ_MONITOR_BROKEN  = 6;
+const OBJ_MONITOR_ICON    = 7;
+const OBJ_SPIKE           = 8;
 
 const DIR_RIGHT = 0;
 const DIR_UP    = 1;
@@ -135,6 +137,8 @@ function get_obj_type(o) {
 		return OBJ_LAYER_FLIP;
 	} else if (o.tile.id == 19) {
 		return OBJ_LAYER_SET;
+	} else if (o.tile.id == 20) {
+		return OBJ_SPIKE;
 	}
 	
 	throw new Error("Unknown object type.");
@@ -279,6 +283,18 @@ var customMapFormat = {
 			write_float32(file, x);
 			write_float32(file, y);
 			
+			var direction = 0;
+			
+			if (o.rotation == 0) {
+				direction = DIR_UP;
+			} else if (o.rotation == 90) {
+				direction = DIR_RIGHT;
+			} else if (o.rotation == 180) {
+				direction = DIR_DOWN;
+			} else if (o.rotation == 270) {
+				direction = DIR_LEFT;
+			}
+			
 			// Extras
 			if (o.tile.id == 2) {
 				// OBJ_PLAYER_INIT_POS
@@ -292,18 +308,6 @@ var customMapFormat = {
 				// OBJ_SPRING
 				var color = o.tile.id - 16;
 				write_int(file, color);
-				
-				var direction = 0;
-				
-				if (o.rotation == 0) {
-					direction = DIR_UP;
-				} else if (o.rotation == 90) {
-					direction = DIR_RIGHT;
-				} else if (o.rotation == 180) {
-					direction = DIR_DOWN;
-				} else if (o.rotation == 270) {
-					direction = DIR_LEFT;
-				}
 				
 				write_int(file, direction);
 			} else if (o.tile.id == 18) {
@@ -319,6 +323,8 @@ var customMapFormat = {
 				
 				var _layer = o.property("Layer");
 				write_int(file, _layer);
+			} else if (o.tile.id == 20) {
+				write_int(file, direction);
 			} else {
 				throw new Error("Object type not serialized.");
 			}

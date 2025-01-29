@@ -15,7 +15,15 @@ void Program::init(int argc, char* argv[]) {
 	// if the second argument is --game
 	if (argc >= 2 && strcmp(argv[1], "--game") == 0) {
 		// ...and there's a third arg, then start the level
-		if (argc >= 3) mode = PROGRAM_GAME;
+		if (argc >= 3) {
+			mode = PROGRAM_GAME;
+
+			level_filepath = copy_c_string(argv[2]);
+		}
+	}
+
+	if (level_filepath.count == 0) {
+		level_filepath = copy_string("levels/EEZ_Act1_tiled");
 	}
 
 	set_program_mode(mode);
@@ -212,6 +220,7 @@ static string s_ConsoleCommandsBuf[] = {
 	"show_player_hitbox",
 	"show_debug_info",
 	"show_hitboxes",
+	"load_level",
 };
 
 array<string> g_ConsoleCommands = s_ConsoleCommandsBuf;
@@ -243,6 +252,17 @@ bool console_callback(string str, void* userdata) {
 
 	if (command == "show_debug_info") {
 		program.show_debug_info ^= true;
+		return true;
+	}
+
+	if (command == "load_level") {
+		eat_whitespace(&str);
+		string level = eat_non_whitespace(&str);
+
+		free(program.level_filepath.data);
+		program.level_filepath = copy_string(level);
+
+		program.set_program_mode(PROGRAM_GAME);
 		return true;
 	}
 

@@ -1037,3 +1037,22 @@ inline string copy_string(string str) {
 }
 
 
+// You have to free() string.data
+inline string copy_c_string(const char* str) {
+	if (!str) return {};
+
+	size_t len = strlen(str);
+
+	if (len == 0) return {};
+
+	string result;
+	result.data  = (char*) malloc(len);
+	result.count = len;
+
+	Assert(result.data);
+	memcpy(result.data, str, len);
+
+	return result;
+}
+
+

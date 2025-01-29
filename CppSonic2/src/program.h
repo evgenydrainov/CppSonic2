@@ -19,6 +19,8 @@ struct Program {
 
 	bool show_debug_info;
 
+	string level_filepath;
+
 	int argc;
 	char** argv;
 

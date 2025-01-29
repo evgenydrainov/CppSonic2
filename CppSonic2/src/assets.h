@@ -44,6 +44,7 @@ enum {
 	spr_sonic_balance2,
 	spr_sonic_push,
 	spr_sonic_rise,
+	spr_sonic_hurt,
 
 	spr_spindash_smoke,
 	spr_ring,
@@ -53,6 +54,7 @@ enum {
 	spr_monitor_icon,
 	spr_explosion,
 	spr_skid_dust,
+	spr_spike,
 
 	// has to be in order
 	spr_spring_yellow,

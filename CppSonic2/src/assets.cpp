@@ -13,9 +13,9 @@ void load_global_assets() {
 	{
 		const Texture& t = get_texture(tex_sonic_sprites);
 
-		sprites[spr_sonic_crouch]   = make_sprite(t, 0,  0 * 59, 59, 59, 30, 30, 1);
-		sprites[spr_sonic_idle]     = make_sprite(t, 0,  1 * 59, 59, 59, 30, 30, 1);
-		sprites[spr_sonic_look_up]  = make_sprite(t, 0,  2 * 59, 59, 59, 30, 30, 1);
+		sprites[spr_sonic_crouch]   = make_sprite(t, 0,  0 * 59, 59, 59, 30, 30);
+		sprites[spr_sonic_idle]     = make_sprite(t, 0,  1 * 59, 59, 59, 30, 30);
+		sprites[spr_sonic_look_up]  = make_sprite(t, 0,  2 * 59, 59, 59, 30, 30);
 		sprites[spr_sonic_peelout]  = make_sprite(t, 0,  3 * 59, 59, 59, 30, 30, 4);
 		sprites[spr_sonic_roll]     = make_sprite(t, 0,  4 * 59, 59, 59, 30, 30, 5);
 		sprites[spr_sonic_run]      = make_sprite(t, 0,  5 * 59, 59, 59, 30, 30, 4);
@@ -26,6 +26,7 @@ void load_global_assets() {
 		sprites[spr_sonic_balance2] = make_sprite(t, 0, 10 * 59, 59, 59, 30, 30, 4);
 		sprites[spr_sonic_push]     = make_sprite(t, 0, 11 * 59, 59, 59, 30, 30, 4);
 		sprites[spr_sonic_rise]     = make_sprite(t, 0, 12 * 59, 59, 59, 30, 30, 5);
+		sprites[spr_sonic_hurt]     = make_sprite(t, 0, 13 * 59, 59, 59, 30, 30);
 	}
 
 	{
@@ -39,6 +40,7 @@ void load_global_assets() {
 		sprites[spr_monitor_icon]   = make_sprite(t,  0,  96, 16, 16,  8,  8, 10);
 		sprites[spr_explosion]      = make_sprite(t,  0, 176, 32, 32, 16, 16, 5, 5, 1.0f / 6.0f);
 		sprites[spr_skid_dust]      = make_sprite(t,  0, 208, 16, 16,  8,  8, 4, 4, 1.0f / 4.0f);
+		sprites[spr_spike]          = make_sprite(t,  0, 224, 32, 32, 16, 16);
 
 		sprites[spr_spring_yellow]  = make_sprite(t, 32, 112, 32, 32, 16, 24);
 		sprites[spr_spring_red]     = make_sprite(t, 32, 144, 32, 32, 16, 24);

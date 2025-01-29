@@ -74,11 +74,8 @@ void Game::init(int argc, char* argv[]) {
 	init_particles();
 
 	{
-		const char* path = "levels/EEZ_Act1_tiled";
-
-		if (argc >= 2 && strcmp(argv[1], "--game") == 0) {
-			if (argc >= 3) path = argv[2];
-		}
+		char* path = to_c_string(program.level_filepath);
+		defer { free(path); };
 
 		load_level(path);
 	}
@@ -900,10 +897,15 @@ static void ground_sensor_collision(Player* p) {
 		// if (res.tile_x * 16 <= (int)sensor_x && (int)sensor_x < (res.tile_x + 1) * 16
 		// 	&& res.tile_y * 16 <= (int)sensor_y && (int)sensor_y < (res.tile_y + 1) * 16)
 		{
-			if (res.tile.hflip && res.tile.vflip) p->ground_angle = -(180.0f - angle);
-			else if (!res.tile.hflip && res.tile.vflip) p->ground_angle = 180.0f - angle;
-			else if (res.tile.hflip && !res.tile.vflip) p->ground_angle = -angle;
-			else p->ground_angle = angle;
+			if (res.tile.hflip && res.tile.vflip) {
+				p->ground_angle = -(180.0f - angle);
+			} else if (!res.tile.hflip && res.tile.vflip) {
+				p->ground_angle = 180.0f - angle;
+			} else if (res.tile.hflip && !res.tile.vflip) {
+				p->ground_angle = -angle;
+			} else {
+				p->ground_angle = angle;
+			}
 		}
 	}
 
@@ -932,12 +934,18 @@ static void ground_sensor_collision(Player* p) {
 			p->facing = sign_int(p->ground_speed);
 		}
 
-		if (player_roll_condition(p)) {
-			p->state = STATE_ROLL;
-
-			play_sound(get_sound(snd_spindash));
-		} else {
+		if (p->anim == anim_hurt) {
 			p->state = STATE_GROUND;
+			p->ground_speed = 0;
+			p->speed = {};
+		} else {
+			if (player_roll_condition(p)) {
+				p->state = STATE_ROLL;
+
+				play_sound(get_sound(snd_spindash));
+			} else {
+				p->state = STATE_GROUND;
+			}
 		}
 	}
 }
@@ -1083,6 +1091,7 @@ static bool object_is_solid(ObjType type) {
 	switch (type) {
 		case OBJ_MONITOR: return true;
 		case OBJ_SPRING:  return true;
+		case OBJ_SPIKE:   return true;
 	}
 	return false;
 }
@@ -1132,6 +1141,16 @@ static void player_collide_with_objects(Player* p) {
 				o->flags |= FLAG_INSTANCE_DEAD;
 
 				{
+					Object icon = {};
+					icon.id = game.next_id++;
+					icon.type = OBJ_MONITOR_ICON;
+					icon.pos = o->pos;
+					icon.monitor.icon = o->monitor.icon;
+
+					array_add(&game.objects, icon);
+				}
+
+				{
 					Object broken_monitor = {};
 					broken_monitor.id = game.next_id++;
 					broken_monitor.type = OBJ_MONITOR_BROKEN;
@@ -1173,6 +1192,59 @@ static void player_collide_with_objects(Player* p) {
 
 				return true;
 			}
+
+			case OBJ_SPIKE: {
+				if (o->spike.direction != DIR_UP) return false;
+
+				if (p->invulnerable > 0) return false;
+
+				if (p->anim == anim_hurt) return false;
+
+				float side = signf(p->pos.x - o->pos.x);
+				if (side == 0) side = 1;
+
+				p->state = STATE_AIR;
+				p->speed.x = side * 2;
+				p->speed.y = -4;
+				p->jumped = false;
+				p->next_anim = anim_hurt;
+				p->invulnerable = 120;
+				p->ignore_rings = 64;
+
+				// drop rings
+				{
+					int amount = min(game.player_rings, 32);
+					game.player_rings = 0;
+
+					float offset = 0;
+					while (amount > 0) {
+						if (amount % 2 == 0) offset += 22.5f;
+
+						if (offset > 180) offset -= 180;
+
+						float speed = (amount > 16) ? 2 : 4;
+						float direction = 90;
+						if (amount % 2 == 0) {
+							direction += offset;
+						} else {
+							direction -= offset;
+						}
+
+						Object ring_dropped = {};
+						ring_dropped.id = game.next_id++;
+						ring_dropped.type = OBJ_RING_DROPPED;
+						ring_dropped.pos = p->pos;
+						ring_dropped.ring_dropped.speed = lengthdir_v2(speed, direction);
+						ring_dropped.ring_dropped.anim_spd = 0.5f;
+
+						array_add(&game.objects, ring_dropped);
+
+						amount--;
+					}
+				}
+
+				return true;
+			}
 		}
 
 		return false;
@@ -1184,6 +1256,16 @@ static void player_collide_with_objects(Player* p) {
 				if (p->anim != anim_roll) return false;
 
 				o->flags |= FLAG_INSTANCE_DEAD;
+
+				{
+					Object icon = {};
+					icon.id = game.next_id++;
+					icon.type = OBJ_MONITOR_ICON;
+					icon.pos = o->pos;
+					icon.monitor.icon = o->monitor.icon;
+
+					array_add(&game.objects, icon);
+				}
 
 				{
 					Object broken_monitor = {};
@@ -1430,6 +1512,11 @@ static void player_state_ground(Player* p, float delta) {
 
 	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
 	player_keep_in_bounds(p);
+
+	// @Cleanup???
+	if (p->state != STATE_GROUND) {
+		return;
+	}
 
 	if (p->pushing) {
 		const int anim_push_frame_duration = fmaxf(0, 8 - fabsf(p->ground_speed)) * 4;
@@ -1679,22 +1766,27 @@ static void player_state_air(Player* p, float delta) {
 	}
 
 	// Update X Speed based on directional input.
-	const float air_acceleration_speed = 0.09375f;
-	if (input_h != 0) {
-		if (fabsf(p->speed.x) < PLAYER_TOP_SPEED || input_h == -sign_int(p->speed.x)) {
-			p->speed.x += input_h * air_acceleration_speed * delta;
-			Clamp(&p->speed.x, -PLAYER_TOP_SPEED, PLAYER_TOP_SPEED);
+	if (p->anim != anim_hurt) {
+		const float air_acceleration_speed = 0.09375f;
+		if (input_h != 0) {
+			if (fabsf(p->speed.x) < PLAYER_TOP_SPEED || input_h == -sign_int(p->speed.x)) {
+				p->speed.x += input_h * air_acceleration_speed * delta;
+				Clamp(&p->speed.x, -PLAYER_TOP_SPEED, PLAYER_TOP_SPEED);
+			}
 		}
-	}
 
-	// Apply air drag.
-	if (-4 < p->speed.y && p->speed.y < 0) {
-		p->speed.x -= floorf(fabsf(p->speed.x) * 8) / 256 * signf(p->speed.x) * delta;
+		// Apply air drag.
+		if (-4 < p->speed.y && p->speed.y < 0) {
+			p->speed.x -= floorf(fabsf(p->speed.x) * 8) / 256 * signf(p->speed.x) * delta;
+		}
 	}
 
 	// Apply gravity.
 	const float GRAVITY = 0.21875f;
-	p->speed.y += GRAVITY * delta;
+	const float HIT_FORCE = 0.1875f;
+
+	float gravity = (p->anim == anim_hurt) ? HIT_FORCE : GRAVITY;
+	p->speed.y += gravity * delta;
 
 	auto physics_step = [&](float delta) {
 		// Move the Player object
@@ -1981,8 +2073,14 @@ static void player_update(Player* p, float delta) {
 	}
 
 	if (p->state != STATE_AIR) {
-		p->control_lock = fmaxf(p->control_lock - delta, 0);
+		Approach(&p->control_lock, 0.0f, delta);
 	}
+
+	if (p->anim != anim_hurt) {
+		Approach(&p->invulnerable, 0.0f, delta);
+	}
+
+	Approach(&p->ignore_rings, 0.0f, delta);
 
 	auto player_collides_with_object = [](Player* p, const Object& o) -> bool {
 		Rectf r1 = player_get_rect(p);
@@ -1996,38 +2094,54 @@ static void player_update(Player* p, float delta) {
 
 	For (it, game.objects) {
 		if (player_collides_with_object(p, *it)) {
-			if (it->type == OBJ_LAYER_SET) {
-				p->layer = it->layset.layer;
-			} else if (it->type == OBJ_LAYER_FLIP) {
-				bool dont_set_layer = false;
-
-				if (it->flags & FLAG_LAYER_FLIP_GROUNDED) {
-					if (!player_is_grounded(p)) {
-						dont_set_layer = true;
-					}
+			switch (it->type) {
+				case OBJ_LAYER_SET: {
+					p->layer = it->layset.layer;
+					break;
 				}
 
-				if (!dont_set_layer) {
-					if (sign_int(p->speed.x) == 1) {
-						p->layer = 0;
-					} else if (sign_int(p->speed.x) == -1) {
-						p->layer = 1;
+				case OBJ_LAYER_FLIP: {
+					bool dont_set_layer = false;
+
+					if (it->flags & FLAG_LAYER_FLIP_GROUNDED) {
+						if (!player_is_grounded(p)) {
+							dont_set_layer = true;
+						}
 					}
+
+					if (!dont_set_layer) {
+						if (sign_int(p->speed.x) == 1) {
+							p->layer = 0;
+						} else if (sign_int(p->speed.x) == -1) {
+							p->layer = 1;
+						}
+					}
+					break;
 				}
-			} else if (it->type == OBJ_RING) {
-				game.player_rings++;
 
-				Particle p = {};
-				p.pos = it->pos;
-				p.sprite_index = spr_ring_disappear;
+				case OBJ_RING:
+				case OBJ_RING_DROPPED: {
+					if (p->ignore_rings > 0) break;
 
-				const Sprite& s = get_sprite(p.sprite_index);
-				p.lifespan = (1.0f / s.anim_spd) * s.frames.count;
+					game.player_rings++;
 
-				add_particle(p);
+					Particle p = {};
+					p.pos = it->pos;
+					p.sprite_index = spr_ring_disappear;
 
-				play_sound(get_sound(snd_ring));
+					const Sprite& s = get_sprite(p.sprite_index);
+					p.lifespan = (1.0f / s.anim_spd) * s.frames.count;
 
+					add_particle(p);
+
+					play_sound(get_sound(snd_ring));
+
+					it->flags |= FLAG_INSTANCE_DEAD;
+					break;
+				}
+			}
+
+			if (it->flags & FLAG_INSTANCE_DEAD) {
 				Remove(it, game.objects);
 				continue;
 			}
@@ -2081,6 +2195,7 @@ void Game::update(float delta) {
 	should_skip_frame |= window.should_skip_frame;
 
 	if (!should_skip_frame) {
+		// update player
 		player_update(&player, delta);
 
 		player_time += delta;
@@ -2130,7 +2245,7 @@ void Game::update(float delta) {
 			camera_lock = fmaxf(camera_lock - delta, 0);
 		}
 
-		// update game objects
+		// update objects
 		For (it, objects) {
 			switch (it->type) {
 				case OBJ_SPRING: {
@@ -2144,6 +2259,57 @@ void Game::update(float delta) {
 					}
 					break;
 				}
+
+				case OBJ_MONITOR_ICON: {
+					it->pos.y -= delta;
+					it->monitor.timer += delta;
+
+					if (it->monitor.timer > 64) {
+						it->flags |= FLAG_INSTANCE_DEAD;
+					} else if (it->monitor.timer > 32) {
+						if (!(it->flags & FLAG_MONITOR_ICON_GOT_REWARD)) {
+							switch (it->monitor.icon) {
+								case MONITOR_ICON_SUPER_RING: {
+									player_rings += 10;
+									play_sound(get_sound(snd_ring));
+									break;
+								}
+							}
+
+							it->flags |= FLAG_MONITOR_ICON_GOT_REWARD;
+						}
+					}
+					break;
+				}
+
+				case OBJ_RING_DROPPED: {
+					const float gravity = 0.09375f;
+					it->ring_dropped.speed.y += gravity * delta;
+					it->pos += it->ring_dropped.speed * delta;
+
+					SensorResult res = sensor_check_down(it->pos + vec2{0, 8}, 0);
+					if (res.dist < 0) {
+						if (it->ring_dropped.speed.y > 0) {
+							it->ring_dropped.speed.y *= -0.75f;
+						}
+					}
+
+					it->ring_dropped.frame_index += it->ring_dropped.anim_spd * delta;
+					it->ring_dropped.frame_index = wrapf(it->ring_dropped.frame_index, get_sprite(spr_ring).frames.count);
+
+					it->ring_dropped.anim_spd -= 0.002f * delta;
+
+					it->ring_dropped.lifetime += delta;
+					if (it->ring_dropped.lifetime > 256) {
+						it->flags |= FLAG_INSTANCE_DEAD;
+					}
+					break;
+				}
+			}
+
+			if (it->flags & FLAG_INSTANCE_DEAD) {
+				Remove(it, objects);
+				continue;
 			}
 		}
 
@@ -2337,14 +2503,26 @@ void Game::draw(float delta) {
 
 		const Sprite& s = anim_get_sprite(p->anim);
 
-		//float angle = round_to(p->ground_angle, 45.0f);
+		//float angle = roundf_to(p->ground_angle, 45.0f);
 		float angle = p->ground_angle;
 
 		if ((player_is_grounded(p) && p->ground_speed == 0) || p->anim == anim_roll) {
 			angle = 0;
 		}
 
-		draw_sprite(s, frame_index, floor(player.pos), {p->facing, 1}, angle);
+		bool dont_draw = false;
+
+		if (p->invulnerable > 0) {
+			if (p->anim != anim_hurt) {
+				if (SDL_GetTicks() % (int)(16.66 * 8) > (int)(16.66 * 4)) {
+					dont_draw = true;
+				}
+			}
+		}
+
+		if (!dont_draw) {
+			draw_sprite(s, frame_index, floor(player.pos), {p->facing, 1}, angle);
+		}
 
 		// draw spindash smoke
 		if (p->anim == anim_spindash) {
@@ -2393,6 +2571,14 @@ void Game::draw(float delta) {
 				break;
 			}
 
+			case OBJ_MONITOR_ICON: {
+				const Sprite& s = get_sprite(spr_monitor_icon);
+				int frame_index = it->monitor.icon;
+				vec2 pos = it->pos;
+				draw_sprite(s, frame_index, pos);
+				break;
+			}
+
 			case OBJ_SPRING: {
 				u32 spr = spr_spring_yellow + it->spring.color;
 				float frame_index = 0;
@@ -2405,6 +2591,32 @@ void Game::draw(float delta) {
 				float angle = it->spring.direction * 90 - 90;
 
 				draw_sprite(get_sprite(spr), frame_index, it->pos, {1, 1}, angle);
+				break;
+			}
+
+			case OBJ_SPIKE: {
+				u32 spr = spr_spike;
+				float frame_index = 0;
+				float angle = it->spike.direction * 90 - 90;
+				draw_sprite(get_sprite(spr), frame_index, it->pos, {1, 1}, angle);
+				break;
+			}
+
+			case OBJ_RING_DROPPED: {
+				u32 spr = spr_ring;
+				float frame_index = it->ring_dropped.frame_index;
+
+				bool dont_draw = false;
+
+				if (it->ring_dropped.lifetime > 64) {
+					if (SDL_GetTicks() % (int)(16.66 * 2) > (int)(16.66)) {
+						dont_draw = true;
+					}
+				}
+
+				if (!dont_draw) {
+					draw_sprite(get_sprite(spr), frame_index, it->pos);
+				}
 				break;
 			}
 
@@ -2592,53 +2804,65 @@ void Game::draw(float delta) {
 
 	// draw hud
 	{
-		vec2 pos = {16, 8};
+		{
+			vec2 pos = {16, 8};
 
-		draw_text(get_font(fnt_hud), "score", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
-		pos.y += 16;
+			draw_text(get_font(fnt_hud), "score", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
+			pos.y += 16;
 
-		draw_text(get_font(fnt_hud), "time", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
-		pos.y += 16;
+			draw_text(get_font(fnt_hud), "time", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
+			pos.y += 16;
 
-		vec4 color = color_yellow;
-		if (player_rings == 0) {
-			if ((SDL_GetTicks() / 500) % 2) {
-				color = color_red;
+			vec4 color = color_yellow;
+			if (player_rings == 0) {
+				if ((SDL_GetTicks() / 500) % 2) {
+					color = color_red;
+				}
 			}
+
+			draw_text(get_font(fnt_hud), "rings", pos, HALIGN_LEFT, VALIGN_TOP, color);
 		}
 
-		draw_text(get_font(fnt_hud), "rings", pos, HALIGN_LEFT, VALIGN_TOP, color);
-		pos.y += 16;
+		{
+			char buf[32];
+			string str;
 
-		pos = {112, 8};
+			vec2 pos = {112, 8};
+			if (p->state == STATE_DEBUG) {
+				pos.x += 8;
+			}
 
-		char buf[32];
-		string str;
+			if (p->state == STATE_DEBUG) {
+				str = Sprintf(buf, "%08x", (int)p->pos.x);
+			} else {
+				str = Sprintf(buf, "%d", player_score);
+			}
+			draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
+			pos.y += 16;
 
-		if (p->state == STATE_DEBUG) {
-			str = Sprintf(buf, "%x", (int)p->pos.x);
-		} else {
-			str = Sprintf(buf, "%d", player_score);
+			int min = (int)(player_time / 3600.0f);
+			int sec = (int)(player_time / 60.0f) % 60;
+			int ms  = (int)(player_time / 60.0f * 100.0f) % 100; // not actually milliseconds
+
+			if (p->state == STATE_DEBUG) {
+				str = Sprintf(buf, "%08x", (int)p->pos.y);
+			} else {
+				str = Sprintf(buf, "%d'%02d\"%02d", min, sec, ms);
+			}
+			draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
 		}
-		draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
-		pos.y += 16;
 
-		int min = (int)(player_time / 3600.0f);
-		int sec = (int)(player_time / 60.0f) % 60;
-		int ms  = (int)(player_time / 60.0f * 100.0f) % 100; // not actually milliseconds
+		{
+			char buf[32];
+			string str;
 
-		if (p->state == STATE_DEBUG) {
-			str = Sprintf(buf, "%x", (int)p->pos.y);
-		} else {
-			str = Sprintf(buf, "%d'%02d\"%02d", min, sec, ms);
+			vec2 pos;
+			pos.x = 112 - 24;
+			pos.y = 8 + 16*2;
+
+			str = Sprintf(buf, "%d", player_rings);
+			draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
 		}
-		draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
-		pos.y += 16;
-		pos.x -= 24;
-
-		str = Sprintf(buf, "%d", player_rings);
-		draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
-		pos.y += 16;
 	}
 
 	// draw mobile controls
@@ -2991,6 +3215,12 @@ void write_objects(array<Object> objects, const char* fname) {
 				break;
 			}
 
+			case OBJ_SPIKE: {
+				Direction direction = o.spike.direction;
+				SDL_RWwrite(f, &direction, sizeof direction, 1);
+				break;
+			}
+
 			default: {
 				Assert(false);
 				break;
@@ -3079,6 +3309,13 @@ void read_objects(bump_array<Object>* objects, const char* fname) {
 				Direction direction;
 				SDL_RWread(f, &direction, sizeof direction, 1);
 				o->spring.direction = direction;
+				break;
+			}
+
+			case OBJ_SPIKE: {
+				Direction direction;
+				SDL_RWread(f, &direction, sizeof direction, 1);
+				o->spike.direction = direction;
 				break;
 			}
 
@@ -3211,6 +3448,9 @@ const Sprite& get_object_sprite(ObjType type) {
 		case OBJ_MONITOR:         return get_sprite(spr_monitor);
 		case OBJ_SPRING:          return get_sprite(spr_spring_yellow);
 		case OBJ_MONITOR_BROKEN:  return get_sprite(spr_monitor_broken);
+		case OBJ_MONITOR_ICON:    return get_sprite(spr_monitor_icon);
+		case OBJ_SPIKE:           return get_sprite(spr_spike);
+		case OBJ_RING_DROPPED:    return get_sprite(spr_ring);
 	}
 
 	Assert(!"invalid object type");

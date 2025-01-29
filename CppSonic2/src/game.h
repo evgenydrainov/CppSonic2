@@ -34,6 +34,7 @@ enum anim_index {
 	anim_balance2,
 	anim_push,
 	anim_rise,
+	anim_hurt,
 
 	NUM_ANIMS,
 };
@@ -70,6 +71,9 @@ struct Player {
 
 	float spinrev;
 	float control_lock;
+	float invulnerable;
+	float ignore_rings;
+
 	bool jumped;
 	bool peelout;
 	bool pushing;
@@ -91,7 +95,10 @@ struct Player {
 	X(OBJ_RING,            3) \
 	X(OBJ_MONITOR,         4) \
 	X(OBJ_SPRING,          5) \
-	X(OBJ_MONITOR_BROKEN,  6)
+	X(OBJ_MONITOR_BROKEN,  6) \
+	X(OBJ_MONITOR_ICON,    7) \
+	X(OBJ_SPIKE,           8) \
+	X(OBJ_RING_DROPPED,    9)
 
 DEFINE_NAMED_ENUM_WITH_VALUES(ObjType, OBJ_TYPE_ENUM)
 
@@ -101,6 +108,8 @@ enum {
 	FLAG_INSTANCE_DEAD = 1 << 0,
 
 	FLAG_LAYER_FLIP_GROUNDED = 1 << 16,
+
+	FLAG_MONITOR_ICON_GOT_REWARD = 1 << 16,
 };
 
 #define MONITOR_ICON_ENUM(X) \
@@ -156,7 +165,8 @@ struct Object {
 
 		struct {
 			MonitorIcon icon;
-		} monitor; // OBJ_MONITOR
+			float timer; // for OBJ_MONITOR_ICON
+		} monitor; // OBJ_MONITOR, OBJ_MONITOR_ICON
 
 		struct {
 			SpringColor color;
@@ -165,6 +175,17 @@ struct Object {
 			bool animating;
 			float frame_index;
 		} spring; // OBJ_SPRING
+
+		struct {
+			Direction direction;
+		} spike; // OBJ_SPIKE
+
+		struct {
+			vec2 speed;
+			float anim_spd;
+			float frame_index;
+			float lifetime;
+		} ring_dropped; // OBJ_RING_DROPPED
 	};
 };
 
