@@ -10,7 +10,9 @@ typedef bool (*ConsoleCallbackFn)(string str, void* userdata);
 struct Console {
 	static constexpr size_t CMD_HIST = 20;
 
-	bool show;
+	bool is_open;
+	bool was_open_last_frame;
+
 	float scroll;
 	bump_array<char> cmd;
 	bump_array<char> history;

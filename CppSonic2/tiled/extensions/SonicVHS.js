@@ -153,6 +153,10 @@ var customMapFormat = {
 		tiled.log("Writing to " + fileName + "...");
 		tiled.log("Stripped filename: " + strip_filename(fileName));
 		
+		if (!fileName.endsWith("Tilemap.bin")) {
+			throw new Error("Filename must be Tilemap.bin");
+		}
+		
 		var file = new BinaryFile(fileName, BinaryFile.WriteOnly);
 		
 		write_u8(file, "T".charCodeAt(0));

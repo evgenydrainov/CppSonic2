@@ -12,6 +12,8 @@ enum {
 	tex_global_objects,
 	tex_editor_sprites,
 	tex_mobile_controls,
+	tex_titlecard_line,
+	tex_pause_menu,
 
 	tex_title_medal,
 	tex_title_sonic,
@@ -24,8 +26,6 @@ enum {
 
 	tex_bg_EE_back,
 	tex_bg_EE_front,
-
-	tex_titlecard_line,
 
 	NUM_TEXTURES,
 };
@@ -79,6 +79,11 @@ enum {
 	spr_mobile_dpad_left,
 	spr_mobile_dpad_right,
 	spr_mobile_action_button,
+
+	spr_pause_menu_bg,
+	spr_pause_menu_logo,
+	spr_pause_menu_labels,
+	spr_pause_menu_cursor,
 
 	NUM_SPRITES,
 };

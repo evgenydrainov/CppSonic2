@@ -12,6 +12,7 @@ Program program;
 void Program::init(int argc, char* argv[]) {
 	Program_Mode mode = PROGRAM_TITLE;
 
+#ifdef DEVELOPER
 	// if the second argument is --game
 	if (argc >= 2 && strcmp(argv[1], "--game") == 0) {
 		// ...and there's a third arg, then start the level
@@ -21,6 +22,7 @@ void Program::init(int argc, char* argv[]) {
 			level_filepath = copy_c_string(argv[2]);
 		}
 	}
+#endif
 
 	if (level_filepath.count == 0) {
 		level_filepath = copy_string("levels/EEZ_Act1_tiled");

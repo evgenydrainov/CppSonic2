@@ -2192,6 +2192,10 @@ void Game::update(float delta) {
 		should_skip_frame = true;
 	}
 
+	if (pause_state != PAUSE_NOT_PAUSED) {
+		should_skip_frame = true;
+	}
+
 	should_skip_frame |= window.should_skip_frame;
 
 	if (!should_skip_frame) {
@@ -2274,6 +2278,8 @@ void Game::update(float delta) {
 									play_sound(get_sound(snd_ring));
 									break;
 								}
+
+								// TODO
 							}
 
 							it->flags |= FLAG_MONITOR_ICON_GOT_REWARD;
@@ -2328,6 +2334,7 @@ void Game::update(float delta) {
 		mouse_world_pos = floor(mouse_pos_rel + camera_pos);
 	}
 
+	// update titlecard
 	switch (titlecard_state) {
 		case TITLECARD_IN: {
 			Approach(&titlecard_t, TITLECARD_IN_TIME, delta);
@@ -2356,6 +2363,98 @@ void Game::update(float delta) {
 				titlecard_state = TITLECARD_FINISHED;
 			}
 			break;
+		}
+	}
+
+	// update pause menu
+	if (program.transition_t == 0) {
+		switch (pause_state) {
+			case PAUSE_NOT_PAUSED: {
+				if (titlecard_state == TITLECARD_FINISHED) {
+					if (is_key_pressed(SDL_SCANCODE_ESCAPE) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_START)) {
+						pause_state = PAUSE_IN;
+						pause_menu_t = 0;
+						pause_menu_cursor = 0;
+					}
+
+					if (!(SDL_GetWindowFlags(window.handle) & SDL_WINDOW_INPUT_FOCUS)) {
+						pause_state = PAUSE_IN;
+						pause_menu_t = 0;
+						pause_menu_cursor = 0;
+					}
+				}
+				break;
+			}
+
+			case PAUSE_IN: {
+				Approach(&pause_menu_t, 1.0f, (1.0f / PAUSE_IN_TIME) * delta);
+
+				if (pause_menu_t == 1) {
+					pause_state = PAUSE_PAUSED;
+					pause_menu_t = 1;
+				}
+				break;
+			}
+
+			case PAUSE_PAUSED: {
+				if (is_key_pressed(SDL_SCANCODE_ESCAPE)
+					|| is_key_pressed(SDL_SCANCODE_X)
+					|| is_controller_button_pressed(SDL_CONTROLLER_BUTTON_START))
+				{
+					pause_state = PAUSE_OUT;
+					pause_menu_t = 1;
+				}
+
+				if (is_key_pressed(SDL_SCANCODE_UP) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_DPAD_UP)) {
+					if (pause_menu_cursor > 0) {
+						pause_menu_cursor--;
+						pause_last_pressed_time = SDL_GetTicks();
+					}
+				}
+
+				if (is_key_pressed(SDL_SCANCODE_DOWN) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_DPAD_DOWN)) {
+					if (pause_menu_cursor < PAUSE_MENU_NUM_ITEMS - 1) {
+						pause_menu_cursor++;
+						pause_last_pressed_time = SDL_GetTicks();
+					}
+				}
+
+				if (is_key_pressed(SDL_SCANCODE_Z) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_A)) {
+					switch (pause_menu_cursor) {
+						case 0: { // resume
+							pause_state = PAUSE_OUT;
+							pause_menu_t = 1;
+							break;
+						}
+
+						case 1: { // restart
+							program.set_program_mode(PROGRAM_GAME);
+							break;
+						}
+
+						case 2: { // exit
+							program.set_program_mode(PROGRAM_TITLE);
+							break;
+						}
+
+						case 3: { // dev menu
+							// TODO
+							break;
+						}
+					}
+				}
+				break;
+			}
+
+			case PAUSE_OUT: {
+				Approach(&pause_menu_t, 0.0f, (1.0f / PAUSE_IN_TIME) * delta);
+
+				if (pause_menu_t == 0) {
+					pause_state = PAUSE_NOT_PAUSED;
+					pause_menu_t = 0;
+				}
+				break;
+			}
 		}
 	}
 }
@@ -2888,6 +2987,64 @@ void Game::draw(float delta) {
 		draw_sprite(get_sprite(spr_mobile_action_button), (p->input & INPUT_JUMP) > 0, action_pos, {1,1}, 0, color);
 	}
 #endif
+
+	// draw pause menu
+	if (pause_state != PAUSE_NOT_PAUSED) {
+		{
+			vec4 color = color_white;
+			color.a = 0.4f * pause_menu_t;
+
+			Rectf r = {0, 0, window.game_width, window.game_height};
+			draw_rectangle(r, color);
+		}
+
+		{
+			vec2 pos = {};
+			pos.y = window.game_height - 32 - 25;
+
+			{
+				vec4 color = color_black;
+				color.a = pause_menu_t;
+
+				Rectf r = {pos.x + 128, pos.y + 19, window.game_width, 13};
+				draw_rectangle(r, color);
+			}
+
+			{
+				vec4 color = color_white;
+				color.a = pause_menu_t;
+				draw_sprite(get_sprite(spr_pause_menu_logo), 0, pos, {1, 1}, 0, color);
+			}
+		}
+
+		{
+			vec2 pos = {};
+			pos.x = lerp<float>(window.game_width, window.game_width - 128, pause_menu_t);
+
+			while (pos.y < window.game_height) {
+				draw_sprite(get_sprite(spr_pause_menu_bg), 0, pos);
+
+				pos.y += 32;
+			}
+
+			pos.x = window.game_width - 128 + 44;
+			pos.y = 40;
+
+			for (int i = 0; i < PAUSE_MENU_NUM_ITEMS; i++) {
+				vec4 color = color_white;
+				color.a = pause_menu_t;
+				draw_sprite(get_sprite(spr_pause_menu_labels), i, pos, {1, 1}, 0, color);
+
+				if (i == pause_menu_cursor) {
+					if ((SDL_GetTicks() - pause_last_pressed_time + 50) % 500 < 250) {
+						draw_sprite(get_sprite(spr_pause_menu_cursor), 0, pos + vec2{-6, 13});
+					}
+				}
+
+				pos.y += 44;
+			}
+		}
+	}
 
 	break_batch();
 }

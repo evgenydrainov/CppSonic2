@@ -272,6 +272,26 @@ struct Game {
 	Titlecard_State titlecard_state;
 	float titlecard_t;
 
+	enum Pause_State {
+		PAUSE_NOT_PAUSED,
+		PAUSE_IN,
+		PAUSE_PAUSED,
+		PAUSE_OUT,
+	};
+
+	static constexpr float PAUSE_IN_TIME = 7;
+
+#ifdef DEVELOPER
+	static constexpr int PAUSE_MENU_NUM_ITEMS = 4;
+#else
+	static constexpr int PAUSE_MENU_NUM_ITEMS = 3;
+#endif
+
+	Pause_State pause_state;
+	float pause_menu_t;
+	int pause_menu_cursor;
+	u32 pause_last_pressed_time;
+
 	vec2 mouse_world_pos;
 
 	bool collision_test;
@@ -359,7 +379,7 @@ inline void set_tile_safe(Tilemap* tm, int tile_x, int tile_y, int layer, Tile t
 }
 
 inline array<u8> get_tile_heights(const Tileset& ts, int tile_index) {
-	Assert(tile_index >= 0 && tile_index < ts.heights.count);
+	Assert(tile_index >= 0 && tile_index < ts.heights.count/16);
 
 	array<u8> result = {};
 	result.data = ts.heights.data + tile_index * 16;
@@ -369,7 +389,7 @@ inline array<u8> get_tile_heights(const Tileset& ts, int tile_index) {
 }
 
 inline array<u8> get_tile_widths(const Tileset& ts, int tile_index) {
-	Assert(tile_index >= 0 && tile_index < ts.widths.count);
+	Assert(tile_index >= 0 && tile_index < ts.widths.count/16);
 
 	array<u8> result = {};
 	result.data = ts.widths.data + tile_index * 16;

@@ -2,6 +2,7 @@
 
 // @Cleanup?
 #include "renderer.h"
+#include "console.h"
 
 Window window;
 
@@ -67,6 +68,10 @@ void init_window_and_opengl(const char* title,
 							int width, int height, int init_window_scale,
 							bool prefer_vsync, bool prefer_borderless_fullscreen) {
 	// SDL_LogSetAllPriority(SDL_LOG_PRIORITY_VERBOSE);
+
+	window.perf_counter_when_started = SDL_GetPerformanceCounter();
+	window.perf_frequency = SDL_GetPerformanceFrequency();
+	window.perf_frequency_double = (double)window.perf_frequency;
 
 	SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "system");
 
@@ -407,12 +412,20 @@ void swap_buffers() {
 }
 
 
+static bool is_input_disabled() {
+#ifdef DEVELOPER
+	return console.is_open || console.was_open_last_frame;
+#else
+	return false;
+#endif
+}
+
 bool is_key_pressed(SDL_Scancode key, bool repeat) {
 	if (!(key >= 0 && key < window.NUM_KEYS)) {
 		return false;
 	}
 
-	if (window.disable_input) {
+	if (is_input_disabled()) {
 		return false;
 	}
 
@@ -428,7 +441,7 @@ bool is_key_held(SDL_Scancode key) {
 		return false;
 	}
 
-	if (window.disable_input) {
+	if (is_input_disabled()) {
 		return false;
 	}
 
@@ -437,13 +450,14 @@ bool is_key_held(SDL_Scancode key) {
 }
 
 bool is_controller_button_held(SDL_GameControllerButton button) {
-	bool result = false;
-
-	if (window.controller) {
-		result = SDL_GameControllerGetButton(window.controller, button);
+	if (is_input_disabled()) {
+		return false;
 	}
 
-	return result;
+	if (window.controller) {
+		return SDL_GameControllerGetButton(window.controller, button);
+	}
+	return false;
 }
 
 bool is_controller_button_pressed(SDL_GameControllerButton button) {
@@ -451,30 +465,34 @@ bool is_controller_button_pressed(SDL_GameControllerButton button) {
 		return false;
 	}
 
-	bool result = (window.controller_button_pressed[button / 32] & (1 << (button % 32))) != 0;
+	if (is_input_disabled()) {
+		return false;
+	}
 
-	return result;
+	return (window.controller_button_pressed[button / 32] & (1 << (button % 32))) != 0;
 }
 
 float controller_get_axis(SDL_GameControllerAxis axis) {
-	float result = 0;
-
-	if (window.controller) {
-		result = SDL_GameControllerGetAxis(window.controller, axis) / 32768.0f;
+	if (is_input_disabled()) {
+		return 0;
 	}
 
-	return result;
+	if (window.controller) {
+		return SDL_GameControllerGetAxis(window.controller, axis) / 32768.0f;
+	}
+	return 0;
 }
 
 bool is_mouse_button_held(u32 button) {
-	bool result = false;
+	if (is_input_disabled()) {
+		return false;
+	}
 
 	u32 state = SDL_GetMouseState(nullptr, nullptr);
 	if (state & SDL_BUTTON(button)) {
-		result = true;
+		return true;
 	}
-
-	return result;
+	return false;
 }
 
 SDL_Window* get_window_handle() {
@@ -503,5 +521,6 @@ bool is_fullscreen() {
 }
 
 double get_time() {
-	return (double)SDL_GetPerformanceCounter() / (double)SDL_GetPerformanceFrequency();
+	u64 diff = SDL_GetPerformanceCounter() - window.perf_counter_when_started;
+	return (double)diff / window.perf_frequency_double;
 }

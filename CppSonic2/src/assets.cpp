@@ -108,6 +108,16 @@ void load_assets_for_game() {
 
 	textures[tex_titlecard_line] = load_texture_from_file("textures/titlecard_line.png", GL_NEAREST, GL_REPEAT);
 
+	{
+		textures[tex_pause_menu] = load_texture_from_file("textures/pause_menu.png");
+		const Texture& t = get_texture(tex_pause_menu);
+
+		sprites[spr_pause_menu_bg]     = make_sprite(t, 0,   0, 128, 32, 0, 0);
+		sprites[spr_pause_menu_logo]   = make_sprite(t, 0,  32, 128, 32, 0, 0);
+		sprites[spr_pause_menu_labels] = make_sprite(t, 0,  64,  65, 12, 0, 0, 4, 1);
+		sprites[spr_pause_menu_cursor] = make_sprite(t, 0, 112, 128,  3, 0, 0);
+	}
+
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
 	{
 		textures[tex_mobile_controls] = load_texture_from_file("textures/mobile_controls.png");
