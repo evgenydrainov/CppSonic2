@@ -7,12 +7,10 @@
 Renderer renderer = {};
 
 
-static char texture_vert_shader_src[] = R"(
-#version 320 es
+static char texture_vert_shader_src[] =
+R"(#version 300 es
 
-#ifdef GL_ES
 precision mediump float;
-#endif
 
 layout(location = 0) in vec3 in_Position;
 layout(location = 1) in vec3 in_Normal;
@@ -34,12 +32,10 @@ void main() {
 
 
 
-static char texture_frag_shader_src[] = R"(
-#version 320 es
+static char texture_frag_shader_src[] =
+R"(#version 300 es
 
-#ifdef GL_ES
 precision mediump float;
-#endif
 
 layout(location = 0) out vec4 FragColor;
 
@@ -57,12 +53,10 @@ void main() {
 
 
 
-static char color_frag_shader_src[] = R"(
-#version 320 es
+static char color_frag_shader_src[] =
+R"(#version 300 es
 
-#ifdef GL_ES
 precision mediump float;
-#endif
 
 layout(location = 0) out vec4 FragColor;
 
@@ -76,12 +70,10 @@ void main() {
 
 
 
-static char circle_frag_shader_src[] = R"(
-#version 320 es
+static char circle_frag_shader_src[] =
+R"(#version 300 es
 
-#ifdef GL_ES
 precision mediump float;
-#endif
 
 layout(location = 0) out vec4 FragColor;
 
@@ -103,12 +95,10 @@ void main() {
 
 
 
-static char sharp_bilinear_frag_shader_src[] = R"(
-#version 320 es
+static char sharp_bilinear_frag_shader_src[] =
+R"(#version 300 es
 
-#ifdef GL_ES
 precision mediump float;
-#endif
 
 /*
 	Author: rsn8887 (based on TheMaister)

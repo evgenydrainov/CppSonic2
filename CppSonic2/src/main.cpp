@@ -16,6 +16,51 @@
 #endif
 
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
+
+static void emscripten_main_loop() {
+	begin_frame();
+
+	SDL_Event ev;
+	while (SDL_PollEvent(&ev)) {
+		handle_event(ev);
+
+#ifdef DEVELOPER
+		console.handle_event(ev);
+#endif
+	}
+
+	float delta = window.delta;
+
+	// update
+	program.update(delta);
+
+#ifdef DEVELOPER
+	console.update(delta);
+#endif
+
+	vec4 clear_color = color_cornflower_blue;
+	render_begin_frame(clear_color);
+
+	// draw
+	program.draw(delta);
+
+	render_end_frame();
+
+	// late draw
+	program.late_draw(delta);
+
+#ifdef DEVELOPER
+	console.draw(delta);
+#endif
+
+	swap_buffers();
+}
+
+
 static int game_main(int argc, char* argv[]) {
 	init_window_and_opengl("Sonic VHS", 424, 240, 2, true, true);
 	defer { deinit_window_and_opengl(); };
@@ -41,44 +86,13 @@ static int game_main(int argc, char* argv[]) {
 	defer { console.deinit(); };
 #endif
 
+#ifdef __EMSCRIPTEN__
+	emscripten_set_main_loop(emscripten_main_loop, 0, 1);
+#else
 	while (!window.should_quit) {
-		begin_frame();
-
-		SDL_Event ev;
-		while (SDL_PollEvent(&ev)) {
-			handle_event(ev);
-
-#ifdef DEVELOPER
-			console.handle_event(ev);
-#endif
-		}
-
-		float delta = window.delta;
-
-		// update
-		program.update(delta);
-
-#ifdef DEVELOPER
-		console.update(delta);
-#endif
-
-		vec4 clear_color = color_cornflower_blue;
-		render_begin_frame(clear_color);
-
-		// draw
-		program.draw(delta);
-
-		render_end_frame();
-
-		// late draw
-		program.late_draw(delta);
-
-#ifdef DEVELOPER
-		console.draw(delta);
-#endif
-
-		swap_buffers();
+		emscripten_main_loop();
 	}
+#endif
 
 	return 0;
 }

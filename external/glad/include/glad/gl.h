@@ -1,7 +1,9 @@
 #pragma once
 
-#ifdef __ANDROID__
-#include "gles2.h"
+#if defined(__ANDROID__)
+	#include "gles32.h"
+#elif defined(__EMSCRIPTEN__)
+	#include "gles30.h"
 #else
-#include "gl33.h"
+	#include "gl33.h"
 #endif

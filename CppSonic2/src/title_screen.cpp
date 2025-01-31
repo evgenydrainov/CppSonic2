@@ -10,12 +10,10 @@
 
 Title_Screen title_screen;
 
-static const char shd_palette_vert_src[] = R"(
-#version 320 es
+static const char shd_palette_vert_src[] =
+R"(#version 300 es
 
-#ifdef GL_ES
 precision mediump float;
-#endif
 
 layout(location = 0) in vec3 in_Position;
 layout(location = 1) in vec3 in_Normal;
@@ -35,12 +33,10 @@ void main() {
 }
 )";
 
-static const char shd_palette_frag_src[] = R"(
-#version 320 es
+static const char shd_palette_frag_src[] =
+R"(#version 300 es
 
-#ifdef GL_ES
 precision mediump float;
-#endif
 
 layout(location = 0) out vec4 FragColor;
 

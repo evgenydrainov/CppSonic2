@@ -85,6 +85,7 @@ void init_window_and_opengl(const char* title,
 	}
 
 	log_info("Platform: %s", SDL_GetPlatform());
+	log_info("sizeof(void*): %d", (int) sizeof(void*));
 
 	{
 		SDL_version ver;
@@ -149,9 +150,13 @@ void init_window_and_opengl(const char* title,
 
 	SDL_SetWindowMinimumSize(window.handle, width, height);
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__)
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#elif defined(__EMSCRIPTEN__)
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 #else
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -167,7 +172,7 @@ void init_window_and_opengl(const char* title,
 	SDL_GL_MakeCurrent(window.handle, window.gl_context);
 
 	{
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__EMSCRIPTEN__)
 		auto load = gladLoadGLES2;
 #else
 		auto load = gladLoadGL;
