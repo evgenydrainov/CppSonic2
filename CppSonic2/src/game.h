@@ -241,6 +241,7 @@ struct Game {
 	int player_score;
 	float player_time;
 	int player_rings;
+	int player_lives = 3;
 
 	bump_array<Object> objects;
 
@@ -291,6 +292,15 @@ struct Game {
 	float pause_menu_t;
 	int pause_menu_cursor;
 	u32 pause_last_pressed_time;
+
+#if defined(__ANDROID__) || defined(PRETEND_MOBILE)
+	bool mobile_input_up;
+	bool mobile_input_down;
+	bool mobile_input_left;
+	bool mobile_input_right;
+	bool mobile_input_action;
+	bool mobile_input_pause;
+#endif
 
 	vec2 mouse_world_pos;
 

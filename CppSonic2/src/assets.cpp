@@ -116,6 +116,7 @@ void load_assets_for_game() {
 		sprites[spr_pause_menu_logo]   = make_sprite(t, 0,  32, 128, 32, 0, 0);
 		sprites[spr_pause_menu_labels] = make_sprite(t, 0,  64,  65, 12, 0, 0, 4, 1);
 		sprites[spr_pause_menu_cursor] = make_sprite(t, 0, 112, 128,  3, 0, 0);
+		sprites[spr_hud_lives]         = make_sprite(t, 0, 128,  24, 16, 0, 0, 3);
 	}
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
@@ -129,7 +130,8 @@ void load_assets_for_game() {
 		sprites[spr_mobile_dpad_left]  = make_sprite(t, 90, 14, 27, 13, 0, 0, 2);
 		sprites[spr_mobile_dpad_right] = make_sprite(t, 90,  0, 27, 13, 0, 0, 2);
 
-		sprites[spr_mobile_action_button] = make_sprite(t, 0, 64, 48, 48, 0, 0, 2);
+		sprites[spr_mobile_action_button] = make_sprite(t,  0, 64, 48, 48, 0, 0, 2);
+		sprites[spr_mobile_pause_button]  = make_sprite(t, 96, 32, 16, 16, 0, 0);
 	}
 #endif
 }

@@ -1,1 +1,2 @@
-spindash.png - wrong palette
+spr_sonic_spindash - wrong palette
+spr_sonic_run - wrong shoe color

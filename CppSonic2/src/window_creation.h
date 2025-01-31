@@ -49,6 +49,10 @@ struct Window {
 
 	u32 controller_button_pressed[(NUM_CONTROLLER_BUTTONS + 31) / 32];
 
+	u32 mouse_state;
+	u32 mouse_state_press;
+	u32 mouse_state_release;
+
 	double prev_time;
 	double frame_end_time;
 
@@ -98,6 +102,8 @@ bool is_controller_button_pressed(SDL_GameControllerButton button);
 float controller_get_axis(SDL_GameControllerAxis axis);
 
 bool is_mouse_button_held(u32 button);
+bool is_mouse_button_pressed(u32 button);
+bool is_mouse_button_released(u32 button);
 
 SDL_Window* get_window_handle(); // for common.h
 

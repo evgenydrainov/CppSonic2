@@ -4,6 +4,8 @@
 #include "renderer.h"
 #include "console.h"
 
+#include <SDL_system.h>
+
 Window window;
 
 
@@ -112,6 +114,8 @@ void init_window_and_opengl(const char* title,
 
 #ifdef __ANDROID__
 	window_flags |= SDL_WINDOW_FULLSCREEN;
+
+	log_info("Android API level: %d.", SDL_GetAndroidSDKVersion());
 
 	{
 		SDL_DisplayMode mode;
@@ -383,7 +387,11 @@ void begin_frame() {
 
 	// handle mouse
 	{
-		SDL_GetMouseState(&window.mouse_x, &window.mouse_y);
+		u32 prev = window.mouse_state;
+		window.mouse_state = SDL_GetMouseState(&window.mouse_x, &window.mouse_y);
+
+		window.mouse_state_press   = window.mouse_state & (~prev);
+		window.mouse_state_release = (~window.mouse_state) & prev;
 
 		auto rect = renderer.game_texture_rect;
 		window.mouse_x_world = (window.mouse_x - rect.x) / (float)rect.w * (float)window.game_width;
@@ -488,11 +496,23 @@ bool is_mouse_button_held(u32 button) {
 		return false;
 	}
 
-	u32 state = SDL_GetMouseState(nullptr, nullptr);
-	if (state & SDL_BUTTON(button)) {
-		return true;
+	return (window.mouse_state & SDL_BUTTON(button)) != 0;
+}
+
+bool is_mouse_button_pressed(u32 button) {
+	if (is_input_disabled()) {
+		return false;
 	}
-	return false;
+
+	return (window.mouse_state_press & SDL_BUTTON(button)) != 0;
+}
+
+bool is_mouse_button_released(u32 button) {
+	if (is_input_disabled()) {
+		return false;
+	}
+
+	return (window.mouse_state_release & SDL_BUTTON(button)) != 0;
 }
 
 SDL_Window* get_window_handle() {

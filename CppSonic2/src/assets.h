@@ -79,11 +79,13 @@ enum {
 	spr_mobile_dpad_left,
 	spr_mobile_dpad_right,
 	spr_mobile_action_button,
+	spr_mobile_pause_button,
 
 	spr_pause_menu_bg,
 	spr_pause_menu_logo,
 	spr_pause_menu_labels,
 	spr_pause_menu_cursor,
+	spr_hud_lives,
 
 	NUM_SPRITES,
 };
