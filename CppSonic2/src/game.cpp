@@ -45,6 +45,14 @@ void Game::load_level(const char* path) {
 	// give IDs to the objects
 	For (it, objects) {
 		it->id = next_id++;
+
+		switch (it->type) {
+			case OBJ_MOVING_PLATFORM: {
+				it->mplatform.init_pos = it->pos;
+				it->mplatform.prev_pos = it->pos;
+				break;
+			}
+		}
 	}
 
 	// search for player init pos
@@ -942,7 +950,7 @@ static void ground_sensor_collision(Player* p) {
 			if (player_roll_condition(p)) {
 				p->state = STATE_ROLL;
 
-				play_sound(get_sound(snd_spindash));
+				// play_sound(get_sound(snd_spindash));
 			} else {
 				p->state = STATE_GROUND;
 			}
@@ -1096,6 +1104,13 @@ static bool object_is_solid(ObjType type) {
 	return false;
 }
 
+static bool object_is_solid_through(ObjType type) {
+	switch (type) {
+		case OBJ_MOVING_PLATFORM: return true;
+	}
+	return false;
+}
+
 static Direction opposite_dir(Direction dir) {
 	/*switch (dir) {
 		case DIR_RIGHT: return DIR_LEFT;
@@ -1116,13 +1131,13 @@ static float get_spring_force(const Object& o) {
 	return force;
 }
 
-static void player_collide_with_objects(Player* p) {
+static void player_collide_with_solid_objects(Player* p) {
 	vec2 player_radius = player_get_radius(p);
 	
 	// reset the flag
 	p->landed_on_solid_object = false;
 
-	auto player_land_on_object = [&](Player* p, Object* o) -> bool {
+	auto player_land_on_solid_object = [&](Player* p, Object* o) -> bool {
 		switch (o->type) {
 			case OBJ_MONITOR: {
 				if (p->anim != anim_roll) return false;
@@ -1250,7 +1265,7 @@ static void player_collide_with_objects(Player* p) {
 		return false;
 	};
 
-	auto player_collide_object_side = [&](Player* p, Object* o, Direction dir) {
+	auto player_collide_solid_object_side = [&](Player* p, Object* o, Direction dir) {
 		switch (o->type) {
 			case OBJ_MONITOR: {
 				if (p->anim != anim_roll) return false;
@@ -1388,7 +1403,7 @@ static void player_collide_with_objects(Player* p) {
 
 				p->pos.y -= y_distance;
 
-				if (!player_land_on_object(p, it)) {
+				if (!player_land_on_solid_object(p, it)) {
 					if (p->state == STATE_AIR) {
 						if (player_roll_condition(p)) {
 							p->state = STATE_ROLL;
@@ -1430,7 +1445,7 @@ static void player_collide_with_objects(Player* p) {
 				{
 					Direction dir = (x_distance > 0) ? DIR_RIGHT : DIR_LEFT;
 
-					if (!player_collide_object_side(p, it, dir)) {
+					if (!player_collide_solid_object_side(p, it, dir)) {
 						p->ground_speed = 0;
 						p->speed.x = 0;
 						p->pushing = true;
@@ -1446,6 +1461,45 @@ static void player_collide_with_objects(Player* p) {
 				}
 			}
 		}
+	}
+
+	// handle jump through platforms
+	for (int i = 0; i < game.objects.count; i++) {
+		Object* it = &game.objects[i];
+
+		if (!object_is_solid_through(it->type)) continue;
+
+		if (p->speed.y < 0) continue;
+
+		vec2 obj_size = get_object_size(*it);
+
+		if (!(it->pos.x - obj_size.x/2 < p->pos.x && p->pos.x < it->pos.x + obj_size.x/2)) {
+			continue;
+		}
+
+		float surface_y = it->pos.y - obj_size.y/2;
+		float bottom_y = p->pos.y + player_radius.y + 4;
+
+		if (surface_y > bottom_y) continue;
+
+		float dist = surface_y - bottom_y;
+
+		if (dist < -16 || dist >= 0) continue;
+
+		p->pos.y += dist + 3;
+		p->pos.x += it->pos.x - it->mplatform.prev_pos.x; // @Hack
+
+		if (p->state == STATE_AIR) {
+			if (player_roll_condition(p)) {
+				p->state = STATE_ROLL;
+			} else {
+				p->state = STATE_GROUND;
+			}
+			p->ground_speed = p->speed.x;
+			p->ground_angle = 0;
+		}
+		p->speed.y = 0;
+		p->landed_on_solid_object = true;
 	}
 }
 
@@ -1508,7 +1562,7 @@ static void player_state_ground(Player* p, float delta) {
 	}
 
 	// collide with objects
-	player_collide_with_objects(p);
+	player_collide_with_solid_objects(p);
 
 	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
 	player_keep_in_bounds(p);
@@ -1661,7 +1715,7 @@ static void player_state_ground(Player* p, float delta) {
 	if (player_roll_condition(p)) {
 		p->state = STATE_ROLL;
 		// p->pos.y += 5;
-		play_sound(get_sound(snd_spindash));
+		// play_sound(get_sound(snd_spindash));
 		return;
 	}
 
@@ -1725,7 +1779,7 @@ static void player_state_roll(Player* p, float delta) {
 	}
 
 	// collide with objects
-	player_collide_with_objects(p);
+	player_collide_with_solid_objects(p);
 
 	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
 	player_keep_in_bounds(p);
@@ -1806,7 +1860,7 @@ static void player_state_air(Player* p, float delta) {
 	}
 
 	// collide with objects
-	player_collide_with_objects(p);
+	player_collide_with_solid_objects(p);
 
 	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
 	player_keep_in_bounds(p);
@@ -2001,7 +2055,7 @@ static void player_update(Player* p, float delta) {
 
 	Approach(&p->ignore_rings, 0.0f, delta);
 
-	auto player_collides_with_object = [](Player* p, const Object& o) -> bool {
+	auto player_collides_with_nonsolid_object = [](Player* p, const Object& o) -> bool {
 		Rectf r1 = player_get_rect(p);
 
 		vec2 size = get_object_size(o);
@@ -2012,7 +2066,7 @@ static void player_update(Player* p, float delta) {
 	};
 
 	For (it, game.objects) {
-		if (player_collides_with_object(p, *it)) {
+		if (player_collides_with_nonsolid_object(p, *it)) {
 			switch (it->type) {
 				case OBJ_LAYER_SET: {
 					p->layer = it->layset.layer;
@@ -2216,6 +2270,20 @@ void Game::update(float delta) {
 	should_skip_frame |= window.should_skip_frame;
 
 	if (!should_skip_frame) {
+		// early update objects
+		For (it, objects) {
+			switch (it->type) {
+				case OBJ_MOVING_PLATFORM: {
+					it->mplatform.prev_pos = it->pos;
+
+					float a = get_time() * 60 * it->mplatform.time_multiplier;
+					it->pos.x = floorf(it->mplatform.init_pos.x + cosf(a) * it->mplatform.offset.x);
+					it->pos.y = floorf(it->mplatform.init_pos.y - sinf(a) * it->mplatform.offset.y);
+					break;
+				}
+			}
+		}
+
 		// update player
 		player_update(&player, delta);
 
@@ -2394,11 +2462,12 @@ void Game::update(float delta) {
 						pause_menu_cursor = 0;
 					}
 
-					if (!(SDL_GetWindowFlags(window.handle) & SDL_WINDOW_INPUT_FOCUS)) {
+					// pause when lost window focus
+					/*if (!(SDL_GetWindowFlags(window.handle) & SDL_WINDOW_INPUT_FOCUS)) {
 						pause_state = PAUSE_IN;
 						pause_menu_t = 0;
 						pause_menu_cursor = 0;
-					}
+					}*/
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
 					if (mobile_input_pause) {
@@ -2777,6 +2846,18 @@ void Game::draw(float delta) {
 				if (!dont_draw) {
 					draw_sprite(get_sprite(spr), frame_index, it->pos);
 				}
+				break;
+			}
+
+			case OBJ_MOVING_PLATFORM: {
+				static const u32 sprites[] = {
+					spr_EEZ_platform1,
+					spr_EEZ_platform2,
+				};
+
+				u32 spr = sprites[it->mplatform.sprite_index];
+
+				draw_sprite(get_sprite(spr), 0, it->pos);
 				break;
 			}
 
@@ -3465,6 +3546,21 @@ void write_objects(array<Object> objects, const char* fname) {
 				break;
 			}
 
+			case OBJ_MOVING_PLATFORM: {
+				u32 sprite_index = o.mplatform.sprite_index;
+				SDL_RWwrite(f, &sprite_index, sizeof sprite_index, 1);
+
+				vec2 radius = o.mplatform.radius;
+				SDL_RWwrite(f, &radius, sizeof radius, 1);
+
+				vec2 offset = o.mplatform.offset;
+				SDL_RWwrite(f, &offset, sizeof offset, 1);
+
+				float time_multiplier = o.mplatform.time_multiplier;
+				SDL_RWwrite(f, &time_multiplier, sizeof time_multiplier, 1);
+				break;
+			}
+
 			default: {
 				Assert(false);
 				break;
@@ -3560,6 +3656,25 @@ void read_objects(bump_array<Object>* objects, const char* fname) {
 				Direction direction;
 				SDL_RWread(f, &direction, sizeof direction, 1);
 				o->spike.direction = direction;
+				break;
+			}
+
+			case OBJ_MOVING_PLATFORM: {
+				u32 sprite_index;
+				SDL_RWread(f, &sprite_index, sizeof sprite_index, 1);
+				o->mplatform.sprite_index = sprite_index;
+
+				vec2 radius;
+				SDL_RWread(f, &radius, sizeof radius, 1);
+				o->mplatform.radius = radius;
+
+				vec2 offset;
+				SDL_RWread(f, &offset, sizeof offset, 1);
+				o->mplatform.offset = offset;
+
+				float time_multiplier;
+				SDL_RWread(f, &time_multiplier, sizeof time_multiplier, 1);
+				o->mplatform.time_multiplier = time_multiplier;
 				break;
 			}
 
@@ -3704,8 +3819,8 @@ const Sprite& get_object_sprite(ObjType type) {
 vec2 get_object_size(const Object& o) {
 	switch (o.type) {
 		case OBJ_PLAYER_INIT_POS: return {30, 44};
-		case OBJ_LAYER_SET:       return {o.layset.radius.x  * 2, o.layset.radius.y  * 2};
-		case OBJ_LAYER_FLIP:      return {o.layflip.radius.x * 2, o.layflip.radius.y * 2};
+		case OBJ_LAYER_SET:       return o.layset.radius  * 2.0f;
+		case OBJ_LAYER_FLIP:      return o.layflip.radius * 2.0f;
 		case OBJ_MONITOR:         return {30, 30};
 		case OBJ_SPRING: {
 			vec2 size = {32, 16};
@@ -3716,6 +3831,7 @@ vec2 get_object_size(const Object& o) {
 			}
 			return size;
 		}
+		case OBJ_MOVING_PLATFORM: return o.mplatform.radius * 2.0f;
 	}
 
 	const Sprite& s = get_object_sprite(o.type);

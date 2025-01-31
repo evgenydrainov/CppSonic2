@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tileset version="1.10" tiledversion="1.11.1" name="Objects" tilewidth="32" tileheight="48" tilecount="17" columns="0">
+<tileset version="1.10" tiledversion="1.11.1" name="Objects" tilewidth="128" tileheight="48" tilecount="19" columns="0">
  <grid orientation="orthogonal" width="1" height="1"/>
  <tile id="2">
   <image source="Objects/PlayerInitPos.png" width="32" height="48"/>
@@ -57,5 +57,21 @@
  </tile>
  <tile id="20">
   <image source="Objects/Spike.png" width="32" height="32"/>
+ </tile>
+ <tile id="21">
+  <properties>
+   <property name="time_multiplier" type="float" value="0.03125"/>
+   <property name="xoffset" type="float" value="0"/>
+   <property name="yoffset" type="float" value="32"/>
+  </properties>
+  <image source="Objects/EEZ_Platform1.png" width="64" height="32"/>
+ </tile>
+ <tile id="22">
+  <properties>
+   <property name="time_multiplier" type="float" value="0.03125"/>
+   <property name="xoffset" type="float" value="0"/>
+   <property name="yoffset" type="float" value="32"/>
+  </properties>
+  <image source="Objects/EEZ_Platform2.png" width="128" height="48"/>
  </tile>
 </tileset>

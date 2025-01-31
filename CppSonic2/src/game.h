@@ -89,16 +89,17 @@ struct Player {
 
 // has to be forward compatible
 #define OBJ_TYPE_ENUM(X) \
-	X(OBJ_PLAYER_INIT_POS, 0) \
-	X(OBJ_LAYER_SET,       1) \
-	X(OBJ_LAYER_FLIP,      2) \
-	X(OBJ_RING,            3) \
-	X(OBJ_MONITOR,         4) \
-	X(OBJ_SPRING,          5) \
-	X(OBJ_MONITOR_BROKEN,  6) \
-	X(OBJ_MONITOR_ICON,    7) \
-	X(OBJ_SPIKE,           8) \
-	X(OBJ_RING_DROPPED,    9)
+	X(OBJ_PLAYER_INIT_POS,  0) \
+	X(OBJ_LAYER_SET,        1) \
+	X(OBJ_LAYER_FLIP,       2) \
+	X(OBJ_RING,             3) \
+	X(OBJ_MONITOR,          4) \
+	X(OBJ_SPRING,           5) \
+	X(OBJ_MONITOR_BROKEN,   6) \
+	X(OBJ_MONITOR_ICON,     7) \
+	X(OBJ_SPIKE,            8) \
+	X(OBJ_RING_DROPPED,     9) \
+	X(OBJ_MOVING_PLATFORM, 10)
 
 DEFINE_NAMED_ENUM_WITH_VALUES(ObjType, OBJ_TYPE_ENUM)
 
@@ -186,6 +187,16 @@ struct Object {
 			float frame_index;
 			float lifetime;
 		} ring_dropped; // OBJ_RING_DROPPED
+
+		struct {
+			u32 sprite_index;
+			vec2 radius;
+			vec2 offset;
+			float time_multiplier;
+
+			vec2 init_pos;
+			vec2 prev_pos;
+		} mplatform; // OBJ_MOVING_PLATFORM
 	};
 };
 

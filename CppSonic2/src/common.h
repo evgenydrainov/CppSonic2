@@ -467,12 +467,20 @@ inline vec2 lengthdir_v2(float len, float dir) {
 }
 
 inline float wrapf(float a, float b) {
-	return fmodf((fmodf(a, b) + b), b);
+	a = fmodf(a, b);
+	if (a < 0) {
+		a += b;
+	}
+	return a;
 }
 
 template <typename T>
 inline T wrap(T a, T b) {
-	return ((a % b) + b) % b;
+	a = a % b;
+	if (a < 0) {
+		a += b;
+	}
+	return a;
 }
 
 inline float angle_wrap(float deg) {

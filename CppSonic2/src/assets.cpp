@@ -134,6 +134,14 @@ void load_assets_for_game() {
 		sprites[spr_mobile_pause_button]  = make_sprite(t, 96, 32, 16, 16, 0, 0);
 	}
 #endif
+
+	{
+		textures[tex_EEZ_objects] = load_texture_from_file("textures/EEZ_objects.png");
+		const Texture& t = get_texture(tex_EEZ_objects);
+
+		sprites[spr_EEZ_platform1] = make_sprite(t, 0,  0,  64, 32, 32, 16);
+		sprites[spr_EEZ_platform2] = make_sprite(t, 0, 32, 128, 48, 64, 24);
+	}
 }
 
 void load_assets_for_editor() {

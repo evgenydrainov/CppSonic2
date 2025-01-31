@@ -14,6 +14,7 @@ enum {
 	tex_mobile_controls,
 	tex_titlecard_line,
 	tex_pause_menu,
+	tex_EEZ_objects,
 
 	tex_title_medal,
 	tex_title_sonic,
@@ -63,6 +64,9 @@ enum {
 	// has to be in order
 	spr_spring_bounce_yellow,
 	spr_spring_bounce_red,
+
+	spr_EEZ_platform1,
+	spr_EEZ_platform2,
 
 	spr_layer_set,
 	spr_layer_flip,

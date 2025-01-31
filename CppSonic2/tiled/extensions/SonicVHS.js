@@ -109,15 +109,17 @@ function strip_filename(path) {
 	return path.substring(0, path.lastIndexOf("/"));
 }
 
-const OBJ_PLAYER_INIT_POS = 0;
-const OBJ_LAYER_SET       = 1;
-const OBJ_LAYER_FLIP      = 2;
-const OBJ_RING            = 3;
-const OBJ_MONITOR         = 4;
-const OBJ_SPRING          = 5;
-const OBJ_MONITOR_BROKEN  = 6;
-const OBJ_MONITOR_ICON    = 7;
-const OBJ_SPIKE           = 8;
+const OBJ_PLAYER_INIT_POS =  0;
+const OBJ_LAYER_SET       =  1;
+const OBJ_LAYER_FLIP      =  2;
+const OBJ_RING            =  3;
+const OBJ_MONITOR         =  4;
+const OBJ_SPRING          =  5;
+const OBJ_MONITOR_BROKEN  =  6;
+const OBJ_MONITOR_ICON    =  7;
+const OBJ_SPIKE           =  8;
+const OBJ_RING_DROPPED    =  9;
+const OBJ_MOVING_PLATFORM = 10;
 
 const DIR_RIGHT = 0;
 const DIR_UP    = 1;
@@ -139,6 +141,8 @@ function get_obj_type(o) {
 		return OBJ_LAYER_SET;
 	} else if (o.tile.id == 20) {
 		return OBJ_SPIKE;
+	} else if (o.tile.id == 21 || o.tile.id == 22) {
+		return OBJ_MOVING_PLATFORM;
 	}
 	
 	throw new Error("Unknown object type.");
@@ -261,7 +265,7 @@ var customMapFormat = {
 			
 			var flags = 0;
 			if (o.tile.id == 18) {
-				if (o.property("Grounded")) {
+				if (o.resolvedProperty("Grounded")) {
 					flags |= 1 << 16;
 				}
 			}
@@ -325,10 +329,33 @@ var customMapFormat = {
 				write_float32(file, radius_x);
 				write_float32(file, radius_y);
 				
-				var _layer = o.property("Layer");
+				var _layer = o.resolvedProperty("Layer");
 				write_int(file, _layer);
 			} else if (o.tile.id == 20) {
 				write_int(file, direction);
+			} else if (o.tile.id == 21 || o.tile.id == 22) {
+				var sprite_index = o.tile.id - 21;
+				write_u32(file, sprite_index);
+				
+				var radius_x = 16;
+				var radius_y = 16;
+				if (o.tile.id == 21) {
+					radius_x = 64 / 2;
+					radius_y = 12 / 2;
+				} else if (o.tile.id == 22) {
+					radius_x = 128 / 2;
+					radius_y = 30  / 2;
+				}
+				write_float32(file, radius_x);
+				write_float32(file, radius_y);
+				
+				var xoffset = o.resolvedProperty("xoffset");
+				var yoffset = o.resolvedProperty("yoffset");
+				write_float32(file, xoffset);
+				write_float32(file, yoffset);
+				
+				var time_multiplier = o.resolvedProperty("time_multiplier");
+				write_float32(file, time_multiplier);
 			} else {
 				throw new Error("Object type not serialized.");
 			}
