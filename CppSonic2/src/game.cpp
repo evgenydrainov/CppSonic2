@@ -2276,7 +2276,7 @@ void Game::update(float delta) {
 				case OBJ_MOVING_PLATFORM: {
 					it->mplatform.prev_pos = it->pos;
 
-					float a = get_time() * 60 * it->mplatform.time_multiplier;
+					float a = time * it->mplatform.time_multiplier;
 					it->pos.x = floorf(it->mplatform.init_pos.x + cosf(a) * it->mplatform.offset.x);
 					it->pos.y = floorf(it->mplatform.init_pos.y - sinf(a) * it->mplatform.offset.y);
 					break;
@@ -2405,6 +2405,8 @@ void Game::update(float delta) {
 		}
 
 		update_particles(delta);
+
+		time += delta;
 	}
 
 	{

@@ -271,6 +271,8 @@ struct Game {
 
 	Tilemap tm;
 
+	float time;
+
 	enum Titlecard_State {
 		TITLECARD_IN,
 		TITLECARD_WAIT,

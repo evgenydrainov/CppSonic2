@@ -148,9 +148,13 @@ inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(SDL_LogPriority priority, SDL
 extern SDL_Window* get_window_handle(); // defined in window_creation.h
 
 inline void try_to_exit_fullscreen_properly() {
-	// @Todo: Probably needed only for Windows
 	if (SDL_Window* window = get_window_handle()) {
 		SDL_SetWindowFullscreen(window, 0);
+
+		// NOTE: if you leave fullscreen right before triggering the debugger or showing a message box,
+		// then you have to respond to the OS events here, otherwise you won't actually leave fullscreen and get a stuck window.
+		// At least, that was the case before I updated my GPU driver I think.
+
 		SDL_Event ev;
 		while (SDL_PollEvent(&ev)) {}
 	}

@@ -75,9 +75,12 @@ void init_window_and_opengl(const char* title,
 	window.perf_frequency = SDL_GetPerformanceFrequency();
 	window.perf_frequency_double = (double)window.perf_frequency;
 
-	SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "system");
+	// SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "permonitorv2");
+	SDL_SetHint("SDL_WINDOWS_DPI_SCALING", "1");
 
 	SDL_SetHint("SDL_IOS_ORIENTATIONS", "LandscapeLeft");
+
+	//SDL_SetHint("SDL_ANDROID_TRAP_BACK_BUTTON", "1");
 
 	if (SDL_Init(SDL_INIT_VIDEO
 				 | SDL_INIT_GAMECONTROLLER) != 0) {
@@ -226,6 +229,29 @@ void init_window_and_opengl(const char* title,
 		}
 	}
 
+	{
+		int w;
+		int h;
+		SDL_GetWindowSize(window.handle, &w, &h);
+
+		int wp;
+		int hp;
+		SDL_GetWindowSizeInPixels(window.handle, &wp, &hp);
+
+		log_info("Detected DPI scale from SDL_GetWindowSizeInPixels: %f %f", wp/(float)w, hp/(float)h);
+	}
+
+	{
+		int display = SDL_GetWindowDisplayIndex(window.handle);
+
+		float ddpi;
+		float hdpi;
+		float vdpi;
+		SDL_GetDisplayDPI(display, &ddpi, &hdpi, &vdpi);
+
+		log_info("Detected DPI scale from SDL_GetDisplayDPI: %f %f %f", ddpi/96.0f, hdpi/96.0f, vdpi/96.0f);
+	}
+
 	SDL_GL_SetSwapInterval(window.vsync ? 1 : 0);
 
 	glDisable(GL_CULL_FACE);
@@ -304,6 +330,13 @@ void handle_event(const SDL_Event& ev) {
 					window.frame_advance_mode = false;
 					break;
 				}
+
+#ifdef __ANDROID__
+				/*case SDL_SCANCODE_AC_BACK: {
+					SDL_StartTextInput();
+					break;
+				}*/
+#endif
 			}
 			break;
 		}
@@ -526,13 +559,16 @@ SDL_Window* get_window_handle() {
 
 void set_fullscreen(bool fullscreen) {
 	if (fullscreen) {
+		SDL_DisplayMode mode;
+		int display = SDL_GetWindowDisplayIndex(window.handle);
+		SDL_GetDesktopDisplayMode(display, &mode);
+		SDL_SetWindowDisplayMode(window.handle, &mode);
+
+		// NOTE: on an old AMD driver, when you enabled fullscreen, the refresh rate of your monitor would change.
+
 		if (window.prefer_borderless_fullscreen) {
 			SDL_SetWindowFullscreen(window.handle, SDL_WINDOW_FULLSCREEN_DESKTOP);
 		} else {
-			SDL_DisplayMode mode;
-			int display = SDL_GetWindowDisplayIndex(window.handle);
-			SDL_GetDesktopDisplayMode(display, &mode);
-			SDL_SetWindowDisplayMode(window.handle, &mode);
 			SDL_SetWindowFullscreen(window.handle, SDL_WINDOW_FULLSCREEN);
 		}
 	} else {

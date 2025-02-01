@@ -707,8 +707,8 @@
     <property name="Grounded" type="bool" value="true"/>
    </properties>
   </object>
-  <object id="55" gid="4116" x="2008" y="1792" width="16" height="176"/>
-  <object id="56" gid="4116" x="2200" y="1792" width="16" height="176">
+  <object id="55" gid="4116" x="2000" y="1792" width="16" height="176"/>
+  <object id="56" gid="4116" x="2208" y="1792" width="16" height="176">
    <properties>
     <property name="Layer" type="int" value="1"/>
    </properties>
