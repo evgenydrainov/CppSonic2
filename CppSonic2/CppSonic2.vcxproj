@@ -110,7 +110,8 @@
     </Link>
     <PostBuildEvent>
       <Command>copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.dll" "$(TargetDir)SDL2.dll"
-copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll" "$(TargetDir)SDL2_mixer.dll"</Command>
+copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll" "$(TargetDir)SDL2_mixer.dll"
+copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.pdb" "$(TargetDir)SDL2.pdb"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -137,7 +138,8 @@ copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll"
     </Link>
     <PostBuildEvent>
       <Command>copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.dll" "$(TargetDir)SDL2.dll"
-copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll" "$(TargetDir)SDL2_mixer.dll"</Command>
+copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll" "$(TargetDir)SDL2_mixer.dll"
+copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.pdb" "$(TargetDir)SDL2.pdb"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -160,7 +162,8 @@ copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll"
     </Link>
     <PostBuildEvent>
       <Command>copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.dll" "$(TargetDir)SDL2.dll"
-copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll" "$(TargetDir)SDL2_mixer.dll"</Command>
+copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll" "$(TargetDir)SDL2_mixer.dll"
+copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.pdb" "$(TargetDir)SDL2.pdb"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -187,7 +190,8 @@ copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll"
     </Link>
     <PostBuildEvent>
       <Command>copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.dll" "$(TargetDir)SDL2.dll"
-copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll" "$(TargetDir)SDL2_mixer.dll"</Command>
+copy /Y "$(SolutionDir)external\SDL2_mixer\lib\$(PlatformTarget)\SDL2_mixer.dll" "$(TargetDir)SDL2_mixer.dll"
+copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.pdb" "$(TargetDir)SDL2.pdb"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
