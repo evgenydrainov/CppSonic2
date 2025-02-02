@@ -68,6 +68,7 @@ void load_assets_for_game() {
 	sounds[snd_skid]            = load_sound("sounds/skid.wav");
 	sounds[snd_destroy_monitor] = load_sound("sounds/destroy_monitor.wav");
 	sounds[snd_spring_bounce]   = load_sound("sounds/spring_bounce.wav");
+	sounds[snd_lose_rings]      = load_sound("sounds/lose_rings.wav");
 
 	{
 		textures[tex_title_medal] = load_texture_from_file("textures/title_medal.png");

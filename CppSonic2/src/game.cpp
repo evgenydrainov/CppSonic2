@@ -1258,6 +1258,8 @@ static void player_collide_with_solid_objects(Player* p) {
 					}
 				}
 
+				play_sound(get_sound(snd_lose_rings));
+
 				return true;
 			}
 		}

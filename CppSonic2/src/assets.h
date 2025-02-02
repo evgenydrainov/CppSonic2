@@ -115,6 +115,7 @@ enum {
 	snd_skid,
 	snd_destroy_monitor,
 	snd_spring_bounce,
+	snd_lose_rings,
 
 	NUM_SOUNDS,
 };
