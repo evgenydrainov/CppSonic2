@@ -527,17 +527,17 @@ void reset_shader() {
 	}
 }
 
-void set_proj_mat(mat4 proj_mat) {
+void set_proj_mat(const mat4& proj_mat) {
 	break_batch();
 	renderer.proj_mat = proj_mat;
 }
 
-void set_view_mat(mat4 view_mat) {
+void set_view_mat(const mat4& view_mat) {
 	break_batch();
 	renderer.view_mat = view_mat;
 }
 
-void set_model_mat(mat4 model_mat) {
+void set_model_mat(const mat4& model_mat) {
 	break_batch();
 	renderer.model_mat = model_mat;
 }

@@ -84,9 +84,9 @@ void break_batch(); // makes the draw call
 void set_shader(u32 shader);
 void reset_shader();
 
-void set_proj_mat(mat4 proj_mat);
-void set_view_mat(mat4 view_mat);
-void set_model_mat(mat4 model_mat);
+void set_proj_mat (const mat4& proj_mat);
+void set_view_mat (const mat4& view_mat);
+void set_model_mat(const mat4& model_mat);
 
 void set_viewport(int x, int y, int width, int height);
 

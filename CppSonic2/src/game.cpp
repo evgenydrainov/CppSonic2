@@ -1131,6 +1131,51 @@ static float get_spring_force(const Object& o) {
 	return force;
 }
 
+static void player_drop_rings(Player* p, int amount) {
+	amount = min(amount, 32);
+
+	float offset = 0;
+	while (amount > 0) {
+		if (amount % 2 == 0) offset += 22.5f;
+
+		if (offset > 180) offset -= 180;
+
+		float speed = (amount > 16) ? 2 : 4;
+		float direction = 90;
+		if (amount % 2 == 0) {
+			direction += offset;
+		} else {
+			direction -= offset;
+		}
+
+		Object ring_dropped = {};
+		ring_dropped.id = game.next_id++;
+		ring_dropped.type = OBJ_RING_DROPPED;
+		ring_dropped.pos = p->pos;
+		ring_dropped.ring_dropped.speed = lengthdir_v2(speed, direction);
+		ring_dropped.ring_dropped.anim_spd = 0.5f;
+
+		array_add(&game.objects, ring_dropped);
+
+		amount--;
+	}
+}
+
+static void player_get_hit(Player* p, int side) {
+	p->state = STATE_AIR;
+	p->speed.x = side * 2;
+	p->speed.y = -4;
+	p->jumped = false;
+	p->next_anim = anim_hurt;
+	p->invulnerable = 120;
+	p->ignore_rings = 64;
+
+	player_drop_rings(p, game.player_rings);
+	game.player_rings = 0;
+
+	play_sound(get_sound(snd_lose_rings));
+}
+
 static void player_collide_with_solid_objects(Player* p) {
 	vec2 player_radius = player_get_radius(p);
 	
@@ -1218,47 +1263,7 @@ static void player_collide_with_solid_objects(Player* p) {
 				float side = signf(p->pos.x - o->pos.x);
 				if (side == 0) side = 1;
 
-				p->state = STATE_AIR;
-				p->speed.x = side * 2;
-				p->speed.y = -4;
-				p->jumped = false;
-				p->next_anim = anim_hurt;
-				p->invulnerable = 120;
-				p->ignore_rings = 64;
-
-				// drop rings
-				{
-					int amount = min(game.player_rings, 32);
-					game.player_rings = 0;
-
-					float offset = 0;
-					while (amount > 0) {
-						if (amount % 2 == 0) offset += 22.5f;
-
-						if (offset > 180) offset -= 180;
-
-						float speed = (amount > 16) ? 2 : 4;
-						float direction = 90;
-						if (amount % 2 == 0) {
-							direction += offset;
-						} else {
-							direction -= offset;
-						}
-
-						Object ring_dropped = {};
-						ring_dropped.id = game.next_id++;
-						ring_dropped.type = OBJ_RING_DROPPED;
-						ring_dropped.pos = p->pos;
-						ring_dropped.ring_dropped.speed = lengthdir_v2(speed, direction);
-						ring_dropped.ring_dropped.anim_spd = 0.5f;
-
-						array_add(&game.objects, ring_dropped);
-
-						amount--;
-					}
-				}
-
-				play_sound(get_sound(snd_lose_rings));
+				player_get_hit(p, side);
 
 				return true;
 			}
@@ -2278,7 +2283,7 @@ void Game::update(float delta) {
 				case OBJ_MOVING_PLATFORM: {
 					it->mplatform.prev_pos = it->pos;
 
-					float a = time * it->mplatform.time_multiplier;
+					float a = player_time * it->mplatform.time_multiplier + PI/2;
 					it->pos.x = floorf(it->mplatform.init_pos.x + cosf(a) * it->mplatform.offset.x);
 					it->pos.y = floorf(it->mplatform.init_pos.y - sinf(a) * it->mplatform.offset.y);
 					break;
@@ -2360,6 +2365,11 @@ void Game::update(float delta) {
 					} else if (it->monitor.timer > 32) {
 						if (!(it->flags & FLAG_MONITOR_ICON_GOT_REWARD)) {
 							switch (it->monitor.icon) {
+								case MONITOR_ICON_ROBOTNIK: {
+									player_get_hit(&player, 1);
+									break;
+								}
+
 								case MONITOR_ICON_SUPER_RING: {
 									player_rings += 10;
 									play_sound(get_sound(snd_ring));
@@ -2407,8 +2417,6 @@ void Game::update(float delta) {
 		}
 
 		update_particles(delta);
-
-		time += delta;
 	}
 
 	{

@@ -111,10 +111,9 @@ void init_window_and_opengl(const char* title,
 		log_info("Current video backend: %s", SDL_GetCurrentVideoDriver());
 	}
 
-	u32 window_flags =
-		SDL_WINDOW_OPENGL
-		| SDL_WINDOW_RESIZABLE
-		| SDL_WINDOW_ALLOW_HIGHDPI /*for Mac*/;
+	u32 window_flags = (SDL_WINDOW_OPENGL
+						| SDL_WINDOW_RESIZABLE
+						| SDL_WINDOW_ALLOW_HIGHDPI /*for Mac*/);
 
 #ifdef __ANDROID__
 	window_flags |= SDL_WINDOW_FULLSCREEN;
