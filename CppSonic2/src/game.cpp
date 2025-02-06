@@ -2434,30 +2434,37 @@ void Game::update(float delta) {
 	// update titlecard
 	switch (titlecard_state) {
 		case TITLECARD_IN: {
-			Approach(&titlecard_t, TITLECARD_IN_TIME, delta);
+			Approach(&titlecard_timer, TITLECARD_IN_TIME, delta);
+			titlecard_t = (titlecard_timer / TITLECARD_IN_TIME) * 0.5f;
 
-			if (titlecard_t == TITLECARD_IN_TIME) {
+			if (titlecard_timer == TITLECARD_IN_TIME) {
 				titlecard_state = TITLECARD_WAIT;
-				titlecard_t = 0;
+				titlecard_timer = 0;
+				titlecard_t = 0.5f;
 			}
 			break;
 		}
 
 		case TITLECARD_WAIT: {
-			Approach(&titlecard_t, TITLECARD_WAIT_TIME, delta);
+			Approach(&titlecard_timer, TITLECARD_WAIT_TIME, delta);
+			titlecard_t = 0.5f;
 
-			if (titlecard_t == TITLECARD_WAIT_TIME) {
+			if (titlecard_timer == TITLECARD_WAIT_TIME) {
 				titlecard_state = TITLECARD_OUT;
-				titlecard_t = 0;
+				titlecard_timer = 0;
+				titlecard_t = 0.5f;
 			}
 			break;
 		}
 
 		case TITLECARD_OUT: {
-			Approach(&titlecard_t, TITLECARD_IN_TIME, delta);
+			Approach(&titlecard_timer, TITLECARD_IN_TIME, delta);
+			titlecard_t = 0.5f + (titlecard_timer / TITLECARD_IN_TIME) * 0.5f;
 
-			if (titlecard_t == TITLECARD_IN_TIME) {
+			if (titlecard_timer == TITLECARD_IN_TIME) {
 				titlecard_state = TITLECARD_FINISHED;
+				titlecard_timer = 0;
+				titlecard_t = 1;
 			}
 			break;
 		}
@@ -2468,47 +2475,53 @@ void Game::update(float delta) {
 		switch (pause_state) {
 			case PAUSE_NOT_PAUSED: {
 				if (titlecard_state == TITLECARD_FINISHED) {
+					bool pressed = false;
+
 					if (is_key_pressed(SDL_SCANCODE_ESCAPE) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_START)) {
-						pause_state = PAUSE_IN;
-						pause_menu_t = 0;
-						pause_menu_cursor = 0;
+						pressed = true;
 					}
 
 					// pause when lost window focus
 					/*if (!(SDL_GetWindowFlags(window.handle) & SDL_WINDOW_INPUT_FOCUS)) {
-						pause_state = PAUSE_IN;
-						pause_menu_t = 0;
-						pause_menu_cursor = 0;
+						pressed = true;
 					}*/
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
 					if (mobile_input_pause) {
+						pressed = true;
+					}
+#endif
+
+					if (pressed) {
 						pause_state = PAUSE_IN;
+						pause_menu_timer = 0;
 						pause_menu_t = 0;
 						pause_menu_cursor = 0;
 					}
-#endif
 				}
 				break;
 			}
 
 			case PAUSE_IN: {
-				Approach(&pause_menu_t, 1.0f, (1.0f / PAUSE_IN_TIME) * delta);
+				Approach(&pause_menu_timer, PAUSE_IN_TIME, delta);
+				pause_menu_t = (pause_menu_timer / PAUSE_IN_TIME) * 0.5f;
 
-				if (pause_menu_t == 1) {
+				if (pause_menu_timer == PAUSE_IN_TIME) {
 					pause_state = PAUSE_PAUSED;
-					pause_menu_t = 1;
+					pause_menu_timer = 0;
+					pause_menu_t = 0.5f;
 				}
 				break;
 			}
 
 			case PAUSE_PAUSED: {
+				bool resume = false;
+
 				if (is_key_pressed(SDL_SCANCODE_ESCAPE)
 					|| is_key_pressed(SDL_SCANCODE_X)
 					|| is_controller_button_pressed(SDL_CONTROLLER_BUTTON_START))
 				{
-					pause_state = PAUSE_OUT;
-					pause_menu_t = 1;
+					resume = true;
 				}
 
 				if (is_key_pressed(SDL_SCANCODE_UP) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_DPAD_UP)) {
@@ -2563,8 +2576,7 @@ void Game::update(float delta) {
 				if (pressed) {
 					switch (pause_menu_cursor) {
 						case 0: { // resume
-							pause_state = PAUSE_OUT;
-							pause_menu_t = 1;
+							resume = true;
 							break;
 						}
 
@@ -2584,15 +2596,23 @@ void Game::update(float delta) {
 						}
 					}
 				}
+
+				if (resume) {
+					pause_state = PAUSE_OUT;
+					pause_menu_timer = 0;
+					pause_menu_t = 0.5f;
+				}
 				break;
 			}
 
 			case PAUSE_OUT: {
-				Approach(&pause_menu_t, 0.0f, (1.0f / PAUSE_IN_TIME) * delta);
+				Approach(&pause_menu_timer, PAUSE_IN_TIME, delta);
+				pause_menu_t = 0.5f + (pause_menu_timer / PAUSE_IN_TIME) * 0.5f;
 
-				if (pause_menu_t == 0) {
+				if (pause_menu_timer == PAUSE_IN_TIME) {
 					pause_state = PAUSE_NOT_PAUSED;
-					pause_menu_t = 0;
+					pause_menu_timer = 0;
+					pause_menu_t = 1;
 				}
 				break;
 			}
@@ -3005,31 +3025,25 @@ void Game::draw(float delta) {
 		src.w = t.width;
 		src.h = 200;
 
-		float f = 1;
-		switch (titlecard_state) {
-			case TITLECARD_IN:   f = titlecard_t / TITLECARD_IN_TIME; break;
-			case TITLECARD_WAIT: f = 1; break;
-			case TITLECARD_OUT:  f = 1 - titlecard_t / TITLECARD_IN_TIME; break;
-		}
-
 		// draw line
 		{
+			float y1 = -200;
+			float y2 = 0;
+			float y3 = -200;
+
 			vec2 pos = {};
 			pos.x = window.game_width / 2;
-			pos.y = lerp<float>(-200, 0, f);
+			pos.y = lerp3(y1, y2, y3, titlecard_t);
 
 			draw_texture(t, src, pos);
 		}
 
 		// draw text
-		const float text_target_x = window.game_width / 2 + 8;
+		float text_x1 = window.game_width;
+		float text_x2 = window.game_width / 2 + 8;
+		float text_x3 = -64;
 
-		float text_x;
-		if (titlecard_state == TITLECARD_OUT) {
-			text_x = lerp<float>(-64, text_target_x, f);
-		} else {
-			text_x = lerp<float>(window.game_width, text_target_x, f);
-		}
+		float text_x = lerp3(text_x1, text_x2, text_x3, titlecard_t);
 
 		vec2 pos = {};
 		pos.x = text_x;
@@ -3169,11 +3183,22 @@ void Game::draw(float delta) {
 
 	// draw pause menu
 	if (pause_state != PAUSE_NOT_PAUSED) {
+		// white bg
 		{
+			float alpha1 = 0.4f;
+			float alpha2 = 0.4f;
+			float alpha3 = 0;
+			
 			vec4 color = color_white;
-			color.a = 0.4f * pause_menu_t;
+			color.a = lerp3(alpha1, alpha2, alpha3, pause_menu_t);
 
-			Rectf r = {0, 0, window.game_width, window.game_height};
+			float y1 = -window.game_height;
+			float y2 = 0;
+			float y3 = 0;
+
+			float y = lerp3(y1, y2, y3, pause_menu_t);
+
+			Rectf r = {0, y, window.game_width, window.game_height};
 			draw_rectangle(r, color);
 		}
 
@@ -3183,7 +3208,7 @@ void Game::draw(float delta) {
 
 			{
 				vec4 color = color_black;
-				color.a = pause_menu_t;
+				color.a = lerp3(0.0f, 1.0f, 0.0f, pause_menu_t);
 
 				Rectf r = {pos.x + 128, pos.y + 19, window.game_width, 13};
 				draw_rectangle(r, color);
@@ -3191,14 +3216,18 @@ void Game::draw(float delta) {
 
 			{
 				vec4 color = color_white;
-				color.a = pause_menu_t;
+				color.a = lerp3(0.0f, 1.0f, 0.0f, pause_menu_t);
 				draw_sprite(get_sprite(spr_pause_menu_logo), 0, pos, {1, 1}, 0, color);
 			}
 		}
 
 		{
+			float x1 = window.game_width;
+			float x2 = window.game_width - 128;
+			float x3 = window.game_width;
+
 			vec2 pos = {};
-			pos.x = lerp<float>(window.game_width, window.game_width - 128, pause_menu_t);
+			pos.x = lerp3(x1, x2, x3, pause_menu_t);
 
 			while (pos.y < window.game_height) {
 				draw_sprite(get_sprite(spr_pause_menu_bg), 0, pos);
@@ -3212,7 +3241,8 @@ void Game::draw(float delta) {
 
 			for (int i = 0; i < PAUSE_MENU_NUM_ITEMS; i++) {
 				vec4 color = color_white;
-				color.a = pause_menu_t;
+				color.a = lerp3(0.0f, 1.0f, 0.0f, pause_menu_t);
+
 				draw_sprite(get_sprite(spr_pause_menu_labels), i, pos, {1, 1}, 0, color);
 
 				if (i == pause_menu_cursor) {

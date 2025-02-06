@@ -282,6 +282,7 @@ struct Game {
 	static constexpr float TITLECARD_WAIT_TIME = 70;
 
 	Titlecard_State titlecard_state;
+	float titlecard_timer;
 	float titlecard_t;
 
 	enum Pause_State {
@@ -291,7 +292,7 @@ struct Game {
 		PAUSE_OUT,
 	};
 
-	static constexpr float PAUSE_IN_TIME = 7;
+	static constexpr float PAUSE_IN_TIME = 10;
 
 #ifdef DEVELOPER
 	static constexpr int PAUSE_MENU_NUM_ITEMS = 4;
@@ -300,6 +301,7 @@ struct Game {
 #endif
 
 	Pause_State pause_state;
+	float pause_menu_timer;
 	float pause_menu_t;
 	int pause_menu_cursor;
 	u32 pause_last_pressed_time;

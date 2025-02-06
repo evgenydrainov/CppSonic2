@@ -215,30 +215,33 @@ void init_window_and_opengl(const char* title,
 	{
 		window.vsync = prefer_vsync;
 
-		char* env_use_vsync = SDL_getenv("USE_VSYNC"); // @Leak
-		if (env_use_vsync) {
-			window.vsync = (SDL_atoi(env_use_vsync) != 0);
+		char* USE_VSYNC = SDL_getenv("USE_VSYNC"); // @Leak
+		if (USE_VSYNC) {
+			window.vsync = (SDL_atoi(USE_VSYNC) != 0);
 		}
 
 		window.prefer_borderless_fullscreen = prefer_borderless_fullscreen;
 
-		char* env_use_borderless_fullscreen = SDL_getenv("USE_BORDERLESS_FULLSCREEN"); // @Leak
-		if (env_use_borderless_fullscreen) {
-			window.prefer_borderless_fullscreen = (SDL_atoi(env_use_borderless_fullscreen) != 0);
+		char* USE_BORDERLESS_FULLSCREEN = SDL_getenv("USE_BORDERLESS_FULLSCREEN"); // @Leak
+		if (USE_BORDERLESS_FULLSCREEN) {
+			window.prefer_borderless_fullscreen = (SDL_atoi(USE_BORDERLESS_FULLSCREEN) != 0);
 		}
+
+		char* LD_LIBRARY_PATH = SDL_getenv("LD_LIBRARY_PATH"); // @Leak
+		log_info("LD_LIBRARY_PATH: %s", LD_LIBRARY_PATH ? LD_LIBRARY_PATH : "not set");
 	}
 
-	{
-		int w;
-		int h;
-		SDL_GetWindowSize(window.handle, &w, &h);
+	// {
+	// 	int w;
+	// 	int h;
+	// 	SDL_GetWindowSize(window.handle, &w, &h);
 
-		int wp;
-		int hp;
-		SDL_GetWindowSizeInPixels(window.handle, &wp, &hp);
+	// 	int wp;
+	// 	int hp;
+	// 	SDL_GetWindowSizeInPixels(window.handle, &wp, &hp);
 
-		log_info("Detected DPI scale from SDL_GetWindowSizeInPixels: %f %f", wp/(float)w, hp/(float)h);
-	}
+	// 	log_info("Detected DPI scale from SDL_GetWindowSizeInPixels: %f %f", wp/(float)w, hp/(float)h);
+	// }
 
 	{
 		int display = SDL_GetWindowDisplayIndex(window.handle);

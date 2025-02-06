@@ -367,6 +367,15 @@ inline T lerp_delta(T a, T b, float f, float delta) {
 	return lerp(a, b, 1.0f - powf(f, delta));
 }
 
+template <typename T>
+inline T lerp3(T a, T b, T c, float f) {
+	if (f >= 0.5f) {
+		return lerp(b, c, (f - 0.5f) * 2.0f);
+	} else {
+		return lerp(a, b, f * 2.0f);
+	}
+}
+
 inline vec2 normalize0(vec2 v) {
 	float length = sqrtf(v.x * v.x + v.y * v.y);
 	if (length != 0) {
