@@ -3,13 +3,13 @@
 #include "renderer.h"
 #include "assets.h"
 
-Sprite make_sprite(const Texture& t,
-				   int u, int v,
-				   int width, int height,
-				   int xorigin, int yorigin,
-				   int frame_count, int frames_in_row,
-				   float anim_spd, int loop_frame,
-				   int xstride, int ystride) {
+Sprite create_sprite(const Texture& t,
+					 int u, int v,
+					 int width, int height,
+					 int xorigin, int yorigin,
+					 int frame_count, int frames_in_row,
+					 float anim_spd, int loop_frame,
+					 int xstride, int ystride) {
 	if (frame_count == 0) frame_count = 1;
 	if (frames_in_row == 0) frames_in_row = frame_count;
 	if (xstride == 0) xstride = width;

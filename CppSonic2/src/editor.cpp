@@ -274,7 +274,7 @@ static void AddTile(ImDrawList* draw_list, Tile tile,
 	if (/*tile.index == 0*/false) {
 		draw_list->AddRectFilled(p, p + ImVec2(16, 16) * view.zoom, IM_COL32(0, 0, 0, (col >> IM_COL32_A_SHIFT) & 0xff));
 	} else {
-		draw_list->AddImage(tileset_texture.ID, p, p + ImVec2(16, 16) * view.zoom, uv_min, uv_max, col);
+		draw_list->AddImage(tileset_texture.id, p, p + ImVec2(16, 16) * view.zoom, uv_min, uv_max, col);
 	}
 }
 
@@ -484,7 +484,7 @@ void Editor::import_s1_level(const char* level_data_path,
 	load_texture_from_file(&tileset_texture, tileset_texture_path);
 	load_surface_from_file(&tileset_surface, tileset_texture_path);
 
-	if (tileset_texture.ID == 0) {
+	if (tileset_texture.id == 0) {
 		return;
 	}
 
@@ -686,7 +686,7 @@ static void AddTexture(ImDrawList* draw_list,
 	vertices[2].pos = model * vec4{vertices[2].pos, 1.0f};
 	vertices[3].pos = model * vec4{vertices[3].pos, 1.0f};
 
-	draw_list->AddImageQuad(t.ID,
+	draw_list->AddImageQuad(t.id,
 							to_imvec2(vertices[0].pos),
 							to_imvec2(vertices[1].pos),
 							to_imvec2(vertices[2].pos),
@@ -769,7 +769,7 @@ static void draw_objects(ImDrawList* draw_list,
 
 				MonitorIcon icon = it->monitor.icon;
 
-				draw_list->AddImage(s.texture.ID, p, p2, sprite_get_uv0(s, icon), sprite_get_uv1(s, icon), col);
+				draw_list->AddImage(s.texture.id, p, p2, sprite_get_uv0(s, icon), sprite_get_uv1(s, icon), col);
 				break;
 			}
 		}
@@ -1034,7 +1034,7 @@ void Editor::update(float delta) {
 					return;
 				}
 
-				if (tileset_texture.ID == 0) {
+				if (tileset_texture.id == 0) {
 					const char* text = "No tileset loaded.";
 					ImVec2 text_size = ImGui::CalcTextSize(text);
 					ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -1207,15 +1207,15 @@ void Editor::update(float delta) {
 
 				{
 					ImU32 col = IM_COL32(150, 150, 150, 255);
-					draw_list->AddImage(tileset_texture.ID, texture_pos, texture_pos + texture_size, {0, 0}, {1, 1}, col);
+					draw_list->AddImage(tileset_texture.id, texture_pos, texture_pos + texture_size, {0, 0}, {1, 1}, col);
 				}
 
 				if (hmode == HMODE_HEIGHTS || hmode == HMODE_ANGLES) {
 					ImU32 col = IM_COL32(255, 255, 255, 150);
-					draw_list->AddImage(heightmap.ID, texture_pos, texture_pos + texture_size, {0, 0}, {1, 1}, col);
+					draw_list->AddImage(heightmap.id, texture_pos, texture_pos + texture_size, {0, 0}, {1, 1}, col);
 				}
 				if (hmode == HMODE_WIDTHS) {
-					draw_list->AddImage(widthmap.ID, texture_pos, texture_pos + texture_size, {0, 0}, {1, 1}, IM_COL32(255, 255, 255, 128));
+					draw_list->AddImage(widthmap.id, texture_pos, texture_pos + texture_size, {0, 0}, {1, 1}, IM_COL32(255, 255, 255, 128));
 				}
 
 				// draw tile angles
@@ -1793,7 +1793,7 @@ void Editor::update(float delta) {
 					draw_list->AddRectFilled(texture_pos, texture_pos + texture_size, col);
 				}
 
-				draw_list->AddImage(tileset_texture.ID, texture_pos, texture_pos + texture_size);
+				draw_list->AddImage(tileset_texture.id, texture_pos, texture_pos + texture_size);
 
 				if (tilemap_tile_selection.w > 0 && tilemap_tile_selection.h > 0) {
 					ImVec2 p = texture_pos + ImVec2(tilemap_tile_selection.x * 16, tilemap_tile_selection.y * 16) * tile_select_view.zoom;
@@ -2135,7 +2135,7 @@ void Editor::update(float delta) {
 					}
 
 					ImGui::PushID(id++);
-					ImageButtonActive("object button", s.texture.ID, ImVec2(s.width, s.height), sprite_get_uv0(s, 0), sprite_get_uv1(s, 0), false);
+					ImageButtonActive("object button", s.texture.id, ImVec2(s.width, s.height), sprite_get_uv0(s, 0), sprite_get_uv1(s, 0), false);
 					ImGui::PopID();
 
 					ImGui::SameLine();

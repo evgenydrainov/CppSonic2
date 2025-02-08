@@ -340,7 +340,7 @@ void render_end_frame() {
 		}
 
 		Texture t;
-		t.ID = renderer.game_texture;
+		t.id = renderer.game_texture;
 		t.width  = window.game_width;
 		t.height = window.game_height;
 		draw_texture(t, {}, {(float)renderer.game_texture_rect.x, (float)renderer.game_texture_rect.y}, {scale, scale}, {}, 0, color_white, {false, true});
@@ -353,6 +353,35 @@ void render_end_frame() {
 	// glFinish();
 
 	renderer.draw_took = get_time() - renderer.draw_took_t;
+}
+
+static void setup_uniforms(u32 program) {
+	int u_MVP = glGetUniformLocation(program, "u_MVP");
+	if (u_MVP != -1) {
+		mat4 MVP = (renderer.proj_mat * renderer.view_mat) * renderer.model_mat;
+
+		glUniformMatrix4fv(u_MVP, 1, GL_FALSE, &MVP[0][0]);
+	} else {
+		int u_ModelView = glGetUniformLocation(program, "u_ModelView");
+		if (u_ModelView != -1) {
+			mat4 model_view = renderer.view_mat * renderer.model_mat;
+
+			glUniformMatrix4fv(u_ModelView, 1, GL_FALSE, &model_view[0][0]);
+		}
+
+		int u_Proj = glGetUniformLocation(program, "u_Proj");
+		if (u_Proj != -1) {
+			glUniformMatrix4fv(u_Proj, 1, GL_FALSE, &renderer.proj_mat[0][0]);
+		}
+	}
+
+	int u_Texture = glGetUniformLocation(program, "u_Texture");
+	if (u_Texture != -1) {
+		glUniform1i(u_Texture, 0);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, renderer.current_texture);
+	}
 }
 
 void break_batch() {
@@ -377,17 +406,7 @@ void break_batch() {
 			glUseProgram(program);
 			defer { glUseProgram(0); };
 
-			mat4 MVP = (renderer.proj_mat * renderer.view_mat) * renderer.model_mat;
-
-			int u_MVP = glGetUniformLocation(program, "u_MVP");
-			glUniformMatrix4fv(u_MVP, 1, GL_FALSE, &MVP[0][0]);
-
-			int u_Texture = glGetUniformLocation(program, "u_Texture");
-			glUniform1i(u_Texture, 0);
-
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, renderer.current_texture);
-			defer { glBindTexture(GL_TEXTURE_2D, 0); };
+			setup_uniforms(program);
 
 			glBindVertexArray(renderer.batch_vao);
 			defer { glBindVertexArray(0); };
@@ -408,10 +427,7 @@ void break_batch() {
 			glUseProgram(program);
 			defer { glUseProgram(0); };
 
-			mat4 MVP = (renderer.proj_mat * renderer.view_mat) * renderer.model_mat;
-
-			int u_MVP = glGetUniformLocation(program, "u_MVP");
-			glUniformMatrix4fv(u_MVP, 1, GL_FALSE, &MVP[0][0]);
+			setup_uniforms(program);
 
 			glBindVertexArray(renderer.batch_vao);
 			defer { glBindVertexArray(0); };
@@ -432,10 +448,7 @@ void break_batch() {
 			glUseProgram(program);
 			defer { glUseProgram(0); };
 
-			mat4 MVP = (renderer.proj_mat * renderer.view_mat) * renderer.model_mat;
-
-			int u_MVP = glGetUniformLocation(program, "u_MVP");
-			glUniformMatrix4fv(u_MVP, 1, GL_FALSE, &MVP[0][0]);
+			setup_uniforms(program);
 
 			glBindVertexArray(renderer.batch_vao);
 			defer { glBindVertexArray(0); };
@@ -455,10 +468,7 @@ void break_batch() {
 			glUseProgram(program);
 			defer { glUseProgram(0); };
 
-			mat4 MVP = (renderer.proj_mat * renderer.view_mat) * renderer.model_mat;
-
-			int u_MVP = glGetUniformLocation(program, "u_MVP");
-			glUniformMatrix4fv(u_MVP, 1, GL_FALSE, &MVP[0][0]);
+			setup_uniforms(program);
 
 			glBindVertexArray(renderer.batch_vao);
 			defer { glBindVertexArray(0); };
@@ -554,18 +564,18 @@ void render_clear_color(vec4 color) {
 }
 
 void draw_quad(const Texture& t, Vertex vertices[4]) {
-	if (t.ID == 0) {
+	if (t.id == 0) {
 		log_error("Trying to draw invalid texture.");
 		return;
 	}
 
-	if (t.ID != renderer.current_texture
+	if (t.id != renderer.current_texture
 		|| renderer.current_mode != MODE_QUADS
 		|| renderer.vertices.count + VERTICES_PER_QUAD > BATCH_MAX_VERTICES)
 	{
 		break_batch();
 
-		renderer.current_texture = t.ID;
+		renderer.current_texture = t.id;
 		renderer.current_mode = MODE_QUADS;
 	}
 
@@ -580,7 +590,7 @@ void draw_quad(const Texture& t, Vertex vertices[4]) {
 void draw_texture(const Texture& t, Rect src,
 				  vec2 pos, vec2 scale,
 				  vec2 origin, float angle, vec4 color, glm::bvec2 flip) {
-	if (t.ID == 0) {
+	if (t.id == 0) {
 		log_error("Trying to draw invalid texture.");
 		return;
 	}
@@ -590,13 +600,13 @@ void draw_texture(const Texture& t, Rect src,
 		src.h = t.height;
 	}
 
-	if (t.ID != renderer.current_texture
+	if (t.id != renderer.current_texture
 		|| renderer.current_mode != MODE_QUADS
 		|| renderer.vertices.count + VERTICES_PER_QUAD > BATCH_MAX_VERTICES)
 	{
 		break_batch();
 
-		renderer.current_texture = t.ID;
+		renderer.current_texture = t.id;
 		renderer.current_mode = MODE_QUADS;
 	}
 

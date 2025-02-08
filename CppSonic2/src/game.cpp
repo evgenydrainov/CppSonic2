@@ -18,7 +18,7 @@ void Game::load_level(const char* path) {
 	stb_snprintf(buf, sizeof(buf), "%s/Tileset.png", path);
 
 	tileset_texture = load_texture_from_file(buf);
-	if (tileset_texture.ID == 0) {
+	if (tileset_texture.id == 0) {
 		log_error("Couldn't load tileset texture for level %s", path);
 		return;
 	}
@@ -2145,7 +2145,7 @@ static void player_update(Player* p, float delta) {
 			p->frame_index++;
 			if (p->frame_index >= anim_get_frame_count(p->anim)) p->frame_index = 0;
 
-			p->frame_timer = p->frame_duration;
+			p->frame_timer += p->frame_duration;
 		}
 	}
 
@@ -2262,6 +2262,10 @@ void Game::update(float delta) {
 	}
 #endif
 
+	{
+		water_pos_y = 9999 + sinf(player_time/60 * 2) * 4;
+	}
+
 	bool should_skip_frame = false;
 
 	if (titlecard_state == TITLECARD_IN
@@ -2283,9 +2287,9 @@ void Game::update(float delta) {
 				case OBJ_MOVING_PLATFORM: {
 					it->mplatform.prev_pos = it->pos;
 
-					float a = player_time * it->mplatform.time_multiplier + PI/2;
-					it->pos.x = floorf(it->mplatform.init_pos.x + cosf(a) * it->mplatform.offset.x);
-					it->pos.y = floorf(it->mplatform.init_pos.y - sinf(a) * it->mplatform.offset.y);
+					float a = player_time * it->mplatform.time_multiplier;
+					it->pos.x = floorf(it->mplatform.init_pos.x - sinf(a) * it->mplatform.offset.x);
+					it->pos.y = floorf(it->mplatform.init_pos.y + sinf(a) * it->mplatform.offset.y);
 					break;
 				}
 			}
@@ -2618,6 +2622,11 @@ void Game::update(float delta) {
 			}
 		}
 	}
+
+	if (pause_state == PAUSE_NOT_PAUSED) {
+		time_frames += delta;
+		time_seconds = time_frames / 60.0f;
+	}
 }
 
 void Game::draw(float delta) {
@@ -2634,7 +2643,7 @@ void Game::draw(float delta) {
 	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	//defer { glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); };
 
-	// draw bg
+	// draw background
 	{
 		auto draw_part = [&](float bg_height, float bg_pos_y, const Texture& t, Rect src, float parallax) {
 			vec2 pos;
@@ -2663,6 +2672,16 @@ void Game::draw(float delta) {
 
 		float bg_height = 512;
 
+		set_shader(get_shader(shd_sine));
+
+		{
+			glUniform1f(glGetUniformLocation(get_shader(shd_sine), "u_Time"), time_seconds);
+		}
+		{
+			float water_pos_y_on_screen = water_pos_y - camera_pos.y;
+			glUniform1f(glGetUniformLocation(get_shader(shd_sine), "u_WaterPosY"), water_pos_y_on_screen);
+		}
+
 		draw_part(bg_height, 0, back, {0, 0, 1024, 96}, 0.96f);
 
 		for (int i = 0; i < 12; i++) {
@@ -2674,6 +2693,8 @@ void Game::draw(float delta) {
 
 		draw_part(bg_height, 176, front, {0,   0, 1024, 208}, 0.90f);
 		draw_part(bg_height, 176, front, {0, 208, 1024, 128}, 0.88f);
+
+		reset_shader();
 	}
 
 	// draw tilemap
@@ -2782,7 +2803,21 @@ void Game::draw(float delta) {
 		}
 
 		if (!dont_draw) {
+			set_shader(get_shader(shd_palette));
+
+			glUniform1i(glGetUniformLocation(get_shader(shd_palette), "u_Palette"), 1);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, get_texture(tex_sonic_palette).id);
+
+			int palette_index = 1;
+
+			glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteIndex"),  palette_index);
+			glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteWidth"),  get_texture(tex_sonic_palette).width);
+			glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteHeight"), get_texture(tex_sonic_palette).height);
+
 			draw_sprite(s, frame_index, floor(player.pos), {p->facing, 1}, angle);
+
+			reset_shader();
 		}
 
 		// draw spindash smoke
@@ -2901,6 +2936,47 @@ void Game::draw(float delta) {
 		}
 	}
 
+	// draw particles
+	draw_particles(delta);
+
+	// draw water
+	{
+		vec4 color = get_color(50, 255, 255, 100);
+
+		Rectf rect;
+		rect.x = camera_pos.x;
+		rect.y = fmaxf(water_pos_y, camera_pos.y);
+		rect.w = window.game_width;
+		rect.h = window.game_height;
+
+		draw_rectangle(rect, color);
+	}
+
+	// draw water surface
+	{
+		const Sprite& s = get_sprite(spr_water_surface);
+
+		vec2 pos;
+		pos.x = floorf_to(camera_pos.x, s.width);
+		pos.y = water_pos_y;
+
+		int frame_index = (pos.x / s.width) + (time_seconds * 2);
+		frame_index %= s.frames.count;
+
+		int count = (window.game_width + s.width - 1) / s.width;
+
+		pos.x += sinf(time_seconds * 0.5f) * 8;
+
+		for (int i = 0; i < count; i++) {
+			draw_sprite(s, frame_index, pos, {1,1}, 0, get_color(255, 255, 255, 200));
+
+			pos.x += s.width;
+
+			frame_index++;
+			frame_index %= s.frames.count;
+		}
+	}
+
 	// draw object hitboxes
 	if (show_hitboxes) {
 		For (it, objects) {
@@ -2915,9 +2991,6 @@ void Game::draw(float delta) {
 			draw_rectangle_outline(rect, color_white);
 		}
 	}
-
-	// draw particles
-	draw_particles(delta);
 
 #ifdef DEVELOPER
 	// draw player hitbox
@@ -3101,7 +3174,7 @@ void Game::draw(float delta) {
 			}
 
 			if (p->state == STATE_DEBUG) {
-				str = Sprintf(buf, "%08x", (int)p->pos.x);
+				str = Sprintf(buf, "%08d", (int)p->pos.x);
 			} else {
 				str = Sprintf(buf, "%d", player_score);
 			}
@@ -3113,7 +3186,7 @@ void Game::draw(float delta) {
 			int ms  = (int)(player_time / 60.0f * 100.0f) % 100; // not actually milliseconds
 
 			if (p->state == STATE_DEBUG) {
-				str = Sprintf(buf, "%08x", (int)p->pos.y);
+				str = Sprintf(buf, "%08d", (int)p->pos.y);
 			} else {
 				str = Sprintf(buf, "%d'%02d\"%02d", min, sec, ms);
 			}
@@ -3775,8 +3848,8 @@ void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture&
 		}
 	}
 
-	glGenTextures(1, &heightmap->ID);
-	glBindTexture(GL_TEXTURE_2D, heightmap->ID);
+	glGenTextures(1, &heightmap->id);
+	glBindTexture(GL_TEXTURE_2D, heightmap->id);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -3827,8 +3900,8 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 		}
 	}
 
-	glGenTextures(1, &widthmap->ID);
-	glBindTexture(GL_TEXTURE_2D, widthmap->ID);
+	glGenTextures(1, &widthmap->id);
+	glBindTexture(GL_TEXTURE_2D, widthmap->id);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);

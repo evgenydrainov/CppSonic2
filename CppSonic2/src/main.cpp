@@ -21,7 +21,7 @@
 #endif
 
 
-static void emscripten_main_loop() {
+static void do_one_frame() {
 	begin_frame();
 
 	SDL_Event ev;
@@ -87,10 +87,10 @@ static int game_main(int argc, char* argv[]) {
 #endif
 
 #ifdef __EMSCRIPTEN__
-	emscripten_set_main_loop(emscripten_main_loop, 0, 1);
+	emscripten_set_main_loop(do_one_frame, 0, 1);
 #else
 	while (!window.should_quit) {
-		emscripten_main_loop();
+		do_one_frame();
 	}
 #endif
 

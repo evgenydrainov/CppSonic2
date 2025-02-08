@@ -113,7 +113,7 @@ Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath) {
 
 	f.atlas = load_texture_from_file(png_filepath);
 
-	if (f.atlas.ID == 0) {
+	if (f.atlas.id == 0) {
 		log_error("Couldn't load font %s: couldn't load texture.", fnt_filepath);
 		free_font(&f);
 		return {};
@@ -134,7 +134,7 @@ Font load_font_from_texture(const char* filepath,
 	f.atlas = load_texture_from_file(filepath);
 	f.should_free_atlas = true;
 
-	if (f.atlas.ID == 0) {
+	if (f.atlas.id == 0) {
 		log_error("Couldn't create font: invalid texture.");
 		free_font(&f);
 		return {};

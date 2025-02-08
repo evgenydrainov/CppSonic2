@@ -2,11 +2,12 @@
 
 #include "common.h"
 
-inline u32 compile_shader(GLenum type, const char* source, const char* debug_name = nullptr) {
+inline u32 compile_shader(GLenum type, string source, const char* debug_name = nullptr) {
 	u32 shader = glCreateShader(type);
 
-	const char* sources[] = {source};
-	glShaderSource(shader, ArrayLength(sources), sources, NULL);
+	const char* sources[] = {source.data};
+	int lengths[] = {source.count};
+	glShaderSource(shader, ArrayLength(sources), sources, lengths);
 
 	glCompileShader(shader);
 

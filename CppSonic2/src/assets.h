@@ -9,6 +9,7 @@
 
 enum {
 	tex_sonic_sprites,
+	tex_sonic_palette,
 	tex_global_objects,
 	tex_editor_sprites,
 	tex_mobile_controls,
@@ -56,6 +57,7 @@ enum {
 	spr_explosion,
 	spr_skid_dust,
 	spr_spike,
+	spr_water_surface,
 
 	// has to be in order
 	spr_spring_yellow,
@@ -120,6 +122,13 @@ enum {
 	NUM_SOUNDS,
 };
 
+enum {
+	shd_palette,
+	shd_sine,
+
+	NUM_SHADERS,
+};
+
 void load_global_assets();
 void load_assets_for_game();
 void load_assets_for_editor();
@@ -129,5 +138,5 @@ void free_all_assets();
 const Texture& get_texture(u32 texture_index);
 const Sprite&  get_sprite (u32 sprite_index);
 const Font&    get_font   (u32 font_index);
-
-Mix_Chunk* get_sound(u32 sound_index);
+Mix_Chunk*     get_sound  (u32 sound_index);
+u32            get_shader (u32 shader_index);

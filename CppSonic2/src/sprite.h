@@ -21,13 +21,13 @@ struct Sprite {
 	int height;
 };
 
-Sprite make_sprite(const Texture& t,
-				   int u, int v,
-				   int width, int height,
-				   int xorigin, int yorigin,
-				   int frame_count = 0, int frames_in_row = 0,
-				   float anim_spd = 0, int loop_frame = 0,
-				   int xstride = 0, int ystride = 0);
+Sprite create_sprite(const Texture& t,
+					 int u, int v,
+					 int width, int height,
+					 int xorigin, int yorigin,
+					 int frame_count = 0, int frames_in_row = 0,
+					 float anim_spd = 0, int loop_frame = 0,
+					 int xstride = 0, int ystride = 0);
 
 void draw_sprite(const Sprite& s, int frame_index, vec2 pos,
 				 vec2 scale = {1, 1}, float angle = 0,

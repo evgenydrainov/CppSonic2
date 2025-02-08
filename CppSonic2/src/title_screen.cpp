@@ -10,64 +10,8 @@
 
 Title_Screen title_screen;
 
-static const char shd_palette_vert_src[] =
-R"(#version 300 es
-
-precision mediump float;
-
-layout(location = 0) in vec3 in_Position;
-layout(location = 1) in vec3 in_Normal;
-layout(location = 2) in vec4 in_Color;
-layout(location = 3) in vec2 in_TexCoord;
-
-out vec4 v_Color;
-out vec2 v_TexCoord;
-
-uniform mat4 u_MVP;
-
-void main() {
-	gl_Position = u_MVP * vec4(in_Position, 1.0);
-
-	v_Color    = in_Color;
-	v_TexCoord = in_TexCoord;
-}
-)";
-
-static const char shd_palette_frag_src[] =
-R"(#version 300 es
-
-precision mediump float;
-
-layout(location = 0) out vec4 FragColor;
-
-in vec4 v_Color;
-in vec2 v_TexCoord;
-
-uniform sampler2D u_Texture;
-uniform sampler2D u_Palette;
-uniform float u_PaletteIndex;
-uniform float u_PaletteSize;
-
-void main() {
-	vec4 index = texture(u_Texture, v_TexCoord);
-	vec4 color = texture(u_Palette, vec2(index.r, u_PaletteIndex / u_PaletteSize));
-	FragColor = vec4(color.rgb, index.a);
-}
-)";
-
-static u32 shd_palette;
-
 void Title_Screen::init() {
-	if (!shd_palette) {
-		u32 shd_palette_vert = compile_shader(GL_VERTEX_SHADER, shd_palette_vert_src, "shd_palette_vert");
-		defer { glDeleteShader(shd_palette_vert); };
-
-		u32 shd_palette_frag = compile_shader(GL_FRAGMENT_SHADER, shd_palette_frag_src, "shd_palette_frag");
-		defer { glDeleteShader(shd_palette_frag); };
-
-		// @Leak
-		shd_palette = link_program(shd_palette_vert, shd_palette_frag, "shd_palette");
-	}
+	
 }
 
 void Title_Screen::deinit() {
@@ -200,17 +144,17 @@ void Title_Screen::draw(float delta) {
 		pos.x = 0;
 
 		// water
-		set_shader(shd_palette);
+		set_shader(get_shader(shd_palette));
 
-		glUniform1i(glGetUniformLocation(shd_palette, "u_Palette"), 1);
-
+		glUniform1i(glGetUniformLocation(get_shader(shd_palette), "u_Palette"), 1);
 		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, get_texture(tex_title_water_palette).ID);
+		glBindTexture(GL_TEXTURE_2D, get_texture(tex_title_water_palette).id);
 
 		int palette_index = (SDL_GetTicks() / 200) % 3 + 1;
 
-		glUniform1f(glGetUniformLocation(shd_palette, "u_PaletteIndex"), palette_index);
-		glUniform1f(glGetUniformLocation(shd_palette, "u_PaletteSize"), 4);
+		glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteIndex"),  palette_index);
+		glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteWidth"),  get_texture(tex_title_water_palette).width);
+		glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteHeight"), get_texture(tex_title_water_palette).height);
 
 		auto draw_lane = [&](int lane, vec2 pos) {
 			pos.y += 16 * lane;

@@ -3,7 +3,7 @@
 #include "common.h"
 
 struct Texture {
-	u32 ID;
+	u32 id;
 	int width;
 	int height;
 };

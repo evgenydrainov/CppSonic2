@@ -51,8 +51,8 @@ Texture load_texture_from_pixel_data(u8* pixel_data, int width, int height,
 									 int filter, int wrap) {
 	Texture t = {};
 
-	glGenTextures(1, &t.ID);
-	glBindTexture(GL_TEXTURE_2D, t.ID);
+	glGenTextures(1, &t.id);
+	glBindTexture(GL_TEXTURE_2D, t.id);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
@@ -91,7 +91,7 @@ Texture load_texture_from_file(const char* fname,
 
 	Texture t = load_texture_from_memory(buffer, filter, wrap);
 
-	if (t.ID != 0) {
+	if (t.id != 0) {
 		log_info("Loaded texture %s (%d x %d)", fname, t.width, t.height);
 	}
 
@@ -110,8 +110,8 @@ Texture create_texture_stub() {
 }
 
 void free_texture(Texture* t) {
-	if (t->ID != 0) {
-		glDeleteTextures(1, &t->ID);
+	if (t->id != 0) {
+		glDeleteTextures(1, &t->id);
 	}
 
 	*t = {};

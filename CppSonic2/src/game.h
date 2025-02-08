@@ -271,6 +271,11 @@ struct Game {
 
 	Tilemap tm;
 
+	float water_pos_y;
+
+	float time_seconds;
+	float time_frames;
+
 	enum Titlecard_State {
 		TITLECARD_IN,
 		TITLECARD_WAIT,
