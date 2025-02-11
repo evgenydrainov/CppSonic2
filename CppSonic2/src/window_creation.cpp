@@ -315,7 +315,10 @@ void handle_event(const SDL_Event& ev) {
 				// fullscreen on F4
 				case SDL_SCANCODE_F4: {
 					if (!ev.key.repeat) {
-						set_fullscreen(!is_fullscreen());
+						// ignore alt+f4
+						if (!(ev.key.keysym.mod & KMOD_ALT)) {
+							set_fullscreen(!is_fullscreen());
+						}
 					}
 					break;
 				}
