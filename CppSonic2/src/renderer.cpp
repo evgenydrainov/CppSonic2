@@ -10,7 +10,7 @@ Renderer renderer = {};
 static char texture_vert_shader_src[] =
 R"(#version 300 es
 
-precision mediump float;
+precision highp float;
 
 layout(location = 0) in vec3 in_Position;
 layout(location = 1) in vec3 in_Normal;
@@ -35,7 +35,7 @@ void main() {
 static char texture_frag_shader_src[] =
 R"(#version 300 es
 
-precision mediump float;
+precision highp float;
 
 layout(location = 0) out vec4 FragColor;
 
@@ -56,7 +56,7 @@ void main() {
 static char color_frag_shader_src[] =
 R"(#version 300 es
 
-precision mediump float;
+precision highp float;
 
 layout(location = 0) out vec4 FragColor;
 
@@ -73,7 +73,7 @@ void main() {
 static char circle_frag_shader_src[] =
 R"(#version 300 es
 
-precision mediump float;
+precision highp float;
 
 layout(location = 0) out vec4 FragColor;
 
@@ -98,7 +98,7 @@ void main() {
 static char sharp_bilinear_frag_shader_src[] =
 R"(#version 300 es
 
-precision mediump float;
+precision highp float;
 
 /*
 	Author: rsn8887 (based on TheMaister)
@@ -361,18 +361,18 @@ static void setup_uniforms(u32 program) {
 		mat4 MVP = (renderer.proj_mat * renderer.view_mat) * renderer.model_mat;
 
 		glUniformMatrix4fv(u_MVP, 1, GL_FALSE, &MVP[0][0]);
-	} else {
-		int u_ModelView = glGetUniformLocation(program, "u_ModelView");
-		if (u_ModelView != -1) {
-			mat4 model_view = renderer.view_mat * renderer.model_mat;
+	}
 
-			glUniformMatrix4fv(u_ModelView, 1, GL_FALSE, &model_view[0][0]);
-		}
+	int u_ModelView = glGetUniformLocation(program, "u_ModelView");
+	if (u_ModelView != -1) {
+		mat4 model_view = renderer.view_mat * renderer.model_mat;
 
-		int u_Proj = glGetUniformLocation(program, "u_Proj");
-		if (u_Proj != -1) {
-			glUniformMatrix4fv(u_Proj, 1, GL_FALSE, &renderer.proj_mat[0][0]);
-		}
+		glUniformMatrix4fv(u_ModelView, 1, GL_FALSE, &model_view[0][0]);
+	}
+
+	int u_Proj = glGetUniformLocation(program, "u_Proj");
+	if (u_Proj != -1) {
+		glUniformMatrix4fv(u_Proj, 1, GL_FALSE, &renderer.proj_mat[0][0]);
 	}
 
 	int u_Texture = glGetUniformLocation(program, "u_Texture");
