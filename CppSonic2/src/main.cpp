@@ -1,6 +1,5 @@
 #include "common.h"
 #include "window_creation.h"
-#include "game.h"
 #include "renderer.h"
 #include "package.h"
 #include "assets.h"

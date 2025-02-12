@@ -2171,11 +2171,11 @@ void Editor::update(float delta) {
 
 				Object* o = &objects[selected_object];
 
-				ImGui::DragFloat2("Position", glm::value_ptr(o->pos), 1, 0, 0, "%.0f");
+				ImGui::DragFloat2("Position", &o->pos[0], 1, 0, 0, "%.0f");
 
 				switch (o->type) {
 					case OBJ_LAYER_SET: {
-						ImGui::DragFloat2("Radius", glm::value_ptr(o->layset.radius), 1, 0, 0, "%.0f");
+						ImGui::DragFloat2("Radius", &o->layset.radius[0], 1, 0, 0, "%.0f");
 						
 						const char* values[] = {"A", "B"};
 						if (ImGui::BeginCombo("Layer", values[o->layset.layer])) {
@@ -2188,7 +2188,7 @@ void Editor::update(float delta) {
 					}
 
 					case OBJ_LAYER_FLIP: {
-						ImGui::DragFloat2("Radius", glm::value_ptr(o->layflip.radius), 1, 0, 0, "%.0f");
+						ImGui::DragFloat2("Radius", &o->layflip.radius[0], 1, 0, 0, "%.0f");
 
 						bool grounded = (o->flags & FLAG_LAYER_FLIP_GROUNDED) != 0;
 						if (ImGui::Checkbox("Grounded", &grounded)) {
