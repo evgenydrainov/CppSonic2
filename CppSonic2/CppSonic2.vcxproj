@@ -227,7 +227,6 @@ copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.pdb" "$(TargetDi
     <ClInclude Include="resource.h" />
     <ClInclude Include="src\assets.h" />
     <ClInclude Include="src\console.h" />
-    <ClInclude Include="src\imgui_default_config.h" />
     <ClInclude Include="src\main_menu.h" />
     <ClInclude Include="src\particle_system.h" />
     <ClInclude Include="src\program.h" />

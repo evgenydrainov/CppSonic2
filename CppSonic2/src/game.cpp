@@ -3688,32 +3688,45 @@ void write_objects(array<Object> objects, const char* fname) {
 	}
 }
 
-void read_objects(bump_array<Object>* objects, const char* fname) {
+bool read_objects(bump_array<Object>* objects, const char* fname) {
 	objects->count = 0; // clear
 
 	size_t filesize;
 	u8* filedata = get_file(fname, &filesize);
 
-	if (!filedata) return;
+	if (!filedata) {
+		log_error("Couldn't read objects: couldn't open file.");
+		objects->count = 0;
+		return false;
+	}
 
 	SDL_RWops* f = SDL_RWFromConstMem(filedata, filesize);
 	defer { SDL_RWclose(f); };
 
 	char magic[4];
 	SDL_RWread(f, magic, sizeof magic, 1);
-	Assert(magic[0] == 'O'
+	if (!(magic[0] == 'O'
 		   && magic[1] == 'B'
 		   && magic[2] == 'J'
-		   && magic[3] == 'T');
+		   && magic[3] == 'T'))
+	{
+		log_error("Couldn't read objects: wrong magic value.");
+		objects->count = 0;
+		return false;
+	}
 
 	u32 version;
 	SDL_RWread(f, &version, sizeof version, 1);
-	Assert(version == 1);
+	if (!(version == 1)) {
+		log_error("Couldn't read objects: version %u is not supported.", version);
+		objects->count = 0;
+		return false;
+	}
 
 	u32 num_objects;
 	SDL_RWread(f, &num_objects, sizeof num_objects, 1);
 	
-	auto deserialize = [&](Object* o) {
+	auto deserialize = [&](Object* o) -> bool {
 		ObjType type;
 		SDL_RWread(f, &type, sizeof type, 1);
 		o->type = type;
@@ -3729,7 +3742,7 @@ void read_objects(bump_array<Object>* objects, const char* fname) {
 		switch (o->type) {
 			case OBJ_PLAYER_INIT_POS:
 			case OBJ_RING:
-				break;
+				return true;
 
 			case OBJ_LAYER_SET: {
 				vec2 radius;
@@ -3739,21 +3752,21 @@ void read_objects(bump_array<Object>* objects, const char* fname) {
 				int layer;
 				SDL_RWread(f, &layer, sizeof layer, 1);
 				o->layset.layer = layer;
-				break;
+				return true;
 			}
 
 			case OBJ_LAYER_FLIP: {
 				vec2 radius;
 				SDL_RWread(f, &radius, sizeof radius, 1);
 				o->layflip.radius = radius;
-				break;
+				return true;
 			}
 
 			case OBJ_MONITOR: {
 				MonitorIcon icon;
 				SDL_RWread(f, &icon, sizeof icon, 1);
 				o->monitor.icon = icon;
-				break;
+				return true;
 			}
 
 			case OBJ_SPRING: {
@@ -3764,14 +3777,14 @@ void read_objects(bump_array<Object>* objects, const char* fname) {
 				Direction direction;
 				SDL_RWread(f, &direction, sizeof direction, 1);
 				o->spring.direction = direction;
-				break;
+				return true;
 			}
 
 			case OBJ_SPIKE: {
 				Direction direction;
 				SDL_RWread(f, &direction, sizeof direction, 1);
 				o->spike.direction = direction;
-				break;
+				return true;
 			}
 
 			case OBJ_MOVING_PLATFORM: {
@@ -3790,23 +3803,26 @@ void read_objects(bump_array<Object>* objects, const char* fname) {
 				float time_multiplier;
 				SDL_RWread(f, &time_multiplier, sizeof time_multiplier, 1);
 				o->mplatform.time_multiplier = time_multiplier;
-				break;
-			}
-
-			default: {
-				Assert(false);
-				break;
+				return true;
 			}
 		}
+
+		return false;
 	};
 
 	for (u32 i = 0; i < num_objects; i++) {
 		Object o = {};
 
-		deserialize(&o);
+		if (!deserialize(&o)) {
+			log_error("Couldn't read objects: couldn't deserialize object %d.", i);
+			objects->count = 0;
+			return false;
+		}
 
 		array_add(objects, o);
 	}
+
+	return true;
 }
 
 void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture& tileset_texture) {

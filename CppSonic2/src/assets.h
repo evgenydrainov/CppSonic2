@@ -16,6 +16,7 @@ enum {
 	tex_titlecard_line,
 	tex_pause_menu,
 	tex_EEZ_objects,
+	tex_editor_bg,
 
 	tex_title_medal,
 	tex_title_sonic,

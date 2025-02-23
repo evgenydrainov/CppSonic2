@@ -99,7 +99,7 @@ static int game_main(int argc, char* argv[]) {
 
 static int editor_main(int argc, char* argv[]) {
 #ifdef EDITOR
-	init_window_and_opengl("CppSonic2", 424, 240, 2, true, true);
+	init_window_and_opengl("Editor", 424, 240, 2, true, true);
 	defer { deinit_window_and_opengl(); };
 
 	init_package();
@@ -134,7 +134,7 @@ static int editor_main(int argc, char* argv[]) {
 		editor.update(delta);
 
 		// render
-		vec4 clear_color = color_cornflower_blue;
+		vec4 clear_color = color_black;
 		render_begin_frame(clear_color);
 		render_end_frame();
 

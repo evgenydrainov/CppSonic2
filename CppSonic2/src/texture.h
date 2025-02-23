@@ -26,4 +26,6 @@ void free_texture(Texture* t);
 
 SDL_Surface* load_surface_from_file(const char* fname);
 
+void free_surface(SDL_Surface** s);
+
 vec4 surface_get_pixel(SDL_Surface* surface, int x, int y);

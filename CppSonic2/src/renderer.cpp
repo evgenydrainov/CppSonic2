@@ -8,11 +8,7 @@ Renderer renderer = {};
 
 
 static char texture_vert_shader_src[] =
-R"(#version 300 es
-
-precision highp float;
-
-layout(location = 0) in vec3 in_Position;
+R"(layout(location = 0) in vec3 in_Position;
 layout(location = 1) in vec3 in_Normal;
 layout(location = 2) in vec4 in_Color;
 layout(location = 3) in vec2 in_TexCoord;
@@ -33,11 +29,7 @@ void main() {
 
 
 static char texture_frag_shader_src[] =
-R"(#version 300 es
-
-precision highp float;
-
-layout(location = 0) out vec4 FragColor;
+R"(layout(location = 0) out vec4 FragColor;
 
 in vec4 v_Color;
 in vec2 v_TexCoord;
@@ -54,11 +46,7 @@ void main() {
 
 
 static char color_frag_shader_src[] =
-R"(#version 300 es
-
-precision highp float;
-
-layout(location = 0) out vec4 FragColor;
+R"(layout(location = 0) out vec4 FragColor;
 
 in vec4 v_Color;
 in vec2 v_TexCoord;
@@ -71,11 +59,7 @@ void main() {
 
 
 static char circle_frag_shader_src[] =
-R"(#version 300 es
-
-precision highp float;
-
-layout(location = 0) out vec4 FragColor;
+R"(layout(location = 0) out vec4 FragColor;
 
 in vec4 v_Color;
 in vec2 v_TexCoord;
@@ -96,11 +80,7 @@ void main() {
 
 
 static char sharp_bilinear_frag_shader_src[] =
-R"(#version 300 es
-
-precision highp float;
-
-/*
+R"(/*
 	Author: rsn8887 (based on TheMaister)
 	License: Public domain
 
@@ -288,8 +268,10 @@ void render_begin_frame(vec4 clear_color) {
 
 	glBindFramebuffer(GL_FRAMEBUFFER, renderer.game_framebuffer);
 
-	glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a);
-	glClear(GL_COLOR_BUFFER_BIT);
+	if (clear_color.a > 0) {
+		glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a);
+		glClear(GL_COLOR_BUFFER_BIT);
+	}
 
 	glViewport(0, 0, window.game_width, window.game_height);
 }
@@ -775,6 +757,44 @@ void draw_line(vec2 p1, vec2 p2, vec4 color) {
 	array_add(&renderer.vertices, vertices[1]);
 }
 
+void draw_line_exact(vec2 p1, vec2 p2, vec4 color) {
+	if (renderer.current_mode != MODE_LINES
+		|| renderer.vertices.count + 2 > BATCH_MAX_VERTICES)
+	{
+		break_batch();
+
+		renderer.current_mode = MODE_LINES;
+	}
+
+	Vertex vertices[] = {
+		{{p1.x, p1.y, 0.0f}, {}, color, {}},
+		{{p2.x, p2.y, 0.0f}, {}, color, {}},
+	};
+
+	array_add(&renderer.vertices, vertices[0]);
+	array_add(&renderer.vertices, vertices[1]);
+}
+
+void draw_line_thick(vec2 p1, vec2 p2, float thick, vec4 color) {
+	Texture t = {renderer.stub_texture, 1, 1};
+
+	float dir = point_direction(p1, p2);
+
+	vec2 lt = p1 + lengthdir_v2(thick / 2.0f, dir - 135);
+	vec2 rt = p1 + lengthdir_v2(thick / 2.0f, dir + 135);
+	vec2 lb = p2 + lengthdir_v2(thick / 2.0f, dir - 45);
+	vec2 rb = p2 + lengthdir_v2(thick / 2.0f, dir + 45);
+
+	Vertex vertices[] = {
+		{{lt.x, lt.y, 0.0f}, {}, color, {}}, // LT
+		{{rt.x, rt.y, 0.0f}, {}, color, {}}, // RT
+		{{rb.x, rb.y, 0.0f}, {}, color, {}}, // RB
+		{{lb.x, lb.y, 0.0f}, {}, color, {}}, // LB
+	};
+
+	draw_quad(t, vertices);
+}
+
 void draw_point(vec2 point, vec4 color) {
 	if (renderer.current_mode != MODE_POINTS
 		|| renderer.vertices.count + 1 > BATCH_MAX_VERTICES)
@@ -801,4 +821,14 @@ void draw_rectangle_outline(Rectf rect, vec4 color) {
 
 	draw_line(pos, pos + vec2{0, rect.h}, color);
 	draw_line(pos + vec2{rect.w, 0}, pos + vec2{rect.w, rect.h}, color);
+}
+
+void draw_rectangle_outline_exact(Rectf rect, vec4 color) {
+	vec2 pos = {rect.x, rect.y};
+
+	draw_line_exact(pos, pos + vec2{rect.w, 0}, color);
+	draw_line_exact(pos + vec2{0, rect.h}, pos + vec2{rect.w, rect.h}, color);
+
+	draw_line_exact(pos, pos + vec2{0, rect.h}, color);
+	draw_line_exact(pos + vec2{rect.w, 0}, pos + vec2{rect.w, rect.h}, color);
 }

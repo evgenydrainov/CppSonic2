@@ -352,7 +352,7 @@ void read_tilemap(Tilemap* tm, const char* fname);
 void read_tileset(Tileset* ts, const char* fname);
 
 void write_objects(array<Object>       objects, const char* fname);
-void read_objects (bump_array<Object>* objects, const char* fname);
+bool read_objects (bump_array<Object>* objects, const char* fname);
 
 void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture& tileset_texture);
 void gen_widthmap_texture (Texture* widthmap,  const Tileset& ts, const Texture& tileset_texture);

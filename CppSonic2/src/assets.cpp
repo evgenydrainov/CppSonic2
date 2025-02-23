@@ -170,6 +170,7 @@ void load_assets_for_game() {
 
 void load_assets_for_editor() {
 	textures[tex_editor_sprites] = load_texture_from_file("textures/editor_sprites.png");
+	textures[tex_editor_bg]      = load_texture_from_file("textures/editor_bg.png", GL_NEAREST, GL_REPEAT);
 
 	{
 		const Texture& t = get_texture(tex_editor_sprites);

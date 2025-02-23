@@ -125,13 +125,24 @@ SDL_Surface* load_surface_from_file(const char* fname) {
 
 	int width;
 	int height;
-	// @Leak!!! pixel_data must be alive
+	// NOTE: pixel_data must be alive
 	u8* pixel_data = decode_image_data(buffer, &width, &height);
 	if (!pixel_data) {
 		return nullptr;
 	}
 
 	return SDL_CreateRGBSurfaceWithFormatFrom(pixel_data, width, height, 32, width * 4, SDL_PIXELFORMAT_ABGR8888);
+}
+
+void free_surface(SDL_Surface** s) {
+	if (*s) {
+		void* pixel_data = (*s)->pixels;
+
+		SDL_FreeSurface(*s);
+		free(pixel_data);
+	}
+
+	*s = nullptr;
 }
 
 vec4 surface_get_pixel(SDL_Surface* surface, int x, int y) {
