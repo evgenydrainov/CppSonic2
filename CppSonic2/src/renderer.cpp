@@ -639,6 +639,65 @@ void draw_texture(const Texture& t, Rect src,
 	}
 }
 
+void draw_texture_simple(const Texture& t, Rect src,
+						 vec2 pos, vec2 origin, vec4 color, glm::bvec2 flip) {
+	if (t.id == 0) {
+		log_error("Trying to draw invalid texture.");
+		return;
+	}
+
+	if (src.w == 0 && src.h == 0) {
+		src.w = t.width;
+		src.h = t.height;
+	}
+
+	if (t.id != renderer.current_texture
+		|| renderer.current_mode != MODE_QUADS
+		|| renderer.vertices.count + VERTICES_PER_QUAD > BATCH_MAX_VERTICES)
+	{
+		break_batch();
+
+		renderer.current_texture = t.id;
+		renderer.current_mode = MODE_QUADS;
+	}
+
+	{
+		float x1 = pos.x - origin.x;
+		float y1 = pos.y - origin.y;
+		float x2 = pos.x + src.w - origin.x;
+		float y2 = pos.y + src.h - origin.y;
+
+		float u1 =  src.x          / (float)t.width;
+		float v1 =  src.y          / (float)t.height;
+		float u2 = (src.x + src.w) / (float)t.width;
+		float v2 = (src.y + src.h) / (float)t.height;
+
+		if (flip.x) {
+			float temp = u1;
+			u1 = u2;
+			u2 = temp;
+		}
+
+		if (flip.y) {
+			float temp = v1;
+			v1 = v2;
+			v2 = temp;
+		}
+
+		Vertex vertices[] = {
+			{{x1, y1, 0.0f}, {}, color, {u1, v1}}, // LT
+			{{x2, y1, 0.0f}, {}, color, {u2, v1}}, // RT
+			{{x2, y2, 0.0f}, {}, color, {u2, v2}}, // RB
+			{{x1, y2, 0.0f}, {}, color, {u1, v2}}, // LB
+		};
+
+		array_add(&renderer.vertices, vertices[0]);
+		array_add(&renderer.vertices, vertices[1]);
+		array_add(&renderer.vertices, vertices[2]);
+		array_add(&renderer.vertices, vertices[3]);
+	}
+}
+
 void draw_texture_centered(const Texture& t,
 						   vec2 pos, vec2 scale,
 						   float angle, vec4 color, glm::bvec2 flip) {

@@ -12,6 +12,7 @@
 #include "imgui/imgui_internal.h"
 #include "nfd/nfd.h"
 #include "IconsFontAwesome5.h"
+#include "subprocess.h"
 
 Editor editor;
 
@@ -19,6 +20,9 @@ void Editor::init(int argc, char* argv[]) {
 	SDL_MaximizeWindow(get_window_handle());
 
 	actions = malloc_bump_array<Action>(10'000);
+	action_index = -1;
+
+	process_name = argv[0];
 }
 
 void Editor::deinit() {
@@ -43,18 +47,19 @@ enum PanAndZoomFlags {
 };
 
 static void pan_and_zoom(View& view,
-						 vec2 invbutton_size,
-						 vec2 item_size,
+						 vec2 view_size,
+						 vec2 thing_size,
 						 PanAndZoomFlags flags,
 						 void (*user_callback)()) {
-	if (invbutton_size.x == 0) invbutton_size.x = ImGui::GetContentRegionAvail().x;
-	if (invbutton_size.y == 0) invbutton_size.y = ImGui::GetContentRegionAvail().y;
+	if (view_size.x == 0) view_size.x = ImGui::GetContentRegionAvail().x;
+	if (view_size.y == 0) view_size.y = ImGui::GetContentRegionAvail().y;
 
 	ImGuiIO& io = ImGui::GetIO();
 	ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
+	// The invisible button is the view.
 	ImGui::InvisibleButton("PAN_AND_ZOOM",
-						   invbutton_size,
+						   view_size,
 						   ImGuiButtonFlags_MouseButtonLeft
 						   | ImGuiButtonFlags_MouseButtonRight
 						   | ImGuiButtonFlags_MouseButtonMiddle);
@@ -69,7 +74,7 @@ static void pan_and_zoom(View& view,
 
 	// pan with keys
 	if (!(flags & DONT_MOVE_VIEW_WITH_ARROW_KEYS)) {
-		if (ImGui::IsWindowFocused()) {
+		if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)) {
 			float delta = io.DeltaTime * 60;
 			if (ImGui::IsKeyDown(ImGuiKey_UpArrow))    view.scrolling.y += 10 * delta;
 			if (ImGui::IsKeyDown(ImGuiKey_DownArrow))  view.scrolling.y -= 10 * delta;
@@ -82,10 +87,10 @@ static void pan_and_zoom(View& view,
 		const float MIN_ZOOM = 0.25f;
 		const float MAX_ZOOM = 50.0f;
 
-		ImVec2 invbutton_center_pos = (ImGui::GetItemRectMin() + ImGui::GetItemRectMax()) / 2.0f;
+		ImVec2 view_center_pos = (ImGui::GetItemRectMin() + ImGui::GetItemRectMax()) / 2.0f;
 
-		ImVec2 mouse_pos_relative_to_item = io.MousePos / view.zoom - view.item_screen_p0 / view.zoom;
-		ImVec2 invbutton_center_pos_relative_to_item = invbutton_center_pos / view.zoom - view.item_screen_p0 / view.zoom;
+		ImVec2 mouse_pos_in_thing = (io.MousePos - view.thing_p0) / view.zoom;
+		ImVec2 view_center_pos_in_thing = (view_center_pos - view.thing_p0) / view.zoom;
 
 		// zoom with mouse
 		float mouse_wheel = io.MouseWheel;
@@ -97,8 +102,8 @@ static void pan_and_zoom(View& view,
 				}
 				Clamp(&view.zoom, MIN_ZOOM, MAX_ZOOM);
 
-				vec2 new_item_screen_pos = (io.MousePos / view.zoom - mouse_pos_relative_to_item) * view.zoom;
-				view.scrolling += new_item_screen_pos - view.item_screen_p0;
+				vec2 new_thing_p0 = (io.MousePos / view.zoom - mouse_pos_in_thing) * view.zoom;
+				view.scrolling += new_thing_p0 - view.thing_p0;
 			} else {
 				mouse_wheel = -mouse_wheel;
 				while (mouse_wheel > 0) {
@@ -107,33 +112,33 @@ static void pan_and_zoom(View& view,
 				}
 				Clamp(&view.zoom, MIN_ZOOM, MAX_ZOOM);
 
-				vec2 new_item_screen_pos = (io.MousePos / view.zoom - mouse_pos_relative_to_item) * view.zoom;
-				view.scrolling += new_item_screen_pos - view.item_screen_p0;
+				vec2 new_thing_p0 = (io.MousePos / view.zoom - mouse_pos_in_thing) * view.zoom;
+				view.scrolling += new_thing_p0 - view.thing_p0;
 			}
 		}
 
 		// zoom with keys
-		if (ImGui::IsWindowFocused()) {
+		if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)) {
 			if (ImGui::IsKeyPressed(ImGuiKey_Equal)) {
 				view.zoom *= 1.25f;
 				Clamp(&view.zoom, MIN_ZOOM, MAX_ZOOM);
 
-				vec2 new_texture_pos = (invbutton_center_pos / view.zoom - invbutton_center_pos_relative_to_item) * view.zoom;
-				view.scrolling += new_texture_pos - view.item_screen_p0;
+				vec2 new_thing_p0 = (view_center_pos / view.zoom - view_center_pos_in_thing) * view.zoom;
+				view.scrolling += new_thing_p0 - view.thing_p0;
 			}
 
 			if (ImGui::IsKeyPressed(ImGuiKey_Minus)) {
 				view.zoom /= 1.25f;
 				Clamp(&view.zoom, MIN_ZOOM, MAX_ZOOM);
 
-				vec2 new_texture_pos = (invbutton_center_pos / view.zoom - invbutton_center_pos_relative_to_item) * view.zoom;
-				view.scrolling += new_texture_pos - view.item_screen_p0;
+				vec2 new_thing_p0 = (view_center_pos / view.zoom - view_center_pos_in_thing) * view.zoom;
+				view.scrolling += new_thing_p0 - view.thing_p0;
 			}
 		}
 	}
 
-	view.item_screen_p0 = ImGui::GetItemRectMin() + view.scrolling;
-	view.item_screen_p1 = view.item_screen_p0 + item_size * view.zoom;
+	view.thing_p0 = ImGui::GetItemRectMin() + view.scrolling;
+	view.thing_p1 = view.thing_p0 + thing_size * view.zoom;
 
 	struct Userdata {
 		void (*user_callback)();
@@ -190,8 +195,8 @@ static void pan_and_zoom(View& view,
 
 	// draw background
 	{
-		ImVec2 p0 = view.item_screen_p0;
-		ImVec2 p1 = view.item_screen_p1;
+		ImVec2 p0 = view.thing_p0;
+		ImVec2 p1 = view.thing_p1;
 
 		draw_list->PushClipRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
 
@@ -225,7 +230,7 @@ static void pan_and_zoom(View& view,
 
 static glm::ivec2 view_get_tile_pos(const View& view, glm::ivec2 tile_size, glm::ivec2 clamp_size, vec2 screen_pos) {
 	vec2 pos = screen_pos;
-	pos -= view.item_screen_p0;
+	pos -= view.thing_p0;
 	pos /= view.zoom;
 
 	int tile_x = clamp((int)(pos.x / tile_size.x), 0, clamp_size.x - 1);
@@ -236,7 +241,7 @@ static glm::ivec2 view_get_tile_pos(const View& view, glm::ivec2 tile_size, glm:
 
 static glm::ivec2 view_get_in_tile_pos(const View& view, glm::ivec2 tile_size, glm::ivec2 clamp_size, vec2 screen_pos) {
 	vec2 pos = screen_pos;
-	pos -= view.item_screen_p0;
+	pos -= view.thing_p0;
 	pos /= view.zoom;
 
 	int x = clamp((int)pos.x, 0, clamp_size.x * tile_size.x - 1);
@@ -278,6 +283,20 @@ static bool IconButtonActive(const char* label, bool active) {
 	return res;
 }
 
+static bool SmallIconButtonActive(const char* label, bool active) {
+	if (active) {
+		ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
+	}
+
+	bool res = ImGui::SmallButton(label);
+
+	if (active) {
+		ImGui::PopStyleColor();
+	}
+
+	return res;
+}
+
 static void draw_grid(vec2 tile_size, glm::ivec2 grid_size, vec4 color) {
 	for (int x = 0; x <= grid_size.x; x++) {
 		vec2 p0 = {x * tile_size.x, 0};
@@ -290,6 +309,13 @@ static void draw_grid(vec2 tile_size, glm::ivec2 grid_size, vec4 color) {
 		vec2 p1 = {grid_size.x * tile_size.x, y * tile_size.y};
 		draw_line_exact(p0, p1, color);
 	}
+}
+
+static bool pos_in_rect(vec2 pos, vec2 rect_min, vec2 rect_max) {
+	ImRect rect;
+	rect.Min = rect_min;
+	rect.Max = rect_max;
+	return rect.Contains(pos);
 }
 
 void Editor::pick_and_open_level() {
@@ -383,6 +409,10 @@ void Editor::update(float delta) {
 
 	if (ImGui::IsKeyPressed(ImGuiKey_Z, true) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) try_undo();
 
+	if (ImGui::IsKeyPressed(ImGuiKey_Y, true) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) try_redo();
+
+	if (ImGui::IsKeyPressed(ImGuiKey_F5, false)) try_run_game();
+
 	// main menu bar
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("File")) {
@@ -400,15 +430,31 @@ void Editor::update(float delta) {
 		}
 
 		if (ImGui::BeginMenu("Edit")) {
-			if (actions.count == 0) {
+			if (action_index == -1) {
 				ImGui::MenuItem("Undo", "Ctrl+Z", false, false);
 			} else {
 				char buf[256];
-				stb_snprintf(buf, sizeof(buf), "Undo %s", GetActionTypeName(actions[actions.count - 1].type));
+				stb_snprintf(buf, sizeof(buf), "Undo %s", GetActionTypeName(actions[action_index].type));
 				if (ImGui::MenuItem(buf, "Ctrl+Z")) try_undo();
 			}
 
-			if (ImGui::MenuItem("Redo", "Ctrl+Y")) {}
+			if (action_index + 1 >= actions.count) {
+				ImGui::MenuItem("Redo", "Ctrl+Y", false, false);
+			} else {
+				char buf[256];
+				stb_snprintf(buf, sizeof(buf), "Redo %s", GetActionTypeName(actions[action_index + 1].type));
+				if (ImGui::MenuItem(buf, "Ctrl+Y")) try_redo();
+			}
+
+			ImGui::Separator();
+
+			if (ImGui::MenuItem("Undo History")) show_undo_history_window ^= true;
+
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Run")) {
+			if (ImGui::MenuItem("Run Game", "F5")) try_run_game();
 
 			ImGui::EndMenu();
 		}
@@ -455,28 +501,125 @@ void Editor::update(float delta) {
 			break;
 		}
 	}
+
+	auto undo_history_window = [&]() {
+		if (!show_undo_history_window) return;
+
+		ImGui::Begin("Undo History", &show_undo_history_window);
+		defer { ImGui::End(); };
+
+		int i = 0;
+		For (it, actions) {
+			const char* action_type_name = GetActionTypeName(it->type);
+
+			const char* prefix = "";
+			if (i == action_index) {
+				prefix = "-> ";
+			}
+
+			if (it->type == ACTION_SET_TILE_HEIGHT) {
+				int num_changes = it->set_tile_height.sets.count;
+				ImGui::Text("%s[%d] %s (%d %s)", prefix, i, action_type_name, num_changes, (num_changes == 1) ? "change" : "changes");
+			} else {
+				ImGui::Text("%s[%d] %s", prefix, i, action_type_name);
+			}
+
+			i++;
+		}
+	};
+
+	undo_history_window();
 }
 
 void Editor::try_undo() {
-	if (actions.count == 0) return;
+	if (action_index == -1) return;
 
-	Action action = actions[actions.count - 1];
+	Action* action = &actions[action_index];
 
 	// revert action
-	switch (action.type) {
+	switch (action->type) {
 		case ACTION_SET_TILE_HEIGHT: {
-			int tile_index = action.set_tile_height.tile_index;
-			int in_tile_pos_x = action.set_tile_height.in_tile_pos_x;
+			For (it, action->set_tile_height.sets) {
+				int tile_index = it->tile_index;
+				int in_tile_pos_x = it->in_tile_pos_x;
 
-			auto heights = get_tile_heights(ts, tile_index);
-			heights[in_tile_pos_x] = action.set_tile_height.height_from;
-
+				auto heights = get_tile_heights(ts, tile_index);
+				heights[in_tile_pos_x] = it->height_from;
+			}
 			gen_heightmap_texture(&heightmap, ts, tileset_texture);
 			break;
 		}
 	}
 
-	actions.count--;
+	action_index--;
+}
+
+void Editor::try_redo() {
+	if (action_index + 1 >= actions.count) return;
+
+	action_index++;
+
+	Action* action = &actions[action_index];
+
+	// perform action
+	switch (action->type) {
+		case ACTION_SET_TILE_HEIGHT: {
+			For (it, action->set_tile_height.sets) {
+				int tile_index = it->tile_index;
+				int in_tile_pos_x = it->in_tile_pos_x;
+
+				auto heights = get_tile_heights(ts, tile_index);
+				heights[in_tile_pos_x] = it->height_to;
+			}
+			gen_heightmap_texture(&heightmap, ts, tileset_texture);
+			break;
+		}
+	}
+}
+
+void Editor::action_add(const Action& action) {
+	// TODO: handle when actions array runs out of capacity
+
+	int new_count = action_index + 1;
+	for (int i = new_count; i < actions.count; i++) {
+		free_action(&actions[i]);
+	}
+	actions.count = new_count;
+
+	array_add(&actions, action);
+	action_index++;
+}
+
+bool Editor::try_run_game() {
+	if (!is_level_open) {
+		return false;
+	}
+
+	// SDL converts argv to utf8, so `process_name` is utf8
+	auto str = current_level_dir.u8string();
+	const char *command_line[] = {process_name, "--game", str.c_str(), NULL};
+
+	// @Utf8
+	// it seems like this library doesn't convert from utf8 to windows wide char
+	subprocess_s subprocess;
+	int result = subprocess_create(command_line, subprocess_option_inherit_environment, &subprocess);
+	if (result != 0) {
+		return false;
+	}
+
+	// do we need to `subprocess_destroy`?
+
+	return true;
+}
+
+void free_action(Action* action) {
+	switch (action->type) {
+		case ACTION_SET_TILE_HEIGHT: {
+			array_free(&action->set_tile_height.sets);
+			break;
+		}
+	}
+	*action = {};
 }
 
 void TilesetEditor::update(float delta) {
@@ -571,10 +714,14 @@ void TilesetEditor::update(float delta) {
 					 (PanAndZoomFlags) 0,
 					 callback);
 
-		if (ImGui::IsItemActive()) {
-			if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-				if (mode == MODE_HEIGHTS) {
-					if (tool == TOOL_BRUSH) {
+		bool set_tile_heights_dragging = false;
+
+		if (mode == MODE_HEIGHTS) {
+			if (tool == TOOL_BRUSH) {
+				if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+					set_tile_heights_dragging = true;
+
+					if (pos_in_rect(ImGui::GetMousePos(), tileset_view.thing_p0, tileset_view.thing_p1)) {
 						glm::ivec2 tile_pos = view_get_tile_pos(tileset_view,
 																{16, 16},
 																{editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
@@ -593,16 +740,43 @@ void TilesetEditor::update(float delta) {
 
 						gen_heightmap_texture(&editor.heightmap, editor.ts, editor.tileset_texture);
 
-						Action action = {};
-						action.type = ACTION_SET_TILE_HEIGHT;
-						action.set_tile_height.tile_index = tile_index;
-						action.set_tile_height.in_tile_pos_x = in_tile_pos.x;
-						action.set_tile_height.height_from = height_from;
-						action.set_tile_height.height_to = heights[in_tile_pos.x];
+						SetTileHeight* found = nullptr;
+						For (it, set_tile_heights) {
+							if (it->tile_index == tile_index && it->in_tile_pos_x == in_tile_pos.x) {
+								found = it;
+								break;
+							}
+						}
 
-						array_add(&editor.actions, action);
+						if (found) {
+							found->height_to = heights[in_tile_pos.x];
+						} else {
+							SetTileHeight set = {};
+							set.tile_index = tile_index;
+							set.in_tile_pos_x = in_tile_pos.x;
+							set.height_from = height_from;
+							set.height_to = heights[in_tile_pos.x];
+
+							array_add(&set_tile_heights, set);
+						}
 					}
 				}
+			}
+		}
+
+		if (!set_tile_heights_dragging) {
+			if (set_tile_heights.count > 0) {
+				Action action = {};
+				action.type = ACTION_SET_TILE_HEIGHT;
+
+				// copy array
+				For (it, set_tile_heights) {
+					array_add(&action.set_tile_height.sets, *it);
+				}
+
+				editor.action_add(action);
+
+				set_tile_heights.count = 0;
 			}
 		}
 	};
@@ -618,6 +792,101 @@ void TilesetEditor::update(float delta) {
 }
 
 void TilemapEditor::update(float delta) {
+	auto tilemap_editor_window = [&]() {
+		ImGui::Begin("Tilemap Editor##tilemap_editor");
+		defer { ImGui::End(); };
+
+		if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)) {
+			if (IsKeyPressedNoMod(ImGuiKey_Escape)) {
+				tool = TOOL_NONE;
+			}
+		}
+
+		// tools child window
+		auto tools_child_window = [&]() {
+			ImGui::BeginChild("Tools Child Window", {}, ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeX);
+			defer { ImGui::EndChild(); };
+
+			if (IconButtonActive(ICON_FA_PEN, tool == TOOL_BRUSH)) tool = TOOL_BRUSH;
+			if (IsKeyPressedNoMod(ImGuiKey_B)) tool = TOOL_BRUSH;
+			ImGui::SetItemTooltip("Brush\nShortcut: B");
+
+			if (IconButtonActive(ICON_FA_ERASER, tool == TOOL_ERASER)) tool = TOOL_ERASER;
+			if (IsKeyPressedNoMod(ImGuiKey_E)) tool = TOOL_ERASER;
+			ImGui::SetItemTooltip("Eraser\nShortcut: E");
+		};
+
+		tools_child_window();
+
+		ImGui::SameLine();
+
+		ImGui::BeginGroup();
+		defer { ImGui::EndGroup(); };
+
+		if (!editor.is_level_open) {
+			ImGui::Text("No level opened.");
+			return;
+		}
+
+		auto callback = []() {
+			TilemapEditor& tilemap_editor = editor.tilemap_editor;
+
+			// draw layer A
+			draw_tilemap_layer(editor.tm, 0, editor.tileset_texture, 0, 0, editor.tm.width, editor.tm.height);
+
+			// draw layer B
+			draw_tilemap_layer(editor.tm, 1, editor.tileset_texture, 0, 0, editor.tm.width, editor.tm.height);
+
+			// draw layer C
+			draw_tilemap_layer(editor.tm, 2, editor.tileset_texture, 0, 0, editor.tm.width, editor.tm.height);
+
+			// draw grid and border
+			{
+				if (tilemap_editor.tilemap_view.zoom > 2) {
+					draw_grid({16, 16},
+							  {editor.tm.width, editor.tm.height},
+							  get_color(0xffffff80));
+				}
+
+				draw_grid({256, 256},
+						  {editor.tm.width / 16, editor.tm.height / 16},
+						  color_white);
+
+				draw_rectangle_outline_exact({0, 0, (float)editor.tm.width * 16, (float)editor.tm.height * 16},
+											 color_white);
+			}
+
+			break_batch();
+		};
+
+		pan_and_zoom(tilemap_view,
+					 {},
+					 {editor.tm.width * 16, editor.tm.height * 16},
+					 (PanAndZoomFlags) 0,
+					 callback);
+	};
+
+	tilemap_editor_window();
+
+	auto layers_window = [&]() {
+		ImGui::Begin("Layers##tilemap_editor");
+		defer { ImGui::End(); };
+
+		ImGui::Selectable("Layer C", false);
+
+		ImGui::Selectable("Layer B", false);
+
+		ImGui::Selectable("Layer A", true);
+	};
+
+	layers_window();
+
+	auto tileset_window = [&]() {
+		ImGui::Begin("Tileset##tilemap_editor");
+		defer { ImGui::End(); };
+	};
+
+	tileset_window();
 }
 
 void ObjectsEditor::update(float delta) {

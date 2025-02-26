@@ -14,7 +14,7 @@ void Game::load_level(const char* path) {
 	log_info("Loading level %s...", path);
 
 	// load tileset texture
-	static char buf[512];
+	char buf[512];
 	stb_snprintf(buf, sizeof(buf), "%s/Tileset.png", path);
 
 	tileset_texture = load_texture_from_file(buf);
@@ -2629,6 +2629,30 @@ void Game::update(float delta) {
 	}
 }
 
+void draw_tilemap_layer(const Tilemap& tm,
+						int layer_index,
+						const Texture& tileset_texture,
+						int xfrom, int yfrom,
+						int xto, int yto) {
+	for (int y = yfrom; y < yto; y++) {
+		for (int x = xfrom; x < xto; x++) {
+			Tile tile = get_tile(tm, x, y, layer_index);
+
+			if (tile.index == 0) {
+				continue;
+			}
+
+			Rect src;
+			src.x = (tile.index % (tileset_texture.width / 16)) * 16;
+			src.y = (tile.index / (tileset_texture.width / 16)) * 16;
+			src.w = 16;
+			src.h = 16;
+
+			draw_texture_simple(tileset_texture, src, {x * 16.0f, y * 16.0f}, {}, color_white, {tile.hflip, tile.vflip});
+		}
+	}
+}
+
 void Game::draw(float delta) {
 	set_proj_mat(get_ortho(0, window.game_width, window.game_height, 0));
 	defer { set_proj_mat({1}); };
@@ -2706,23 +2730,7 @@ void Game::draw(float delta) {
 		int yto = clamp((int)(camera_pos.y + window.game_height + 15) / 16, 0, tm.height);
 
 		// draw layer A
-		for (int y = yfrom; y < yto; y++) {
-			for (int x = xfrom; x < xto; x++) {
-				Tile tile = get_tile(tm, x, y, 0);
-
-				if (tile.index == 0) {
-					continue;
-				}
-
-				Rect src;
-				src.x = (tile.index % tileset_width) * 16;
-				src.y = (tile.index / tileset_width) * 16;
-				src.w = 16;
-				src.h = 16;
-
-				draw_texture(tileset_texture, src, {x * 16.0f, y * 16.0f}, {1, 1}, {}, 0, color_white, {tile.hflip, tile.vflip});
-			}
-		}
+		draw_tilemap_layer(tm, 0, tileset_texture, xfrom, yfrom, xto, yto);
 
 		// draw layer C
 		for (int y = yfrom; y < yto; y++) {

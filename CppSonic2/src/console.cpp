@@ -79,13 +79,25 @@ void Console::handle_event(const SDL_Event& ev) {
 
 				execute();
 
-				if (cmd_hist.capacity == cmd_hist.count) {
-					size_t index = cmd_hist.count - 1;
-					free(cmd_hist[index].data);
-					array_remove(&cmd_hist, index);
+				bool dont_add_to_hist = false;
+				if (cmd_hist.count > 0 && cmd_hist[0] == cmd) {
+					dont_add_to_hist = true;
 				}
-				string str = copy_string(cmd);
-				array_insert(&cmd_hist, 0, str);
+
+				if (cmd.count == 0) {
+					dont_add_to_hist = true;
+				}
+
+				if (!dont_add_to_hist) {
+					if (cmd_hist.capacity == cmd_hist.count) {
+						size_t index = cmd_hist.count - 1;
+						free(cmd_hist[index].data);
+						array_remove(&cmd_hist, index);
+					}
+
+					string str = copy_string(cmd);
+					array_insert(&cmd_hist, 0, str);
+				}
 
 				cmd.count = 0;
 				caret = 0;

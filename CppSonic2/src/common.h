@@ -65,17 +65,34 @@ struct Rectf {
 
 inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(SDL_LogPriority priority, SDL_PRINTF_FORMAT_STRING const char* fmt, ...) {
 #if 1
-	static char buf[512];
+	char buf[512];
 
 	// SDL_snprintf doesn't support %g.
 	va_list va;
 	va_start(va, fmt);
-	stb_vsnprintf(buf, sizeof(buf), fmt, va);
+	int written = stb_vsnprintf(buf, sizeof(buf), fmt, va);
 	va_end(va);
 
-	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, priority, "%s", buf);
+	if (written >= sizeof(buf)) {
+		char* heap_buf = (char*) malloc(written + 1);
+		if (heap_buf) {
+			va_list va;
+			va_start(va, fmt);
+			stb_vsnprintf(heap_buf, written + 1, fmt, va);
+			va_end(va);
+
+			SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, priority, "%s", heap_buf);
+
+			free(heap_buf);
+		} else {
+			// In case we didn't allocate memory, just print what we already have. But malloc never fails, right?
+			SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, priority, "%s", buf);
+		}
+	} else {
+		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, priority, "%s", buf);
+	}
 #else
-	static char buf[STB_SPRINTF_MIN];
+	char buf[STB_SPRINTF_MIN];
 
 	switch (priority) {
 		case SDL_LOG_PRIORITY_VERBOSE: {
@@ -566,9 +583,10 @@ inline void Approach(T* start, T end, T shift) { *start = approach(*start, end, 
 
 #define is_power_of_two(x) ((x) != 0 && ((x) & ((x) - 1)) == 0)
 
-inline uintptr_t align_forward(uintptr_t ptr, size_t align) {
-	Assert(is_power_of_two(align));
-	return (ptr + (align - 1)) & ~(align - 1);
+template <size_t alignment>
+inline uintptr_t align_forward(uintptr_t ptr) {
+	static_assert(is_power_of_two(alignment));
+	return (ptr + (alignment - 1)) & ~(alignment - 1);
 }
 
 struct Arena {
@@ -583,9 +601,7 @@ inline Arena malloc_arena(size_t capacity) {
 	Arena a = {};
 	a.data     = (u8*) malloc(capacity);
 	a.capacity = capacity;
-
 	Assert(a.data);
-
 	return a;
 }
 
@@ -594,12 +610,12 @@ inline void free_arena(Arena* a) {
 	*a = {};
 }
 
-inline u8* arena_push(Arena* a, size_t size, size_t alignment = Arena::DEFAULT_ALIGNMENT) {
+inline u8* arena_push(Arena* a, size_t size) {
 	uintptr_t curr_ptr = (uintptr_t)a->data + (uintptr_t)a->count;
-	uintptr_t offset = align_forward(curr_ptr, alignment);
+	uintptr_t offset = align_forward<Arena::DEFAULT_ALIGNMENT>(curr_ptr);
 	offset -= (uintptr_t)a->data;
 
-	Assert(offset + size <= a->capacity && "Arena out of memory");
+	Assert(offset + size <= a->capacity && "Arena out of memory.");
 
 	u8* ptr = a->data + offset;
 	a->count = offset + size;
@@ -611,7 +627,6 @@ inline Arena arena_create_from_arena(Arena* arena, size_t capacity) {
 	Arena a = {};
 	a.data     = arena_push(arena, capacity);
 	a.capacity = capacity;
-
 	return a;
 }
 
@@ -631,14 +646,14 @@ struct bump_array {
 	size_t capacity;
 
 	T& operator[](size_t i) {
-		// Assert(i >= 0);
-		Assert(i < count);
+		Assert(i >= 0    && "Index out of bounds."); // For when I switch to signed sizes.
+		Assert(i < count && "Index out of bounds.");
 		return data[i];
 	}
 
 	T operator[](size_t i) const {
-		// Assert(i >= 0);
-		Assert(i < count);
+		Assert(i >= 0    && "Index out of bounds."); // For when I switch to signed sizes.
+		Assert(i < count && "Index out of bounds.");
 		return data[i];
 	}
 
@@ -688,7 +703,7 @@ inline T* array_remove(bump_array<T>* arr, T* it) {
 
 template <typename T>
 inline T* array_remove(bump_array<T>* arr, size_t index) {
-	// Assert(index >= 0);
+	Assert(index >= 0);
 	Assert(index < arr->count);
 
 	return array_remove(arr, arr->begin() + index);
@@ -711,10 +726,111 @@ inline T* array_insert(bump_array<T>* arr, T* it, const T& val) {
 
 template <typename T>
 inline T* array_insert(bump_array<T>* arr, size_t index, const T& val) {
-	// Assert(index >= 0); // for when I switch to signed sizes
+	Assert(index >= 0);
 	Assert(index <= arr->count);
 
 	return array_insert(arr, arr->begin() + index, val);
+}
+
+
+
+template <typename T>
+struct dynamic_array {
+	T*     data;
+	size_t count;
+	size_t capacity;
+
+	T& operator[](size_t i) {
+		Assert(i >= 0    && "Index out of bounds.");
+		Assert(i < count && "Index out of bounds.");
+		return data[i];
+	}
+
+	T operator[](size_t i) const {
+		Assert(i >= 0    && "Index out of bounds.");
+		Assert(i < count && "Index out of bounds.");
+		return data[i];
+	}
+
+	T* begin() const { return data; }
+	T* end()   const { return data + count; }
+};
+
+template <typename T>
+inline void array_grow(dynamic_array<T>* arr) {
+	size_t new_capacity = arr->capacity + arr->capacity / 2;
+	if (new_capacity < arr->capacity + 1) new_capacity = arr->capacity + 1;
+
+	T* new_data = (T*) realloc(arr->data, new_capacity * sizeof(T));
+	Assert(new_data);
+
+	arr->data = new_data;
+	arr->capacity = new_capacity;
+}
+
+template <typename T>
+inline T* array_add(dynamic_array<T>* arr, const T& val) {
+	if (arr->count == arr->capacity) {
+		array_grow(arr);
+	}
+
+	T* result = &arr->data[arr->count];
+	*result = val;
+	arr->count++;
+
+	return result;
+}
+
+template <typename T>
+inline T* array_remove(dynamic_array<T>* arr, T* it) {
+	Assert(arr->count > 0);
+
+	Assert(it >= arr->begin());
+	Assert(it <  arr->end());
+
+	memmove(it, it + 1, (size_t)arr->end() - (size_t)it - sizeof(T));
+	arr->count--;
+
+	return it;
+}
+
+template <typename T>
+inline T* array_remove(dynamic_array<T>* arr, size_t index) {
+	Assert(index >= 0);
+	Assert(index < arr->count);
+
+	return array_remove(arr, arr->begin() + index);
+}
+
+template <typename T>
+inline T* array_insert(dynamic_array<T>* arr, T* it, const T& val) {
+	if (arr->count == arr->capacity) {
+		array_grow(arr);
+	}
+
+	Assert(it >= arr->begin());
+	Assert(it <= arr->end());
+
+	memmove(it + 1, it, (size_t)arr->end() - (size_t)it);
+
+	*it = val;
+	arr->count++;
+
+	return it;
+}
+
+template <typename T>
+inline T* array_insert(dynamic_array<T>* arr, size_t index, const T& val) {
+	Assert(index >= 0);
+	Assert(index <= arr->count);
+
+	return array_insert(arr, arr->begin() + index, val);
+}
+
+template <typename T>
+inline void array_free(dynamic_array<T>* arr) {
+	free(arr->data);
+	*arr = {};
 }
 
 

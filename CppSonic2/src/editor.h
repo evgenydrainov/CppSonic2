@@ -12,8 +12,9 @@ struct View {
 	vec2 scrolling;
 	float zoom = 1;
 
-	vec2 item_screen_p0;
-	vec2 item_screen_p1;
+	// The thing that is being panned and zoomed inside this view.
+	vec2 thing_p0;
+	vec2 thing_p1;
 };
 
 #define ACTION_TYPE_ENUM(X) \
@@ -21,17 +22,23 @@ struct View {
 
 DEFINE_NAMED_ENUM(ActionType, ACTION_TYPE_ENUM)
 
+struct SetTileHeight {
+	int tile_index;
+	int in_tile_pos_x;
+	int height_from;
+	int height_to;
+};
+
 struct Action {
 	ActionType type;
 	union {
 		struct {
-			int tile_index;
-			int in_tile_pos_x;
-			int height_from;
-			int height_to;
+			dynamic_array<SetTileHeight> sets;
 		} set_tile_height;
 	};
 };
+
+void free_action(Action* action);
 
 struct TilesetEditor {
 	enum Mode {
@@ -52,10 +59,21 @@ struct TilesetEditor {
 	Tool tool;
 	View tileset_view;
 
+	dynamic_array<SetTileHeight> set_tile_heights;
+
 	void update(float delta);
 };
 
 struct TilemapEditor {
+	enum Tool {
+		TOOL_NONE,
+		TOOL_BRUSH,
+		TOOL_ERASER,
+	};
+
+	Tool tool;
+	View tilemap_view;
+
 	void update(float delta);
 };
 
@@ -90,8 +108,12 @@ struct Editor {
 	Texture widthmap;
 
 	bump_array<Action> actions;
+	int action_index = -1;
 
 	bool show_demo_window;
+	bool show_undo_history_window;
+
+	const char* process_name;
 
 	void init(int argc, char* argv[]);
 	void deinit();
@@ -103,6 +125,9 @@ struct Editor {
 	void pick_and_open_level();
 	void close_level();
 	void try_undo();
+	void try_redo();
+	void action_add(const Action& action);
+	bool try_run_game();
 };
 
 extern Editor editor;

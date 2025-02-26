@@ -19,6 +19,7 @@ void Title_Screen::deinit() {
 }
 
 void Title_Screen::update(float delta) {
+	// Don't update during a screen transition.
 	if (program.transition_t != 0) {
 		return;
 	}

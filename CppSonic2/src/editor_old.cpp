@@ -894,7 +894,7 @@ void Editor::update(float delta) {
 		}
 #else
 		// @Utf8
-		static char buf[512];
+		char buf[512];
 		stb_snprintf(buf, sizeof buf, "%s --game %s", process_name, current_level_dir.string().c_str());
 		system(buf);
 #endif

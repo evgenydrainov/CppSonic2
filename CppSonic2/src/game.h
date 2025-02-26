@@ -339,6 +339,12 @@ struct Game {
 
 extern Game game;
 
+void draw_tilemap_layer(const Tilemap& tm,
+						int layer_index,
+						const Texture& tileset_texture,
+						int xfrom, int yfrom,
+						int xto, int yto);
+
 void free_tilemap(Tilemap* tm);
 void free_tileset(Tileset* ts);
 
