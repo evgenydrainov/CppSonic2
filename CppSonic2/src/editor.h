@@ -74,7 +74,9 @@ struct TilemapEditor {
 	Tool tool;
 	View tilemap_view;
 	int layer_index;
-	bool layer_visible[3] = {true, true, true};
+	bool layer_visible[3] = {true, false, true};
+	bool show_objects = true;
+	bool highlight_current_layer;
 
 	void update(float delta);
 };

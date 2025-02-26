@@ -831,14 +831,27 @@ void TilemapEditor::update(float delta) {
 		auto callback = []() {
 			TilemapEditor& tilemap_editor = editor.tilemap_editor;
 
-			// draw layer A
-			if (tilemap_editor.layer_visible[0]) draw_tilemap_layer(editor.tm, 0, editor.tileset_texture, 0, 0, editor.tm.width, editor.tm.height);
+			// draw layers
+			for (int i = 0; i < 3; i++) {
+				if (tilemap_editor.layer_visible[i]) {
+					vec4 color = color_white;
 
-			// draw layer B
-			if (tilemap_editor.layer_visible[1]) draw_tilemap_layer(editor.tm, 1, editor.tileset_texture, 0, 0, editor.tm.width, editor.tm.height);
+					if (tilemap_editor.highlight_current_layer) {
+						if (i > tilemap_editor.layer_index) {
+							color.a = 0.2f;
+						} else if (i < tilemap_editor.layer_index) {
+							color = get_color(80, 80, 80);
+						}
+					}
 
-			// draw layer C
-			if (tilemap_editor.layer_visible[2]) draw_tilemap_layer(editor.tm, 2, editor.tileset_texture, 0, 0, editor.tm.width, editor.tm.height);
+					draw_tilemap_layer(editor.tm, i, editor.tileset_texture, 0, 0, editor.tm.width, editor.tm.height, color);
+				}
+			}
+
+			// draw objects
+			if (tilemap_editor.show_objects) {
+				draw_objects(editor.objects, SDL_GetTicks() / (1000.0f / 60.0f), true);
+			}
 
 			// draw grid and border
 			{
@@ -859,11 +872,25 @@ void TilemapEditor::update(float delta) {
 			break_batch();
 		};
 
+		static float bottom_part_height;
+
 		pan_and_zoom(tilemap_view,
-					 {},
+					 ImGui::GetContentRegionAvail() - ImVec2(0, bottom_part_height),
 					 {editor.tm.width * 16, editor.tm.height * 16},
 					 (PanAndZoomFlags) 0,
 					 callback);
+
+		ImVec2 cursor = ImGui::GetCursorScreenPos();
+
+		ImGui::Checkbox("Show Objects", &show_objects);
+
+		ImGui::SameLine();
+		ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
+
+		ImGui::SameLine();
+		ImGui::Checkbox("Highlight Current Layer", &highlight_current_layer);
+
+		bottom_part_height = (ImGui::GetCursorScreenPos() - cursor).y;
 	};
 
 	tilemap_editor_window();

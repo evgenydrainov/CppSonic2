@@ -68,7 +68,7 @@ void Game::load_level(const char* path) {
 		}
 
 		if (!found) {
-			log_error("Couldn't find OBJ_PLAYER_INIT_POS object.");
+			log_warn("Couldn't find OBJ_PLAYER_INIT_POS object.");
 
 			player.pos = {80, 944};
 		}
@@ -2633,7 +2633,8 @@ void draw_tilemap_layer(const Tilemap& tm,
 						int layer_index,
 						const Texture& tileset_texture,
 						int xfrom, int yfrom,
-						int xto, int yto) {
+						int xto, int yto,
+						vec4 color) {
 	for (int y = yfrom; y < yto; y++) {
 		for (int x = xfrom; x < xto; x++) {
 			Tile tile = get_tile(tm, x, y, layer_index);
@@ -2648,7 +2649,130 @@ void draw_tilemap_layer(const Tilemap& tm,
 			src.w = 16;
 			src.h = 16;
 
-			draw_texture_simple(tileset_texture, src, {x * 16.0f, y * 16.0f}, {}, color_white, {tile.hflip, tile.vflip});
+			draw_texture_simple(tileset_texture, src, {x * 16.0f, y * 16.0f}, {}, color, {tile.hflip, tile.vflip});
+		}
+	}
+}
+
+void draw_objects(array<Object> objects, float time_frames, bool show_editor_objects) {
+	For (it, objects) {
+		switch (it->type) {
+			case OBJ_PLAYER_INIT_POS: {
+				if (!show_editor_objects) break;
+
+				const Sprite& s = get_object_sprite(it->type);
+				draw_sprite(s, 0, it->pos);
+				break;
+			}
+
+			case OBJ_LAYER_FLIP: {
+				if (!show_editor_objects) break;
+				
+				const Sprite& s = get_object_sprite(it->type);
+				vec2 scale = (it->layflip.radius * 2.0f) / vec2{s.width, s.height};
+				draw_sprite(s, 0, it->pos, scale);
+				break;
+			}
+
+			case OBJ_LAYER_SET: {
+				if (!show_editor_objects) break;
+
+				const Sprite& s = get_object_sprite(it->type);
+				vec2 scale = (it->layset.radius * 2.0f) / vec2{s.width, s.height};
+				draw_sprite(s, 0, it->pos, scale);
+				break;
+			}
+
+			case OBJ_RING: {
+				const Sprite& s = get_object_sprite(it->type);
+				int frame_index = (int)(time_frames * 0.1f) % s.frames.count;
+				draw_sprite(s, frame_index, it->pos);
+				break;
+			}
+
+			case OBJ_MONITOR: {
+				const Sprite& s = get_object_sprite(it->type);
+				int frame_index = (int)(time_frames * 0.25f) % s.frames.count;
+				draw_sprite(s, frame_index, it->pos);
+
+				// draw monitor icon
+				if ((int)time_frames % 4 < 3) {
+					const Sprite& s = get_sprite(spr_monitor_icon);
+					int frame_index = it->monitor.icon;
+
+					vec2 pos = it->pos;
+					pos.y -= 3;
+					draw_sprite(s, frame_index, pos);
+				}
+				break;
+			}
+
+			case OBJ_MONITOR_ICON: {
+				const Sprite& s = get_object_sprite(it->type);
+				int frame_index = it->monitor.icon;
+				vec2 pos = it->pos;
+				draw_sprite(s, frame_index, pos);
+				break;
+			}
+
+			case OBJ_SPRING: {
+				u32 sprite_index = spr_spring_yellow + it->spring.color;
+				float frame_index = 0;
+
+				if (it->spring.animating) {
+					sprite_index = spr_spring_bounce_yellow + it->spring.color;
+					frame_index = it->spring.frame_index;
+				}
+
+				float angle = it->spring.direction * 90 - 90;
+
+				draw_sprite(get_sprite(sprite_index), frame_index, it->pos, {1, 1}, angle);
+				break;
+			}
+
+			case OBJ_SPIKE: {
+				const Sprite& s = get_object_sprite(it->type);
+				float frame_index = 0;
+				float angle = it->spike.direction * 90 - 90;
+				draw_sprite(s, frame_index, it->pos, {1, 1}, angle);
+				break;
+			}
+
+			case OBJ_RING_DROPPED: {
+				const Sprite& s = get_object_sprite(it->type);
+				float frame_index = it->ring_dropped.frame_index;
+
+				bool dont_draw = false;
+
+				if (it->ring_dropped.lifetime > 64) {
+					if ((int)time_frames % 2 < 1) {
+						dont_draw = true;
+					}
+				}
+
+				if (!dont_draw) {
+					draw_sprite(s, frame_index, it->pos);
+				}
+				break;
+			}
+
+			case OBJ_MOVING_PLATFORM: {
+				static const u32 sprite_indices[] = {
+					spr_EEZ_platform1,
+					spr_EEZ_platform2,
+				};
+
+				u32 sprite_index = sprite_indices[it->mplatform.sprite_index];
+
+				draw_sprite(get_sprite(sprite_index), 0, it->pos);
+				break;
+			}
+
+			default: {
+				const Sprite& s = get_object_sprite(it->type);
+				draw_sprite(s, 0, it->pos);
+				break;
+			}
 		}
 	}
 }
@@ -2730,26 +2854,10 @@ void Game::draw(float delta) {
 		int yto = clamp((int)(camera_pos.y + window.game_height + 15) / 16, 0, tm.height);
 
 		// draw layer A
-		draw_tilemap_layer(tm, 0, tileset_texture, xfrom, yfrom, xto, yto);
+		draw_tilemap_layer(tm, 0, tileset_texture, xfrom, yfrom, xto, yto, color_white);
 
 		// draw layer C
-		for (int y = yfrom; y < yto; y++) {
-			for (int x = xfrom; x < xto; x++) {
-				Tile tile = get_tile(tm, x, y, 2);
-
-				if (tile.index == 0) {
-					continue;
-				}
-
-				Rect src;
-				src.x = (tile.index % tileset_width) * 16;
-				src.y = (tile.index / tileset_width) * 16;
-				src.w = 16;
-				src.h = 16;
-
-				draw_texture(tileset_texture, src, {x * 16.0f, y * 16.0f}, {1, 1}, {}, 0, color_white, {tile.hflip, tile.vflip});
-			}
-		}
+		draw_tilemap_layer(tm, 2, tileset_texture, xfrom, yfrom, xto, yto, color_white);
 
 		// show_height
 #ifdef DEVELOPER
@@ -2842,107 +2950,7 @@ void Game::draw(float delta) {
 	}
 
 	// draw objects
-	For (it, objects) {
-		switch (it->type) {
-			case OBJ_PLAYER_INIT_POS:
-			case OBJ_LAYER_FLIP:
-			case OBJ_LAYER_SET: {
-				// don't draw
-				break;
-			}
-
-			case OBJ_RING: {
-				const Sprite& s = get_object_sprite(it->type);
-				int frame_index = (SDL_GetTicks() / (int)(16.66 * 10)) % s.frames.count;
-				draw_sprite(s, frame_index, it->pos);
-				break;
-			}
-
-			case OBJ_MONITOR: {
-				const Sprite& s = get_object_sprite(it->type);
-				int frame_index = (SDL_GetTicks() / (int)(16.66 * 4)) % s.frames.count;
-				draw_sprite(s, frame_index, it->pos);
-
-				// draw monitor icon
-				if (SDL_GetTicks() % (int)(16.66 * 4) < (int)(16.66 * 3)) {
-					const Sprite& s = get_sprite(spr_monitor_icon);
-					int frame_index = it->monitor.icon;
-
-					vec2 pos = it->pos;
-					pos.y -= 3;
-					draw_sprite(s, frame_index, pos);
-				}
-				break;
-			}
-
-			case OBJ_MONITOR_ICON: {
-				const Sprite& s = get_sprite(spr_monitor_icon);
-				int frame_index = it->monitor.icon;
-				vec2 pos = it->pos;
-				draw_sprite(s, frame_index, pos);
-				break;
-			}
-
-			case OBJ_SPRING: {
-				u32 spr = spr_spring_yellow + it->spring.color;
-				float frame_index = 0;
-
-				if (it->spring.animating) {
-					spr = spr_spring_bounce_yellow + it->spring.color;
-					frame_index = it->spring.frame_index;
-				}
-
-				float angle = it->spring.direction * 90 - 90;
-
-				draw_sprite(get_sprite(spr), frame_index, it->pos, {1, 1}, angle);
-				break;
-			}
-
-			case OBJ_SPIKE: {
-				u32 spr = spr_spike;
-				float frame_index = 0;
-				float angle = it->spike.direction * 90 - 90;
-				draw_sprite(get_sprite(spr), frame_index, it->pos, {1, 1}, angle);
-				break;
-			}
-
-			case OBJ_RING_DROPPED: {
-				u32 spr = spr_ring;
-				float frame_index = it->ring_dropped.frame_index;
-
-				bool dont_draw = false;
-
-				if (it->ring_dropped.lifetime > 64) {
-					if (SDL_GetTicks() % (int)(16.66 * 2) > (int)(16.66)) {
-						dont_draw = true;
-					}
-				}
-
-				if (!dont_draw) {
-					draw_sprite(get_sprite(spr), frame_index, it->pos);
-				}
-				break;
-			}
-
-			case OBJ_MOVING_PLATFORM: {
-				static const u32 sprites[] = {
-					spr_EEZ_platform1,
-					spr_EEZ_platform2,
-				};
-
-				u32 spr = sprites[it->mplatform.sprite_index];
-
-				draw_sprite(get_sprite(spr), 0, it->pos);
-				break;
-			}
-
-			default: {
-				const Sprite& s = get_object_sprite(it->type);
-				draw_sprite(s, 0, it->pos);
-				break;
-			}
-		}
-	}
+	draw_objects(objects, time_frames, false);
 
 	// draw particles
 	draw_particles(delta);
@@ -3939,7 +3947,7 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 
 const Sprite& get_object_sprite(ObjType type) {
 	switch (type) {
-		case OBJ_PLAYER_INIT_POS: return get_sprite(spr_sonic_idle);
+		case OBJ_PLAYER_INIT_POS: return get_sprite(spr_sonic_editor_preview);
 		case OBJ_LAYER_SET:       return get_sprite(spr_layer_set);
 		case OBJ_LAYER_FLIP:      return get_sprite(spr_layer_flip);
 		case OBJ_RING:            return get_sprite(spr_ring);

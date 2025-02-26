@@ -73,6 +73,7 @@ enum {
 
 	spr_layer_set,
 	spr_layer_flip,
+	spr_sonic_editor_preview,
 
 	spr_title_medal,
 	spr_title_sonic,

@@ -10,29 +10,8 @@ static Mix_Chunk* sounds  [NUM_SOUNDS];
 static u32        shaders [NUM_SHADERS];
 
 void load_global_assets() {
-	textures[tex_sonic_sprites]  = load_texture_from_file("textures/sonic_sprites_indexed.png");
-	textures[tex_global_objects] = load_texture_from_file("textures/global_objects.png");
-
 	{
-		const Texture& t = get_texture(tex_sonic_sprites);
-
-		sprites[spr_sonic_crouch]   = create_sprite(t, 0,  0 * 59, 59, 59, 30, 30);
-		sprites[spr_sonic_idle]     = create_sprite(t, 0,  1 * 59, 59, 59, 30, 30);
-		sprites[spr_sonic_look_up]  = create_sprite(t, 0,  2 * 59, 59, 59, 30, 30);
-		sprites[spr_sonic_peelout]  = create_sprite(t, 0,  3 * 59, 59, 59, 30, 30, 4);
-		sprites[spr_sonic_roll]     = create_sprite(t, 0,  4 * 59, 59, 59, 30, 30, 5);
-		sprites[spr_sonic_run]      = create_sprite(t, 0,  5 * 59, 59, 59, 30, 30, 4);
-		sprites[spr_sonic_skid]     = create_sprite(t, 0,  6 * 59, 59, 59, 30, 30, 2);
-		sprites[spr_sonic_spindash] = create_sprite(t, 0,  7 * 59, 59, 59, 30, 30, 6);
-		sprites[spr_sonic_walk]     = create_sprite(t, 0,  8 * 59, 59, 59, 30, 30, 6);
-		sprites[spr_sonic_balance]  = create_sprite(t, 0,  9 * 59, 59, 59, 30, 30, 4);
-		sprites[spr_sonic_balance2] = create_sprite(t, 0, 10 * 59, 59, 59, 30, 30, 4);
-		sprites[spr_sonic_push]     = create_sprite(t, 0, 11 * 59, 59, 59, 30, 30, 4);
-		sprites[spr_sonic_rise]     = create_sprite(t, 0, 12 * 59, 59, 59, 30, 30, 5);
-		sprites[spr_sonic_hurt]     = create_sprite(t, 0, 13 * 59, 59, 59, 30, 30);
-	}
-
-	{
+		textures[tex_global_objects] = load_texture_from_file("textures/global_objects.png");
 		const Texture& t = get_texture(tex_global_objects);
 
 		sprites[spr_spindash_smoke] = create_sprite(t,  0,   0, 32, 32, 32, 11, 7);
@@ -52,9 +31,37 @@ void load_global_assets() {
 		sprites[spr_spring_bounce_yellow]  = create_sprite(t,  0, 112, 32, 32, 16, 24, 3, 3, 1.0f / 3.0f);
 		sprites[spr_spring_bounce_red]     = create_sprite(t,  0, 144, 32, 32, 16, 24, 3, 3, 1.0f / 3.0f);
 	}
+
+	{
+		textures[tex_EEZ_objects] = load_texture_from_file("textures/EEZ_objects.png");
+		const Texture& t = get_texture(tex_EEZ_objects);
+
+		sprites[spr_EEZ_platform1] = create_sprite(t, 0,  0,  64, 32, 32, 16);
+		sprites[spr_EEZ_platform2] = create_sprite(t, 0, 32, 128, 48, 64, 24);
+	}
 }
 
 void load_assets_for_game() {
+	{
+		textures[tex_sonic_sprites] = load_texture_from_file("textures/sonic_sprites_indexed.png");
+		const Texture& t = get_texture(tex_sonic_sprites);
+
+		sprites[spr_sonic_crouch]   = create_sprite(t, 0,  0 * 59, 59, 59, 30, 30);
+		sprites[spr_sonic_idle]     = create_sprite(t, 0,  1 * 59, 59, 59, 30, 30);
+		sprites[spr_sonic_look_up]  = create_sprite(t, 0,  2 * 59, 59, 59, 30, 30);
+		sprites[spr_sonic_peelout]  = create_sprite(t, 0,  3 * 59, 59, 59, 30, 30, 4);
+		sprites[spr_sonic_roll]     = create_sprite(t, 0,  4 * 59, 59, 59, 30, 30, 5);
+		sprites[spr_sonic_run]      = create_sprite(t, 0,  5 * 59, 59, 59, 30, 30, 4);
+		sprites[spr_sonic_skid]     = create_sprite(t, 0,  6 * 59, 59, 59, 30, 30, 2);
+		sprites[spr_sonic_spindash] = create_sprite(t, 0,  7 * 59, 59, 59, 30, 30, 6);
+		sprites[spr_sonic_walk]     = create_sprite(t, 0,  8 * 59, 59, 59, 30, 30, 6);
+		sprites[spr_sonic_balance]  = create_sprite(t, 0,  9 * 59, 59, 59, 30, 30, 4);
+		sprites[spr_sonic_balance2] = create_sprite(t, 0, 10 * 59, 59, 59, 30, 30, 4);
+		sprites[spr_sonic_push]     = create_sprite(t, 0, 11 * 59, 59, 59, 30, 30, 4);
+		sprites[spr_sonic_rise]     = create_sprite(t, 0, 12 * 59, 59, 59, 30, 30, 5);
+		sprites[spr_sonic_hurt]     = create_sprite(t, 0, 13 * 59, 59, 59, 30, 30);
+	}
+
 	textures[tex_sonic_palette] = load_texture_from_file("textures/sonic_palette.png");
 
 	fonts[fnt_ms_gothic]     = load_bmfont_file("fonts/ms_gothic.fnt",      "fonts/ms_gothic_0.png");
@@ -143,14 +150,6 @@ void load_assets_for_game() {
 #endif
 
 	{
-		textures[tex_EEZ_objects] = load_texture_from_file("textures/EEZ_objects.png");
-		const Texture& t = get_texture(tex_EEZ_objects);
-
-		sprites[spr_EEZ_platform1] = create_sprite(t, 0,  0,  64, 32, 32, 16);
-		sprites[spr_EEZ_platform2] = create_sprite(t, 0, 32, 128, 48, 64, 24);
-	}
-
-	{
 		u32 shd_palette_vert = compile_shader(GL_VERTEX_SHADER, get_file_str("shaders/palette.vert"), "shd_palette_vert");
 		defer { glDeleteShader(shd_palette_vert); };
 
@@ -169,14 +168,15 @@ void load_assets_for_game() {
 }
 
 void load_assets_for_editor() {
-	textures[tex_editor_sprites] = load_texture_from_file("textures/editor_sprites.png");
-	textures[tex_editor_bg]      = load_texture_from_file("textures/editor_bg.png", GL_NEAREST, GL_REPEAT);
+	textures[tex_editor_bg] = load_texture_from_file("textures/editor_bg.png", GL_NEAREST, GL_REPEAT);
 
 	{
+		textures[tex_editor_sprites] = load_texture_from_file("textures/editor_sprites.png");
 		const Texture& t = get_texture(tex_editor_sprites);
 
-		sprites[spr_layer_flip] = create_sprite(t,  0,  0, 16, 48, 8, 24);
-		sprites[spr_layer_set]  = create_sprite(t, 16,  0, 16, 48, 8, 24);
+		sprites[spr_layer_flip]           = create_sprite(t,  0,  0, 16, 48,  8, 24);
+		sprites[spr_layer_set]            = create_sprite(t, 16,  0, 16, 48,  8, 24);
+		sprites[spr_sonic_editor_preview] = create_sprite(t, 32,  0, 32, 48, 16, 24);
 	}
 }
 
@@ -208,7 +208,7 @@ const Texture& get_texture(u32 texture_index) {
 	Assert(texture_index < NUM_TEXTURES);
 
 	if (textures[texture_index].id == 0) {
-		log_error("Trying to access texture %u that hasn't been loaded.", texture_index);
+		log_warn("Trying to access texture %u that hasn't been loaded.", texture_index);
 	}
 
 	return textures[texture_index];
@@ -218,7 +218,7 @@ const Sprite& get_sprite(u32 sprite_index) {
 	Assert(sprite_index < NUM_SPRITES);
 
 	if (sprites[sprite_index].frames.count == 0) {
-		log_error("Trying to access sprite %u that hasn't been loaded.", sprite_index);
+		log_warn("Trying to access sprite %u that hasn't been loaded.", sprite_index);
 	}
 
 	return sprites[sprite_index];
@@ -228,7 +228,7 @@ const Font& get_font(u32 font_index) {
 	Assert(font_index < NUM_FONTS);
 
 	if (fonts[font_index].glyphs.count == 0) {
-		log_error("Trying to access font %u that hasn't been loaded.", font_index);
+		log_warn("Trying to access font %u that hasn't been loaded.", font_index);
 	}
 
 	return fonts[font_index];
@@ -238,7 +238,7 @@ Mix_Chunk* get_sound(u32 sound_index) {
 	Assert(sound_index < NUM_SOUNDS);
 
 	if (!sounds[sound_index]) {
-		log_error("Trying to access sound %u that hasn't been loaded.", sound_index);
+		log_warn("Trying to access sound %u that hasn't been loaded.", sound_index);
 	}
 
 	return sounds[sound_index];
@@ -248,7 +248,7 @@ u32 get_shader(u32 shader_index) {
 	Assert(shader_index < NUM_SHADERS);
 
 	if (shaders[shader_index] == 0) {
-		log_error("Trying to access shader %u that hasn't been loaded.", shader_index);
+		log_warn("Trying to access shader %u that hasn't been loaded.", shader_index);
 	}
 
 	return shaders[shader_index];
