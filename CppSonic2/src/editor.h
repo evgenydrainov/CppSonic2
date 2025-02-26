@@ -73,6 +73,8 @@ struct TilemapEditor {
 
 	Tool tool;
 	View tilemap_view;
+	int layer_index;
+	bool layer_visible[3] = {true, true, true};
 
 	void update(float delta);
 };

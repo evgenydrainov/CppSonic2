@@ -832,13 +832,13 @@ void TilemapEditor::update(float delta) {
 			TilemapEditor& tilemap_editor = editor.tilemap_editor;
 
 			// draw layer A
-			draw_tilemap_layer(editor.tm, 0, editor.tileset_texture, 0, 0, editor.tm.width, editor.tm.height);
+			if (tilemap_editor.layer_visible[0]) draw_tilemap_layer(editor.tm, 0, editor.tileset_texture, 0, 0, editor.tm.width, editor.tm.height);
 
 			// draw layer B
-			draw_tilemap_layer(editor.tm, 1, editor.tileset_texture, 0, 0, editor.tm.width, editor.tm.height);
+			if (tilemap_editor.layer_visible[1]) draw_tilemap_layer(editor.tm, 1, editor.tileset_texture, 0, 0, editor.tm.width, editor.tm.height);
 
 			// draw layer C
-			draw_tilemap_layer(editor.tm, 2, editor.tileset_texture, 0, 0, editor.tm.width, editor.tm.height);
+			if (tilemap_editor.layer_visible[2]) draw_tilemap_layer(editor.tm, 2, editor.tileset_texture, 0, 0, editor.tm.width, editor.tm.height);
 
 			// draw grid and border
 			{
@@ -872,11 +872,17 @@ void TilemapEditor::update(float delta) {
 		ImGui::Begin("Layers##tilemap_editor");
 		defer { ImGui::End(); };
 
-		ImGui::Selectable("Layer C", false);
+		if (SmallIconButtonActive(ICON_FA_EYE "##2", layer_visible[2])) layer_visible[2] ^= true;
+		ImGui::SameLine();
+		if (ImGui::Selectable("Layer C", layer_index == 2)) layer_index = 2;
 
-		ImGui::Selectable("Layer B", false);
+		if (SmallIconButtonActive(ICON_FA_EYE "##1", layer_visible[1])) layer_visible[1] ^= true;
+		ImGui::SameLine();
+		if (ImGui::Selectable("Layer B", layer_index == 1)) layer_index = 1;
 
-		ImGui::Selectable("Layer A", true);
+		if (SmallIconButtonActive(ICON_FA_EYE "##0", layer_visible[0])) layer_visible[0] ^= true;
+		ImGui::SameLine();
+		if (ImGui::Selectable("Layer A", layer_index == 0)) layer_index = 0;
 	};
 
 	layers_window();
