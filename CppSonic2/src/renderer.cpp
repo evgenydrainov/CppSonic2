@@ -834,15 +834,15 @@ void draw_line_exact(vec2 p1, vec2 p2, vec4 color) {
 	array_add(&renderer.vertices, vertices[1]);
 }
 
-void draw_line_thick(vec2 p1, vec2 p2, float thick, vec4 color) {
+void draw_line_thick(vec2 p1, vec2 p2, float thickness, vec4 color) {
 	Texture t = {renderer.stub_texture, 1, 1};
 
 	float dir = point_direction(p1, p2);
 
-	vec2 lt = p1 + lengthdir_v2(thick / 2.0f, dir - 135);
-	vec2 rt = p1 + lengthdir_v2(thick / 2.0f, dir + 135);
-	vec2 lb = p2 + lengthdir_v2(thick / 2.0f, dir - 45);
-	vec2 rb = p2 + lengthdir_v2(thick / 2.0f, dir + 45);
+	vec2 lt = p1 + lengthdir_v2(thickness / 2.0f, dir - 135);
+	vec2 rt = p1 + lengthdir_v2(thickness / 2.0f, dir + 135);
+	vec2 lb = p2 + lengthdir_v2(thickness / 2.0f, dir - 45);
+	vec2 rb = p2 + lengthdir_v2(thickness / 2.0f, dir + 45);
 
 	Vertex vertices[] = {
 		{{lt.x, lt.y, 0.0f}, {}, color, {}}, // LT
@@ -890,4 +890,26 @@ void draw_rectangle_outline_exact(Rectf rect, vec4 color) {
 
 	draw_line_exact(pos, pos + vec2{0, rect.h}, color);
 	draw_line_exact(pos + vec2{rect.w, 0}, pos + vec2{rect.w, rect.h}, color);
+}
+
+void draw_rectangle_outline_thick(Rectf rect, float thickness, vec4 color) {
+	vec2 pos = {rect.x, rect.y};
+
+	draw_line_thick(pos, pos + vec2{rect.w, 0}, thickness, color);
+	draw_line_thick(pos + vec2{0, rect.h}, pos + vec2{rect.w, rect.h}, thickness, color);
+
+	draw_line_thick(pos, pos + vec2{0, rect.h}, thickness, color);
+	draw_line_thick(pos + vec2{rect.w, 0}, pos + vec2{rect.w, rect.h}, thickness, color);
+}
+
+void draw_arrow_thick(vec2 p1, float length, float direction, float arrow_head_length, float thickness, vec4 color) {
+	vec2 p2 = p1 + lengthdir_v2(length, direction);
+
+	draw_line_thick(p1, p2, thickness, color);
+
+	vec2 p3 = p2 + lengthdir_v2(arrow_head_length, direction + 135);
+	draw_line_thick(p2, p3, thickness, color);
+
+	vec2 p4 = p2 + lengthdir_v2(arrow_head_length, direction - 135);
+	draw_line_thick(p2, p4, thickness, color);
 }

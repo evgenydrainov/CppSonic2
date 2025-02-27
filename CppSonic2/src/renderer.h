@@ -107,7 +107,6 @@ void draw_texture_centered(const Texture& t,
 						   float angle = 0, vec4 color = color_white, glm::bvec2 flip = {});
 
 void draw_rectangle(Rectf rect, vec4 color);
-
 void draw_rectangle(Rectf rect, vec2 scale,
 					vec2 origin, float angle, vec4 color);
 
@@ -116,13 +115,13 @@ void draw_triangle(vec2 p1, vec2 p2, vec2 p3, vec4 color);
 void draw_circle(vec2 pos, float radius, vec4 color, int precision = 12);
 
 void draw_line(vec2 p1, vec2 p2, vec4 color);
-
 void draw_line_exact(vec2 p1, vec2 p2, vec4 color);
-
-void draw_line_thick(vec2 p1, vec2 p2, float thick, vec4 color);
+void draw_line_thick(vec2 p1, vec2 p2, float thickness, vec4 color);
 
 void draw_point(vec2 point, vec4 color);
 
 void draw_rectangle_outline(Rectf rect, vec4 color);
-
 void draw_rectangle_outline_exact(Rectf rect, vec4 color);
+void draw_rectangle_outline_thick(Rectf rect, float thickness, vec4 color);
+
+void draw_arrow_thick(vec2 p1, float length, float direction, float arrow_head_length, float thickness, vec4 color);

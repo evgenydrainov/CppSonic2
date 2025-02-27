@@ -54,6 +54,9 @@ static void pan_and_zoom(View& view,
 	if (view_size.x == 0) view_size.x = ImGui::GetContentRegionAvail().x;
 	if (view_size.y == 0) view_size.y = ImGui::GetContentRegionAvail().y;
 
+	if (view_size.x < 50) view_size.x = 50;
+	if (view_size.y < 50) view_size.y = 50;
+
 	ImGuiIO& io = ImGui::GetIO();
 	ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
@@ -297,7 +300,7 @@ static bool SmallIconButtonActive(const char* label, bool active) {
 	return res;
 }
 
-static void draw_grid(vec2 tile_size, glm::ivec2 grid_size, vec4 color) {
+static void draw_grid_exact(vec2 tile_size, glm::ivec2 grid_size, vec4 color) {
 	for (int x = 0; x <= grid_size.x; x++) {
 		vec2 p0 = {x * tile_size.x, 0};
 		vec2 p1 = {x * tile_size.x, grid_size.y * tile_size.y};
@@ -534,6 +537,8 @@ void Editor::update(float delta) {
 void Editor::try_undo() {
 	if (action_index == -1) return;
 
+	ImGui::ClearActiveID();
+
 	Action* action = &actions[action_index];
 
 	// revert action
@@ -549,6 +554,17 @@ void Editor::try_undo() {
 			gen_heightmap_texture(&heightmap, ts, tileset_texture);
 			break;
 		}
+
+		case ACTION_SET_TILE_ANGLE: {
+			int tile_index = action->set_tile_angle.tile_index;
+			ts.angles[tile_index] = action->set_tile_angle.angle_from;
+			break;
+		}
+
+		default: {
+			Assert(!"action not implemented");
+			break;
+		}
 	}
 
 	action_index--;
@@ -556,6 +572,8 @@ void Editor::try_undo() {
 
 void Editor::try_redo() {
 	if (action_index + 1 >= actions.count) return;
+
+	ImGui::ClearActiveID();
 
 	action_index++;
 
@@ -572,6 +590,17 @@ void Editor::try_redo() {
 				heights[in_tile_pos_x] = it->height_to;
 			}
 			gen_heightmap_texture(&heightmap, ts, tileset_texture);
+			break;
+		}
+
+		case ACTION_SET_TILE_ANGLE: {
+			int tile_index = action->set_tile_angle.tile_index;
+			ts.angles[tile_index] = action->set_tile_angle.angle_to;
+			break;
+		}
+
+		default: {
+			Assert(!"action not implemented");
 			break;
 		}
 	}
@@ -627,17 +656,14 @@ void TilesetEditor::update(float delta) {
 		ImGui::Begin("Tileset Editor##tileset_editor");
 		defer { ImGui::End(); };
 
-		if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)) {
-			if (IsKeyPressedNoMod(ImGuiKey_Escape)) {
-				mode = MODE_NONE;
-				tool = TOOL_NONE;
-			}
-		}
-
 		// tools child window
 		auto tools_child_window = [&]() {
 			ImGui::BeginChild("Tools Child Window", {}, ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeX);
 			defer { ImGui::EndChild(); };
+
+			if (IconButtonActive(ICON_FA_MOUSE_POINTER, tool == TOOL_SELECT)) tool = TOOL_SELECT;
+			if (IsKeyPressedNoMod(ImGuiKey_S)) tool = TOOL_SELECT;
+			ImGui::SetItemTooltip("Select\nShortcut: S");
 
 			if (IconButtonActive(ICON_FA_PEN, tool == TOOL_BRUSH)) tool = TOOL_BRUSH;
 			if (IsKeyPressedNoMod(ImGuiKey_B)) tool = TOOL_BRUSH;
@@ -689,20 +715,34 @@ void TilesetEditor::update(float delta) {
 				draw_texture(editor.heightmap, {}, {}, {1,1}, {}, 0, get_color(255, 255, 255, 128));
 			} else if (tileset_editor.mode == MODE_WIDTHS) {
 				draw_texture(editor.widthmap, {}, {}, {1,1}, {}, 0, get_color(255, 255, 255, 128));
+			} else if (tileset_editor.mode == MODE_ANGLES) {
+				for (int tile_index = 0; tile_index < editor.ts.angles.count; tile_index++) {
+					float x = (tile_index % (editor.tileset_texture.width / 16)) * 16 + 8;
+					float y = (tile_index / (editor.tileset_texture.width / 16)) * 16 + 8;
+					float angle = editor.ts.angles[tile_index];
+					if (angle != -1) {
+						draw_arrow_thick({x, y}, 8, angle, 2, 1, color_white);
+					}
+				}
 			}
 
 			// draw grid and border
 			{
-				vec4 color = get_color(255, 255, 255, 255);
-
 				if (tileset_editor.tileset_view.zoom > 2) {
-					draw_grid({16, 16},
-							  {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
-							  color);
+					draw_grid_exact({16, 16},
+									{editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
+									color_white);
 				}
 
+				Rectf rect;
+				rect.x = (tileset_editor.selected_tile_index % (editor.tileset_texture.width / 16)) * 16;
+				rect.y = (tileset_editor.selected_tile_index / (editor.tileset_texture.width / 16)) * 16;
+				rect.w = 16;
+				rect.h = 16;
+				draw_rectangle_outline_thick(rect, 1, color_white);
+
 				draw_rectangle_outline_exact({0, 0, (float)editor.tileset_texture.width, (float)editor.tileset_texture.height},
-											 color);
+											 color_white);
 			}
 
 			break_batch();
@@ -713,6 +753,21 @@ void TilesetEditor::update(float delta) {
 					 {editor.tileset_texture.width, editor.tileset_texture.height},
 					 (PanAndZoomFlags) 0,
 					 callback);
+
+		if (tool == TOOL_SELECT) {
+			if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+				if (pos_in_rect(ImGui::GetMousePos(), tileset_view.thing_p0, tileset_view.thing_p1)) {
+					glm::ivec2 tile_pos = view_get_tile_pos(tileset_view,
+															{16, 16},
+															{editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
+															ImGui::GetMousePos());
+
+					int tile_index = tile_pos.x + tile_pos.y * (editor.tileset_texture.width / 16);
+
+					selected_tile_index = tile_index;
+				}
+			}
+		}
 
 		bool set_tile_heights_dragging = false;
 
@@ -786,6 +841,52 @@ void TilesetEditor::update(float delta) {
 	auto tile_properties_window = [&]() {
 		ImGui::Begin("Tile Properties##tileset_editor");
 		defer { ImGui::End(); };
+
+		if (!editor.is_level_open) {
+			ImGui::Text("No level opened.");
+			return;
+		}
+
+		ImGui::Text("Tile ID: %d", selected_tile_index);
+
+		float angle = editor.ts.angles[selected_tile_index];
+		if (ImGui::InputFloat("Angle", &angle, 0, 0, nullptr, ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_EnterReturnsTrue)) {
+			Action action = {};
+			action.type = ACTION_SET_TILE_ANGLE;
+			action.set_tile_angle.tile_index = selected_tile_index;
+			action.set_tile_angle.angle_from = editor.ts.angles[selected_tile_index];
+			action.set_tile_angle.angle_to = angle;
+
+			editor.ts.angles[selected_tile_index] = angle;
+			editor.action_add(action);
+		}
+
+		if (ImGui::CollapsingHeader("Heights")) {
+			auto heights = get_tile_heights(editor.ts, selected_tile_index);
+			for (int i = 0; i < heights.count; i++) {
+				int height = heights[i];
+
+				char buf[16];
+				stb_snprintf(buf, sizeof(buf), "[%d]", i);
+				if (ImGui::InputInt(buf, &height, 0, 0, ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_EnterReturnsTrue)) {
+					Action action = {};
+					action.type = ACTION_SET_TILE_HEIGHT;
+
+					SetTileHeight set = {};
+					set.tile_index = selected_tile_index;
+					set.in_tile_pos_x = i;
+					set.height_from = heights[i];
+					set.height_to = height;
+
+					array_add(&action.set_tile_height.sets, set);
+
+					heights[i] = height;
+					gen_heightmap_texture(&editor.heightmap, editor.ts, editor.tileset_texture);
+
+					editor.action_add(action);
+				}
+			}
+		}
 	};
 
 	tile_properties_window();
@@ -856,14 +957,14 @@ void TilemapEditor::update(float delta) {
 			// draw grid and border
 			{
 				if (tilemap_editor.tilemap_view.zoom > 2) {
-					draw_grid({16, 16},
-							  {editor.tm.width, editor.tm.height},
-							  get_color(0xffffff80));
+					draw_grid_exact({16, 16},
+									{editor.tm.width, editor.tm.height},
+									get_color(0xffffff80));
 				}
 
-				draw_grid({256, 256},
-						  {editor.tm.width / 16, editor.tm.height / 16},
-						  color_white);
+				draw_grid_exact({256, 256},
+								{editor.tm.width / 16, editor.tm.height / 16},
+								color_white);
 
 				draw_rectangle_outline_exact({0, 0, (float)editor.tm.width * 16, (float)editor.tm.height * 16},
 											 color_white);
@@ -917,6 +1018,39 @@ void TilemapEditor::update(float delta) {
 	auto tileset_window = [&]() {
 		ImGui::Begin("Tileset##tilemap_editor");
 		defer { ImGui::End(); };
+
+		if (!editor.is_level_open) {
+			ImGui::Text("No level opened.");
+			return;
+		}
+
+		auto callback = []() {
+			TilemapEditor& tilemap_editor = editor.tilemap_editor;
+
+			draw_texture(editor.tileset_texture);
+
+			// draw grid and border
+			{
+				vec4 color = get_color(255, 255, 255, 255);
+
+				if (tilemap_editor.tileset_view.zoom > 2) {
+					draw_grid_exact({16, 16},
+									{editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
+									color);
+				}
+
+				draw_rectangle_outline_exact({0, 0, (float)editor.tileset_texture.width, (float)editor.tileset_texture.height},
+											 color);
+			}
+
+			break_batch();
+		};
+
+		pan_and_zoom(tileset_view,
+					 {},
+					 {editor.tileset_texture.width, editor.tileset_texture.height},
+					 (PanAndZoomFlags) 0,
+					 callback);
 	};
 
 	tileset_window();

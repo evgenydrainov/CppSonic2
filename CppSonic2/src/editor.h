@@ -18,7 +18,8 @@ struct View {
 };
 
 #define ACTION_TYPE_ENUM(X) \
-	X(ACTION_SET_TILE_HEIGHT)
+	X(ACTION_SET_TILE_HEIGHT) \
+	X(ACTION_SET_TILE_ANGLE)
 
 DEFINE_NAMED_ENUM(ActionType, ACTION_TYPE_ENUM)
 
@@ -35,6 +36,12 @@ struct Action {
 		struct {
 			dynamic_array<SetTileHeight> sets;
 		} set_tile_height;
+
+		struct {
+			int tile_index;
+			float angle_from;
+			float angle_to;
+		} set_tile_angle;
 	};
 };
 
@@ -42,14 +49,13 @@ void free_action(Action* action);
 
 struct TilesetEditor {
 	enum Mode {
-		MODE_NONE,
 		MODE_HEIGHTS,
 		MODE_WIDTHS,
 		MODE_ANGLES,
 	};
 
 	enum Tool {
-		TOOL_NONE,
+		TOOL_SELECT,
 		TOOL_BRUSH,
 		TOOL_ERASER,
 		TOOL_AUTO,
@@ -58,6 +64,7 @@ struct TilesetEditor {
 	Mode mode;
 	Tool tool;
 	View tileset_view;
+	int selected_tile_index;
 
 	dynamic_array<SetTileHeight> set_tile_heights;
 
@@ -73,6 +80,7 @@ struct TilemapEditor {
 
 	Tool tool;
 	View tilemap_view;
+	View tileset_view;
 	int layer_index;
 	bool layer_visible[3] = {true, false, true};
 	bool show_objects = true;
