@@ -414,6 +414,8 @@ void Editor::update(float delta) {
 
 	if (ImGui::IsKeyPressed(ImGuiKey_Y, true) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) try_redo();
 
+	if (ImGui::IsKeyPressed(ImGuiKey_H, true) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) show_undo_history_window ^= true;
+
 	if (ImGui::IsKeyPressed(ImGuiKey_F5, false)) try_run_game();
 
 	// main menu bar
@@ -451,7 +453,7 @@ void Editor::update(float delta) {
 
 			ImGui::Separator();
 
-			if (ImGui::MenuItem("Undo History")) show_undo_history_window ^= true;
+			if (ImGui::MenuItem("Undo History", "Ctrl+H")) show_undo_history_window ^= true;
 
 			ImGui::EndMenu();
 		}
@@ -523,6 +525,9 @@ void Editor::update(float delta) {
 			if (it->type == ACTION_SET_TILE_HEIGHT) {
 				int num_changes = it->set_tile_height.sets.count;
 				ImGui::Text("%s[%d] %s (%d %s)", prefix, i, action_type_name, num_changes, (num_changes == 1) ? "change" : "changes");
+			} else if (it->type == ACTION_SET_TILE_WIDTH) {
+				int num_changes = it->set_tile_width.sets.count;
+				ImGui::Text("%s[%d] %s (%d %s)", prefix, i, action_type_name, num_changes, (num_changes == 1) ? "change" : "changes");
 			} else {
 				ImGui::Text("%s[%d] %s", prefix, i, action_type_name);
 			}
@@ -537,73 +542,25 @@ void Editor::update(float delta) {
 void Editor::try_undo() {
 	if (action_index == -1) return;
 
-	ImGui::ClearActiveID();
+	//ImGui::ClearActiveID();
 
-	Action* action = &actions[action_index];
+	const Action& action = actions[action_index];
+	action_revert(action);
 
-	// revert action
-	switch (action->type) {
-		case ACTION_SET_TILE_HEIGHT: {
-			For (it, action->set_tile_height.sets) {
-				int tile_index = it->tile_index;
-				int in_tile_pos_x = it->in_tile_pos_x;
-
-				auto heights = get_tile_heights(ts, tile_index);
-				heights[in_tile_pos_x] = it->height_from;
-			}
-			gen_heightmap_texture(&heightmap, ts, tileset_texture);
-			break;
-		}
-
-		case ACTION_SET_TILE_ANGLE: {
-			int tile_index = action->set_tile_angle.tile_index;
-			ts.angles[tile_index] = action->set_tile_angle.angle_from;
-			break;
-		}
-
-		default: {
-			Assert(!"action not implemented");
-			break;
-		}
-	}
-
+	// decrement after reverting action
 	action_index--;
 }
 
 void Editor::try_redo() {
 	if (action_index + 1 >= actions.count) return;
 
-	ImGui::ClearActiveID();
+	//ImGui::ClearActiveID();
 
+	// increment before performing action
 	action_index++;
 
-	Action* action = &actions[action_index];
-
-	// perform action
-	switch (action->type) {
-		case ACTION_SET_TILE_HEIGHT: {
-			For (it, action->set_tile_height.sets) {
-				int tile_index = it->tile_index;
-				int in_tile_pos_x = it->in_tile_pos_x;
-
-				auto heights = get_tile_heights(ts, tile_index);
-				heights[in_tile_pos_x] = it->height_to;
-			}
-			gen_heightmap_texture(&heightmap, ts, tileset_texture);
-			break;
-		}
-
-		case ACTION_SET_TILE_ANGLE: {
-			int tile_index = action->set_tile_angle.tile_index;
-			ts.angles[tile_index] = action->set_tile_angle.angle_to;
-			break;
-		}
-
-		default: {
-			Assert(!"action not implemented");
-			break;
-		}
-	}
+	const Action& action = actions[action_index];
+	action_perform(action);
 }
 
 void Editor::action_add(const Action& action) {
@@ -617,6 +574,91 @@ void Editor::action_add(const Action& action) {
 
 	array_add(&actions, action);
 	action_index++;
+}
+
+void Editor::action_add_and_perform(const Action& action) {
+	action_add(action);
+	action_perform(action);
+}
+
+void Editor::action_perform(const Action& action) {
+	// perform action
+	switch (action.type) {
+		case ACTION_SET_TILE_HEIGHT: {
+			For (it, action.set_tile_height.sets) {
+				int tile_index = it->tile_index;
+				int in_tile_pos_x = it->in_tile_pos_x;
+
+				auto heights = get_tile_heights(ts, tile_index);
+				heights[in_tile_pos_x] = it->height_to;
+			}
+			gen_heightmap_texture(&heightmap, ts, tileset_texture);
+			break;
+		}
+
+		case ACTION_SET_TILE_WIDTH: {
+			For (it, action.set_tile_width.sets) {
+				int tile_index = it->tile_index;
+				int in_tile_pos_y = it->in_tile_pos_y;
+
+				auto widths = get_tile_widths(ts, tile_index);
+				widths[in_tile_pos_y] = it->width_to;
+			}
+			gen_widthmap_texture(&widthmap, ts, tileset_texture);
+			break;
+		}
+
+		case ACTION_SET_TILE_ANGLE: {
+			int tile_index = action.set_tile_angle.tile_index;
+			ts.angles[tile_index] = action.set_tile_angle.angle_to;
+			break;
+		}
+
+		default: {
+			Assert(!"action not implemented");
+			break;
+		}
+	}
+}
+
+void Editor::action_revert(const Action& action) {
+	// revert action
+	switch (action.type) {
+		case ACTION_SET_TILE_HEIGHT: {
+			For (it, action.set_tile_height.sets) {
+				int tile_index = it->tile_index;
+				int in_tile_pos_x = it->in_tile_pos_x;
+
+				auto heights = get_tile_heights(ts, tile_index);
+				heights[in_tile_pos_x] = it->height_from;
+			}
+			gen_heightmap_texture(&heightmap, ts, tileset_texture);
+			break;
+		}
+
+		case ACTION_SET_TILE_WIDTH: {
+			For (it, action.set_tile_width.sets) {
+				int tile_index = it->tile_index;
+				int in_tile_pos_y = it->in_tile_pos_y;
+
+				auto widths = get_tile_widths(ts, tile_index);
+				widths[in_tile_pos_y] = it->width_from;
+			}
+			gen_widthmap_texture(&widthmap, ts, tileset_texture);
+			break;
+		}
+
+		case ACTION_SET_TILE_ANGLE: {
+			int tile_index = action.set_tile_angle.tile_index;
+			ts.angles[tile_index] = action.set_tile_angle.angle_from;
+			break;
+		}
+
+		default: {
+			Assert(!"action not implemented");
+			break;
+		}
+	}
 }
 
 bool Editor::try_run_game() {
@@ -645,6 +687,11 @@ void free_action(Action* action) {
 	switch (action->type) {
 		case ACTION_SET_TILE_HEIGHT: {
 			array_free(&action->set_tile_height.sets);
+			break;
+		}
+
+		case ACTION_SET_TILE_WIDTH: {
+			array_free(&action->set_tile_width.sets);
 			break;
 		}
 	}
@@ -850,15 +897,17 @@ void TilesetEditor::update(float delta) {
 		ImGui::Text("Tile ID: %d", selected_tile_index);
 
 		float angle = editor.ts.angles[selected_tile_index];
-		if (ImGui::InputFloat("Angle", &angle, 0, 0, nullptr, ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_EnterReturnsTrue)) {
-			Action action = {};
-			action.type = ACTION_SET_TILE_ANGLE;
-			action.set_tile_angle.tile_index = selected_tile_index;
-			action.set_tile_angle.angle_from = editor.ts.angles[selected_tile_index];
-			action.set_tile_angle.angle_to = angle;
+		ImGui::InputFloat("Angle", &angle, 0, 0, nullptr, ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_CharsDecimal);
+		if (!ImGui::IsItemActive()) {
+			if (editor.ts.angles[selected_tile_index] != angle) {
+				Action action = {};
+				action.type = ACTION_SET_TILE_ANGLE;
+				action.set_tile_angle.tile_index = selected_tile_index;
+				action.set_tile_angle.angle_from = editor.ts.angles[selected_tile_index];
+				action.set_tile_angle.angle_to = angle;
 
-			editor.ts.angles[selected_tile_index] = angle;
-			editor.action_add(action);
+				editor.action_add_and_perform(action);
+			}
 		}
 
 		if (ImGui::CollapsingHeader("Heights")) {
@@ -868,22 +917,47 @@ void TilesetEditor::update(float delta) {
 
 				char buf[16];
 				stb_snprintf(buf, sizeof(buf), "[%d]", i);
-				if (ImGui::InputInt(buf, &height, 0, 0, ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_CharsDecimal | ImGuiInputTextFlags_EnterReturnsTrue)) {
-					Action action = {};
-					action.type = ACTION_SET_TILE_HEIGHT;
+				ImGui::InputInt(buf, &height, 0, 0, ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_CharsDecimal);
+				if (!ImGui::IsItemActive()) {
+					if (heights[i] != height) {
+						Action action = {};
+						action.type = ACTION_SET_TILE_HEIGHT;
 
-					SetTileHeight set = {};
-					set.tile_index = selected_tile_index;
-					set.in_tile_pos_x = i;
-					set.height_from = heights[i];
-					set.height_to = height;
+						SetTileHeight set = {};
+						set.tile_index = selected_tile_index;
+						set.in_tile_pos_x = i;
+						set.height_from = heights[i];
+						set.height_to = height;
+						array_add(&action.set_tile_height.sets, set);
 
-					array_add(&action.set_tile_height.sets, set);
+						editor.action_add_and_perform(action);
+					}
+				}
+			}
+		}
 
-					heights[i] = height;
-					gen_heightmap_texture(&editor.heightmap, editor.ts, editor.tileset_texture);
+		if (ImGui::CollapsingHeader("Widths")) {
+			auto widths = get_tile_widths(editor.ts, selected_tile_index);
+			for (int i = 0; i < widths.count; i++) {
+				int width = widths[i];
 
-					editor.action_add(action);
+				char buf[16];
+				stb_snprintf(buf, sizeof(buf), "[%d]", i);
+				ImGui::InputInt(buf, &width, 0, 0, ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_CharsDecimal);
+				if (!ImGui::IsItemActive()) {
+					if (widths[i] != width) {
+						Action action = {};
+						action.type = ACTION_SET_TILE_WIDTH;
+
+						SetTileWidth set = {};
+						set.tile_index = selected_tile_index;
+						set.in_tile_pos_y = i;
+						set.width_from = widths[i];
+						set.width_to = width;
+						array_add(&action.set_tile_width.sets, set);
+
+						editor.action_add_and_perform(action);
+					}
 				}
 			}
 		}

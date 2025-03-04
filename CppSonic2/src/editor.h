@@ -19,6 +19,7 @@ struct View {
 
 #define ACTION_TYPE_ENUM(X) \
 	X(ACTION_SET_TILE_HEIGHT) \
+	X(ACTION_SET_TILE_WIDTH) \
 	X(ACTION_SET_TILE_ANGLE)
 
 DEFINE_NAMED_ENUM(ActionType, ACTION_TYPE_ENUM)
@@ -30,12 +31,23 @@ struct SetTileHeight {
 	int height_to;
 };
 
+struct SetTileWidth {
+	int tile_index;
+	int in_tile_pos_y;
+	int width_from;
+	int width_to;
+};
+
 struct Action {
 	ActionType type;
 	union {
 		struct {
 			dynamic_array<SetTileHeight> sets;
 		} set_tile_height;
+
+		struct {
+			dynamic_array<SetTileWidth> sets;
+		} set_tile_width;
 
 		struct {
 			int tile_index;
@@ -139,6 +151,9 @@ struct Editor {
 	void try_undo();
 	void try_redo();
 	void action_add(const Action& action);
+	void action_add_and_perform(const Action& action);
+	void action_perform(const Action& action);
+	void action_revert(const Action& action);
 	bool try_run_game();
 };
 
