@@ -113,7 +113,7 @@ void Program::draw(float delta) {
 
 	// fill the screen with black during transition
 	if (transition_t != 0) {
-		Rectf rect = {0, 0, window.game_width, window.game_height};
+		Rectf rect = {0, 0, (float)window.game_width, (float)window.game_height};
 
 		vec4 color = color_black;
 		color.a = transition_t;

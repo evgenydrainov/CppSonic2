@@ -20,7 +20,8 @@ struct View {
 #define ACTION_TYPE_ENUM(X) \
 	X(ACTION_SET_TILE_HEIGHT) \
 	X(ACTION_SET_TILE_WIDTH) \
-	X(ACTION_SET_TILE_ANGLE)
+	X(ACTION_SET_TILE_ANGLE) \
+	X(ACTION_SET_TILES)
 
 DEFINE_NAMED_ENUM(ActionType, ACTION_TYPE_ENUM)
 
@@ -36,6 +37,13 @@ struct SetTileWidth {
 	int in_tile_pos_y;
 	int width_from;
 	int width_to;
+};
+
+struct SetTile {
+	int tile_index;
+	int layer_index;
+	Tile tile_from;
+	Tile tile_to;
 };
 
 struct Action {
@@ -54,6 +62,10 @@ struct Action {
 			float angle_from;
 			float angle_to;
 		} set_tile_angle;
+
+		struct {
+			dynamic_array<SetTile> sets;
+		} set_tiles;
 	};
 };
 
@@ -85,7 +97,7 @@ struct TilesetEditor {
 
 struct TilemapEditor {
 	enum Tool {
-		TOOL_NONE,
+		TOOL_SELECT,
 		TOOL_BRUSH,
 		TOOL_ERASER,
 	};
@@ -97,6 +109,20 @@ struct TilemapEditor {
 	bool layer_visible[3] = {true, false, true};
 	bool show_objects = true;
 	bool highlight_current_layer;
+
+	dynamic_array<Tile> brush;
+	int brush_w;
+	int brush_h;
+
+	dynamic_array<SetTile> set_tiles;
+
+	bool dragging;
+	int dragging_x1;
+	int dragging_y1;
+	int selection_x;
+	int selection_y;
+	int selection_w;
+	int selection_h;
 
 	void update(float delta);
 };

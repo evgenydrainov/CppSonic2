@@ -42,6 +42,31 @@ static bool IsKeyPressedNoMod(ImGuiKey key) {
 	return ImGui::IsKeyPressed(key, false);
 }
 
+static ivec2 view_get_tile_pos(const View& view, ivec2 tile_size, ivec2 clamp_size, vec2 screen_pos) {
+	vec2 pos = screen_pos;
+	pos -= view.thing_p0;
+	pos /= view.zoom;
+
+	int tile_x = clamp((int)(pos.x / tile_size.x), 0, clamp_size.x - 1);
+	int tile_y = clamp((int)(pos.y / tile_size.y), 0, clamp_size.y - 1);
+
+	return {tile_x, tile_y};
+}
+
+static ivec2 view_get_in_tile_pos(const View& view, ivec2 tile_size, ivec2 clamp_size, vec2 screen_pos) {
+	vec2 pos = screen_pos;
+	pos -= view.thing_p0;
+	pos /= view.zoom;
+
+	int x = clamp((int)pos.x, 0, clamp_size.x * tile_size.x - 1);
+	int y = clamp((int)pos.y, 0, clamp_size.y * tile_size.y - 1);
+
+	x %= tile_size.x;
+	y %= tile_size.y;
+
+	return {x, y};
+}
+
 enum PanAndZoomFlags {
 	DONT_MOVE_VIEW_WITH_ARROW_KEYS = 1 << 0,
 };
@@ -231,31 +256,6 @@ static void pan_and_zoom(View& view,
 	}
 }
 
-static glm::ivec2 view_get_tile_pos(const View& view, glm::ivec2 tile_size, glm::ivec2 clamp_size, vec2 screen_pos) {
-	vec2 pos = screen_pos;
-	pos -= view.thing_p0;
-	pos /= view.zoom;
-
-	int tile_x = clamp((int)(pos.x / tile_size.x), 0, clamp_size.x - 1);
-	int tile_y = clamp((int)(pos.y / tile_size.y), 0, clamp_size.y - 1);
-
-	return {tile_x, tile_y};
-}
-
-static glm::ivec2 view_get_in_tile_pos(const View& view, glm::ivec2 tile_size, glm::ivec2 clamp_size, vec2 screen_pos) {
-	vec2 pos = screen_pos;
-	pos -= view.thing_p0;
-	pos /= view.zoom;
-
-	int x = clamp((int)pos.x, 0, clamp_size.x * tile_size.x - 1);
-	int y = clamp((int)pos.y, 0, clamp_size.y * tile_size.y - 1);
-
-	x %= tile_size.x;
-	y %= tile_size.y;
-
-	return {x, y};
-}
-
 static bool ButtonActive(const char* label, bool active) {
 	if (active) {
 		ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
@@ -300,7 +300,7 @@ static bool SmallIconButtonActive(const char* label, bool active) {
 	return res;
 }
 
-static void draw_grid_exact(vec2 tile_size, glm::ivec2 grid_size, vec4 color) {
+static void draw_grid_exact(vec2 tile_size, ivec2 grid_size, vec4 color) {
 	for (int x = 0; x <= grid_size.x; x++) {
 		vec2 p0 = {x * tile_size.x, 0};
 		vec2 p1 = {x * tile_size.x, grid_size.y * tile_size.y};
@@ -515,21 +515,29 @@ void Editor::update(float delta) {
 
 		int i = 0;
 		For (it, actions) {
-			const char* action_type_name = GetActionTypeName(it->type);
-
-			const char* prefix = "";
 			if (i == action_index) {
-				prefix = "-> ";
+				ImGui::Text("->");
+				ImGui::SameLine();
 			}
 
+			ImGui::Text("[%d] %s", i, GetActionTypeName(it->type));
+
 			if (it->type == ACTION_SET_TILE_HEIGHT) {
+				ImGui::SameLine();
 				int num_changes = it->set_tile_height.sets.count;
-				ImGui::Text("%s[%d] %s (%d %s)", prefix, i, action_type_name, num_changes, (num_changes == 1) ? "change" : "changes");
+				ImGui::Text("(%d %s)", num_changes, (num_changes == 1) ? "change" : "changes");
 			} else if (it->type == ACTION_SET_TILE_WIDTH) {
+				ImGui::SameLine();
 				int num_changes = it->set_tile_width.sets.count;
-				ImGui::Text("%s[%d] %s (%d %s)", prefix, i, action_type_name, num_changes, (num_changes == 1) ? "change" : "changes");
-			} else {
-				ImGui::Text("%s[%d] %s", prefix, i, action_type_name);
+				ImGui::Text("(%d %s)", num_changes, (num_changes == 1) ? "change" : "changes");
+			} else if (it->type == ACTION_SET_TILES) {
+				ImGui::SameLine();
+				int num_changes = it->set_tiles.sets.count;
+				ImGui::Text("(%d %s)", num_changes, (num_changes == 1) ? "change" : "changes");
+
+				ImGui::SameLine();
+				int layer_index = it->set_tiles.sets[0].layer_index;
+				ImGui::Text("(layer %d)", layer_index);
 			}
 
 			i++;
@@ -614,6 +622,13 @@ void Editor::action_perform(const Action& action) {
 			break;
 		}
 
+		case ACTION_SET_TILES: {
+			For (it, action.set_tiles.sets) {
+				set_tile_by_index(&tm, it->tile_index, it->layer_index, it->tile_to);
+			}
+			break;
+		}
+
 		default: {
 			Assert(!"action not implemented");
 			break;
@@ -651,6 +666,13 @@ void Editor::action_revert(const Action& action) {
 		case ACTION_SET_TILE_ANGLE: {
 			int tile_index = action.set_tile_angle.tile_index;
 			ts.angles[tile_index] = action.set_tile_angle.angle_from;
+			break;
+		}
+
+		case ACTION_SET_TILES: {
+			For (it, action.set_tiles.sets) {
+				set_tile_by_index(&tm, it->tile_index, it->layer_index, it->tile_from);
+			}
 			break;
 		}
 
@@ -804,10 +826,10 @@ void TilesetEditor::update(float delta) {
 		if (tool == TOOL_SELECT) {
 			if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
 				if (pos_in_rect(ImGui::GetMousePos(), tileset_view.thing_p0, tileset_view.thing_p1)) {
-					glm::ivec2 tile_pos = view_get_tile_pos(tileset_view,
-															{16, 16},
-															{editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
-															ImGui::GetMousePos());
+					ivec2 tile_pos = view_get_tile_pos(tileset_view,
+													   {16, 16},
+													   {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
+													   ImGui::GetMousePos());
 
 					int tile_index = tile_pos.x + tile_pos.y * (editor.tileset_texture.width / 16);
 
@@ -824,15 +846,15 @@ void TilesetEditor::update(float delta) {
 					set_tile_heights_dragging = true;
 
 					if (pos_in_rect(ImGui::GetMousePos(), tileset_view.thing_p0, tileset_view.thing_p1)) {
-						glm::ivec2 tile_pos = view_get_tile_pos(tileset_view,
-																{16, 16},
-																{editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
-																ImGui::GetMousePos());
+						ivec2 tile_pos = view_get_tile_pos(tileset_view,
+														   {16, 16},
+														   {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
+														   ImGui::GetMousePos());
 
-						glm::ivec2 in_tile_pos = view_get_in_tile_pos(tileset_view,
-																	  {16, 16},
-																	  {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
-																	  ImGui::GetMousePos());
+						ivec2 in_tile_pos = view_get_in_tile_pos(tileset_view,
+																 {16, 16},
+																 {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
+																 ImGui::GetMousePos());
 
 						int tile_index = tile_pos.x + tile_pos.y * (editor.tileset_texture.width / 16);
 
@@ -971,16 +993,14 @@ void TilemapEditor::update(float delta) {
 		ImGui::Begin("Tilemap Editor##tilemap_editor");
 		defer { ImGui::End(); };
 
-		if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)) {
-			if (IsKeyPressedNoMod(ImGuiKey_Escape)) {
-				tool = TOOL_NONE;
-			}
-		}
-
 		// tools child window
 		auto tools_child_window = [&]() {
 			ImGui::BeginChild("Tools Child Window", {}, ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeX);
 			defer { ImGui::EndChild(); };
+
+			if (IconButtonActive(ICON_FA_MOUSE_POINTER, tool == TOOL_SELECT)) tool = TOOL_SELECT;
+			if (IsKeyPressedNoMod(ImGuiKey_S)) tool = TOOL_SELECT;
+			ImGui::SetItemTooltip("Select\nShortcut: S");
 
 			if (IconButtonActive(ICON_FA_PEN, tool == TOOL_BRUSH)) tool = TOOL_BRUSH;
 			if (IsKeyPressedNoMod(ImGuiKey_B)) tool = TOOL_BRUSH;
@@ -1006,6 +1026,17 @@ void TilemapEditor::update(float delta) {
 		auto callback = []() {
 			TilemapEditor& tilemap_editor = editor.tilemap_editor;
 
+			Action action = {};
+			action.type = ACTION_SET_TILES;
+			// copy array
+			For (it, tilemap_editor.set_tiles) {
+				array_add(&action.set_tiles.sets, *it);
+			}
+			defer { free_action(&action); };
+
+			editor.action_perform(action);
+			defer { editor.action_revert(action); };
+
 			// draw layers
 			for (int i = 0; i < 3; i++) {
 				if (tilemap_editor.layer_visible[i]) {
@@ -1020,12 +1051,67 @@ void TilemapEditor::update(float delta) {
 					}
 
 					draw_tilemap_layer(editor.tm, i, editor.tileset_texture, 0, 0, editor.tm.width, editor.tm.height, color);
+
+					// draw hovered brush
+					if (tilemap_editor.tool == TOOL_BRUSH) {
+						if (i == tilemap_editor.layer_index) {
+							ivec2 mouse_pos = view_get_tile_pos(tilemap_editor.tilemap_view,
+																{16, 16},
+																{editor.tm.width, editor.tm.height},
+																ImGui::GetMousePos());
+
+							for (int y = 0; y < tilemap_editor.brush_h; y++) {
+								for (int x = 0; x < tilemap_editor.brush_w; x++) {
+									Tile tile = tilemap_editor.brush[x + y * tilemap_editor.brush_w];
+
+									Rect src;
+									src.x = (tile.index % (editor.tileset_texture.width / 16)) * 16;
+									src.y = (tile.index / (editor.tileset_texture.width / 16)) * 16;
+									src.w = 16;
+									src.h = 16;
+
+									vec2 pos;
+									pos.x = (mouse_pos.x + x) * 16;
+									pos.y = (mouse_pos.y + y) * 16;
+
+									draw_texture_simple(editor.tileset_texture, src, pos);
+								}
+							}
+						}
+					}
 				}
 			}
 
 			// draw objects
 			if (tilemap_editor.show_objects) {
 				draw_objects(editor.objects, SDL_GetTicks() / (1000.0f / 60.0f), true);
+
+				For (it, editor.objects) {
+					switch (it->type) {
+						case OBJ_MOVING_PLATFORM: {
+							{
+								vec2 p1 = it->pos;
+								vec2 p2 = it->pos + it->mplatform.offset;
+
+								float length = point_distance(p1, p2);
+								float direction = point_direction(p1, p2);
+
+								draw_arrow_thick(p1, length, direction, 2, 1, color_white);
+							}
+
+							{
+								vec2 p1 = it->pos;
+								vec2 p2 = it->pos - it->mplatform.offset;
+
+								float length = point_distance(p1, p2);
+								float direction = point_direction(p1, p2);
+
+								draw_arrow_thick(p1, length, direction, 2, 1, color_white);
+							}
+							break;
+						}
+					}
+				}
 			}
 
 			// draw grid and border
@@ -1054,6 +1140,68 @@ void TilemapEditor::update(float delta) {
 					 {editor.tm.width * 16, editor.tm.height * 16},
 					 (PanAndZoomFlags) 0,
 					 callback);
+
+
+		bool set_tiles_dragging = false;
+
+		if (tool == TOOL_BRUSH) {
+			if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+				set_tiles_dragging = true;
+
+				if (pos_in_rect(ImGui::GetMousePos(), tilemap_view.thing_p0, tilemap_view.thing_p1)) {
+					ivec2 mouse_pos = view_get_tile_pos(tilemap_view,
+														{16, 16},
+														{editor.tm.width, editor.tm.height},
+														ImGui::GetMousePos());
+
+					for (int y = 0; y < brush_h; y++) {
+						for (int x = 0; x < brush_w; x++) {
+							if (!layer_visible[layer_index]) continue;
+							if ((mouse_pos.x + x) >= editor.tm.width)  continue;
+							if ((mouse_pos.y + y) >= editor.tm.height) continue;
+
+							int tile_index = (mouse_pos.x + x) + (mouse_pos.y + y) * editor.tm.width;
+
+							SetTile* found = nullptr;
+							For (it, set_tiles) {
+								if (it->tile_index == tile_index) {
+									found = it;
+									break;
+								}
+							}
+
+							if (found) {
+								found->tile_to = brush[x + y * brush_w];
+							} else {
+								SetTile set = {};
+								set.tile_index = tile_index;
+								set.layer_index = layer_index;
+								set.tile_from = get_tile_by_index(editor.tm, tile_index, layer_index);
+								set.tile_to = brush[x + y * brush_w];
+
+								array_add(&set_tiles, set);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if (!set_tiles_dragging) {
+			if (set_tiles.count > 0) {
+				Action action = {};
+				action.type = ACTION_SET_TILES;
+
+				// copy array
+				For (it, set_tiles) {
+					array_add(&action.set_tiles.sets, *it);
+				}
+
+				editor.action_add_and_perform(action);
+
+				set_tiles.count = 0;
+			}
+		}
 
 		ImVec2 cursor = ImGui::GetCursorScreenPos();
 
@@ -1103,18 +1251,23 @@ void TilemapEditor::update(float delta) {
 
 			draw_texture(editor.tileset_texture);
 
+			// draw selection
+			if (tilemap_editor.selection_w > 0 && tilemap_editor.selection_h > 0) {
+				draw_rectangle_outline_thick({(float)tilemap_editor.selection_x * 16, (float)tilemap_editor.selection_y * 16, (float)tilemap_editor.selection_w * 16, (float)tilemap_editor.selection_h * 16},
+											 1,
+											 color_white);
+			}
+
 			// draw grid and border
 			{
-				vec4 color = get_color(255, 255, 255, 255);
-
 				if (tilemap_editor.tileset_view.zoom > 2) {
 					draw_grid_exact({16, 16},
 									{editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
-									color);
+									{1, 1, 1, 0.5f});
 				}
 
 				draw_rectangle_outline_exact({0, 0, (float)editor.tileset_texture.width, (float)editor.tileset_texture.height},
-											 color);
+											 color_white);
 			}
 
 			break_batch();
@@ -1125,6 +1278,47 @@ void TilemapEditor::update(float delta) {
 					 {editor.tileset_texture.width, editor.tileset_texture.height},
 					 (PanAndZoomFlags) 0,
 					 callback);
+
+		if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+			ivec2 tile_pos = view_get_tile_pos(tileset_view,
+											   {16, 16},
+											   {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
+											   ImGui::GetMousePos());
+
+			if (!dragging) {
+				dragging_x1 = tile_pos.x;
+				dragging_y1 = tile_pos.y;
+				dragging = true;
+			}
+
+			int dragging_x2 = tile_pos.x;
+			int dragging_y2 = tile_pos.y;
+
+			selection_x = min(dragging_x1, dragging_x2);
+			selection_y = min(dragging_y1, dragging_y2);
+			selection_w = ImAbs(dragging_x2 - dragging_x1) + 1;
+			selection_h = ImAbs(dragging_y2 - dragging_y1) + 1;
+		} else {
+			if (dragging) {
+				// copy tiles to brush
+				brush.count = 0;
+				for (int tile_y = selection_y; tile_y < selection_y + selection_h; tile_y++) {
+					for (int tile_x = selection_x; tile_x < selection_x + selection_w; tile_x++) {
+						int tile_index = tile_x + tile_y * (editor.tileset_texture.width / 16);
+
+						Tile tile = {};
+						tile.index = tile_index;
+						tile.top_solid = true;
+						tile.lrb_solid = true;
+						array_add(&brush, tile);
+					}
+				}
+				brush_w = selection_w;
+				brush_h = selection_h;
+
+				dragging = false;
+			}
+		}
 	};
 
 	tileset_window();

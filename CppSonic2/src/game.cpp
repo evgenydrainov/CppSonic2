@@ -3287,7 +3287,7 @@ void Game::draw(float delta) {
 
 			float y = lerp3(y1, y2, y3, pause_menu_t);
 
-			Rectf r = {0, y, window.game_width, window.game_height};
+			Rectf r = {0, y, (float)window.game_width, (float)window.game_height};
 			draw_rectangle(r, color);
 		}
 
@@ -3299,7 +3299,7 @@ void Game::draw(float delta) {
 				vec4 color = color_black;
 				color.a = lerp3(0.0f, 1.0f, 0.0f, pause_menu_t);
 
-				Rectf r = {pos.x + 128, pos.y + 19, window.game_width, 13};
+				Rectf r = {pos.x + 128, pos.y + 19, (float)window.game_width, 13};
 				draw_rectangle(r, color);
 			}
 

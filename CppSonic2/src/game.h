@@ -391,6 +391,18 @@ inline Tile get_tile_safe(const Tilemap& tm, int tile_x, int tile_y, int layer) 
 	return {};
 }
 
+inline Tile get_tile_by_index(const Tilemap& tm, int tile_index, int layer) {
+	Assert(tile_index >= 0 && tile_index < tm.width * tm.height);
+	Assert(layer >= 0 && layer < 3);
+	if (layer == 0) {
+		return tm.tiles_a[tile_index];
+	} else if (layer == 1) {
+		return tm.tiles_b[tile_index];
+	} else {
+		return tm.tiles_c[tile_index];
+	}
+}
+
 inline void set_tile(Tilemap* tm, int tile_x, int tile_y, int layer, Tile tile) {
 	Assert((0 <= tile_x && tile_x < tm->width) && (0 <= tile_y && tile_y < tm->height));
 	Assert(layer >= 0 && layer < 3);
@@ -412,6 +424,18 @@ inline void set_tile_safe(Tilemap* tm, int tile_x, int tile_y, int layer, Tile t
 		} else {
 			tm->tiles_c[tile_x + tile_y * tm->width] = tile;
 		}
+	}
+}
+
+inline void set_tile_by_index(Tilemap* tm, int tile_index, int layer, Tile tile) {
+	Assert(tile_index >= 0 && tile_index < tm->width * tm->height);
+	Assert(layer >= 0 && layer < 3);
+	if (layer == 0) {
+		tm->tiles_a[tile_index] = tile;
+	} else if (layer == 1) {
+		tm->tiles_b[tile_index] = tile;
+	} else {
+		tm->tiles_c[tile_index] = tile;
 	}
 }
 
