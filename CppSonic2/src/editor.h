@@ -131,6 +131,17 @@ struct ObjectsEditor {
 	void update(float delta);
 };
 
+enum NotificationType {
+	NOTIF_INFO,
+};
+
+struct Notification {
+	NotificationType type;
+	char buf[128];
+	float timer = 2.5f;
+	float alpha;
+};
+
 struct Editor {
 	enum State {
 		STATE_TILESET_EDITOR,
@@ -165,6 +176,8 @@ struct Editor {
 
 	const char* process_name;
 
+	dynamic_array<Notification> notifications;
+
 	void init(int argc, char* argv[]);
 	void deinit();
 	void update(float delta);
@@ -181,6 +194,7 @@ struct Editor {
 	void action_perform(const Action& action);
 	void action_revert(const Action& action);
 	bool try_run_game();
+	void notify(NotificationType type, const char* fmt, ...);
 };
 
 extern Editor editor;

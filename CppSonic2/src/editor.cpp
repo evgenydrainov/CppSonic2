@@ -545,22 +545,78 @@ void Editor::update(float delta) {
 	};
 
 	undo_history_window();
+
+	// render notifications
+	{
+		int i = 0;
+
+		ImVec2 pos = io.DisplaySize - ImVec2(20, 20);
+
+		For (it, notifications) {
+			if (it->timer > 0) {
+				it->timer -= io.DeltaTime;
+
+				// fade in
+				it->alpha += io.DeltaTime * 4.0f;
+				if (it->alpha > 1) it->alpha = 1;
+			} else {
+				// fade out
+				it->alpha -= io.DeltaTime * 6.0f;
+				if (it->alpha <= 0) {
+					array_remove(&notifications, it);
+					it--;
+					continue;
+				}
+			}
+
+			ImGuiWindowFlags window_flags = (ImGuiWindowFlags_NoDecoration
+											 | ImGuiWindowFlags_NoInputs
+											 | ImGuiWindowFlags_AlwaysAutoResize
+											 | ImGuiWindowFlags_NoFocusOnAppearing
+											 | ImGuiWindowFlags_NoSavedSettings);
+
+			ImGui::SetNextWindowPos(pos, ImGuiCond_Always, {1, 1});
+			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, it->alpha);
+
+			char buf[128];
+			stb_snprintf(buf, sizeof(buf), "notif%d", i++);
+
+			ImGui::Begin(buf, nullptr, window_flags);
+
+			ImGui::Text(ICON_FA_INFO_CIRCLE " Info");
+			ImGui::Text("%s", it->buf);
+
+			pos.y -= ImGui::GetWindowSize().y + 5;
+
+			ImGui::End();
+
+			ImGui::PopStyleVar();
+		}
+	}
 }
 
 void Editor::try_undo() {
-	if (action_index == -1) return;
+	if (action_index == -1) {
+		notify(NOTIF_INFO, "Nothing to Undo.");
+		return;
+	}
 
 	//ImGui::ClearActiveID();
 
 	const Action& action = actions[action_index];
 	action_revert(action);
 
+	notify(NOTIF_INFO, "Undid %s.", GetActionTypeName(action.type));
+
 	// decrement after reverting action
 	action_index--;
 }
 
 void Editor::try_redo() {
-	if (action_index + 1 >= actions.count) return;
+	if (action_index + 1 >= actions.count) {
+		notify(NOTIF_INFO, "Nothing to Redo.");
+		return;
+	}
 
 	//ImGui::ClearActiveID();
 
@@ -569,6 +625,8 @@ void Editor::try_redo() {
 
 	const Action& action = actions[action_index];
 	action_perform(action);
+
+	notify(NOTIF_INFO, "Redid %s.", GetActionTypeName(action.type));
 }
 
 void Editor::action_add(const Action& action) {
@@ -703,6 +761,18 @@ bool Editor::try_run_game() {
 	// do we need to `subprocess_destroy`?
 
 	return true;
+}
+
+void Editor::notify(NotificationType type, const char* fmt, ...) {
+	Notification notif = {};
+	notif.type = type;
+
+	va_list va;
+	va_start(va, fmt);
+	stb_vsnprintf(notif.buf, sizeof(notif.buf), fmt, va);
+	va_end(va);
+
+	array_insert(&notifications, 0, notif);
 }
 
 void free_action(Action* action) {

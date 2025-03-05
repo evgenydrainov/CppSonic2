@@ -806,9 +806,13 @@ inline T* array_remove(dynamic_array<T>* arr, size_t index) {
 
 template <typename T>
 inline T* array_insert(dynamic_array<T>* arr, T* it, const T& val) {
+	size_t index = it - arr->begin();
+
 	if (arr->count == arr->capacity) {
 		array_grow(arr);
 	}
+
+	it = arr->begin() + index;
 
 	Assert(it >= arr->begin());
 	Assert(it <= arr->end());
