@@ -99,7 +99,6 @@ struct TilemapEditor {
 	enum Tool {
 		TOOL_SELECT,
 		TOOL_BRUSH,
-		TOOL_ERASER,
 	};
 
 	Tool tool;
@@ -110,19 +109,29 @@ struct TilemapEditor {
 	bool show_objects = true;
 	bool highlight_current_layer;
 
+	bool highlight_any_solid_tiles;
+
 	dynamic_array<Tile> brush;
 	int brush_w;
 	int brush_h;
 
 	dynamic_array<SetTile> set_tiles;
 
-	bool dragging;
-	int dragging_x1;
-	int dragging_y1;
-	int selection_x;
-	int selection_y;
-	int selection_w;
-	int selection_h;
+	bool tileset_dragging;
+	int tileset_dragging_x1;
+	int tileset_dragging_y1;
+	int tileset_selection_x;
+	int tileset_selection_y;
+	int tileset_selection_w;
+	int tileset_selection_h;
+
+	bool tilemap_dragging;
+	int tilemap_dragging_x1;
+	int tilemap_dragging_y1;
+	int tilemap_selection_x;
+	int tilemap_selection_y;
+	int tilemap_selection_w;
+	int tilemap_selection_h;
 
 	void update(float delta);
 };
@@ -170,6 +179,7 @@ struct Editor {
 
 	bump_array<Action> actions;
 	int action_index = -1;
+	int saved_action_index = -1;
 
 	bool show_demo_window;
 	bool show_undo_history_window;
@@ -187,6 +197,8 @@ struct Editor {
 
 	void pick_and_open_level();
 	void close_level();
+	void try_save_level();
+
 	void try_undo();
 	void try_redo();
 	void action_add(const Action& action);

@@ -19,9 +19,6 @@ Editor editor;
 void Editor::init(int argc, char* argv[]) {
 	SDL_MaximizeWindow(get_window_handle());
 
-	actions = malloc_bump_array<Action>(10'000);
-	action_index = -1;
-
 	process_name = argv[0];
 }
 
@@ -29,7 +26,7 @@ void Editor::deinit() {
 	close_level();
 }
 
-static bool IsKeyPressedNoMod(ImGuiKey key) {
+static bool IsKeyPressedNoMod(ImGuiKey key, bool repeat = false) {
 	if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) return false;
 	if (ImGui::IsKeyDown(ImGuiKey_RightCtrl)) return false;
 
@@ -39,7 +36,7 @@ static bool IsKeyPressedNoMod(ImGuiKey key) {
 	if (ImGui::IsKeyDown(ImGuiKey_LeftAlt)) return false;
 	if (ImGui::IsKeyDown(ImGuiKey_RightAlt)) return false;
 
-	return ImGui::IsKeyPressed(key, false);
+	return ImGui::IsKeyPressed(key, repeat);
 }
 
 static ivec2 view_get_tile_pos(const View& view, ivec2 tile_size, ivec2 clamp_size, vec2 screen_pos) {
@@ -379,6 +376,10 @@ void Editor::pick_and_open_level() {
 	gen_heightmap_texture(&heightmap, ts, tileset_texture);
 	gen_widthmap_texture(&widthmap, ts, tileset_texture);
 
+	actions = malloc_bump_array<Action>(10'000);
+	action_index = -1;
+	saved_action_index = -1;
+
 	is_level_open = true;
 	update_window_caption();
 }
@@ -398,8 +399,27 @@ void Editor::close_level() {
 	free_texture(&heightmap);
 	free_texture(&widthmap);
 
+	free(actions.data);
+	actions = {};
+	action_index = -1;
+	saved_action_index = -1;
+
 	is_level_open = false;
 	update_window_caption();
+}
+
+void Editor::try_save_level() {
+	if (!is_level_open) return;
+
+	write_tilemap(tm, (current_level_dir / "Tilemap.bin").u8string().c_str());
+	write_tileset(ts, (current_level_dir / "Tileset.bin").u8string().c_str());
+
+	write_objects(objects, (current_level_dir / "Objects.bin").u8string().c_str());
+
+	saved_action_index = action_index;
+	update_window_caption();
+
+	notify(NOTIF_INFO, "Saved.");
 }
 
 void Editor::update(float delta) {
@@ -409,6 +429,8 @@ void Editor::update(float delta) {
 
 	// main menu bar hotkeys
 	if (ImGui::IsKeyPressed(ImGuiKey_O, false) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) pick_and_open_level();
+
+	if (ImGui::IsKeyPressed(ImGuiKey_S, false) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) try_save_level();
 
 	if (ImGui::IsKeyPressed(ImGuiKey_Z, true) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) try_undo();
 
@@ -425,7 +447,7 @@ void Editor::update(float delta) {
 
 			if (ImGui::MenuItem("Open Level...", "Ctrl+O")) pick_and_open_level();
 
-			if (ImGui::MenuItem("Save Level", "Ctrl+S")) {}
+			if (ImGui::MenuItem("Save Level", "Ctrl+S")) try_save_level();
 
 			ImGui::Separator();
 
@@ -540,6 +562,11 @@ void Editor::update(float delta) {
 				ImGui::Text("(layer %d)", layer_index);
 			}
 
+			if (i == saved_action_index) {
+				ImGui::SameLine();
+				ImGui::Text("(Saved)");
+			}
+
 			i++;
 		}
 	};
@@ -596,6 +623,8 @@ void Editor::update(float delta) {
 }
 
 void Editor::try_undo() {
+	if (!is_level_open) return;
+
 	if (action_index == -1) {
 		notify(NOTIF_INFO, "Nothing to Undo.");
 		return;
@@ -610,9 +639,13 @@ void Editor::try_undo() {
 
 	// decrement after reverting action
 	action_index--;
+
+	update_window_caption();
 }
 
 void Editor::try_redo() {
+	if (!is_level_open) return;
+
 	if (action_index + 1 >= actions.count) {
 		notify(NOTIF_INFO, "Nothing to Redo.");
 		return;
@@ -627,10 +660,18 @@ void Editor::try_redo() {
 	action_perform(action);
 
 	notify(NOTIF_INFO, "Redid %s.", GetActionTypeName(action.type));
+
+	update_window_caption();
 }
 
 void Editor::action_add(const Action& action) {
+	Assert(is_level_open);
+
 	// TODO: handle when actions array runs out of capacity
+
+	if (action_index < saved_action_index) {
+		saved_action_index = -99;
+	}
 
 	int new_count = action_index + 1;
 	for (int i = new_count; i < actions.count; i++) {
@@ -640,14 +681,20 @@ void Editor::action_add(const Action& action) {
 
 	array_add(&actions, action);
 	action_index++;
+
+	update_window_caption();
 }
 
 void Editor::action_add_and_perform(const Action& action) {
+	Assert(is_level_open);
+
 	action_add(action);
 	action_perform(action);
 }
 
 void Editor::action_perform(const Action& action) {
+	Assert(is_level_open);
+
 	// perform action
 	switch (action.type) {
 		case ACTION_SET_TILE_HEIGHT: {
@@ -695,6 +742,8 @@ void Editor::action_perform(const Action& action) {
 }
 
 void Editor::action_revert(const Action& action) {
+	Assert(is_level_open);
+
 	// revert action
 	switch (action.type) {
 		case ACTION_SET_TILE_HEIGHT: {
@@ -870,7 +919,7 @@ void TilesetEditor::update(float delta) {
 				if (tileset_editor.tileset_view.zoom > 2) {
 					draw_grid_exact({16, 16},
 									{editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
-									color_white);
+									{1, 1, 1, 0.5f});
 				}
 
 				Rectf rect;
@@ -1075,10 +1124,6 @@ void TilemapEditor::update(float delta) {
 			if (IconButtonActive(ICON_FA_PEN, tool == TOOL_BRUSH)) tool = TOOL_BRUSH;
 			if (IsKeyPressedNoMod(ImGuiKey_B)) tool = TOOL_BRUSH;
 			ImGui::SetItemTooltip("Brush\nShortcut: B");
-
-			if (IconButtonActive(ICON_FA_ERASER, tool == TOOL_ERASER)) tool = TOOL_ERASER;
-			if (IsKeyPressedNoMod(ImGuiKey_E)) tool = TOOL_ERASER;
-			ImGui::SetItemTooltip("Eraser\nShortcut: E");
 		};
 
 		tools_child_window();
@@ -1120,7 +1165,46 @@ void TilemapEditor::update(float delta) {
 						}
 					}
 
-					draw_tilemap_layer(editor.tm, i, editor.tileset_texture, 0, 0, editor.tm.width, editor.tm.height, color);
+					if (i == tilemap_editor.layer_index) {
+						if (tilemap_editor.highlight_any_solid_tiles) {
+							color = get_color(80, 80, 80);
+						}
+					}
+
+					// draw tilemap layer
+					for (int y = 0; y < editor.tm.height; y++) {
+						for (int x = 0; x < editor.tm.width; x++) {
+							Tile tile = get_tile(editor.tm, x, y, i);
+
+							// Tile index 0 means empty tile and it shouldn't have solidity,
+							// but if it has solidity, then show the tile in the editor, so you can erase it.
+							bool dont_skip_tile_index_0 = false;
+
+							vec4 c = color;
+							if (i == tilemap_editor.layer_index) {
+								if (tilemap_editor.highlight_any_solid_tiles) {
+									if (tile.top_solid || tile.lrb_solid) {
+										c = color_white;
+										dont_skip_tile_index_0 = true;
+									}
+								}
+							}
+
+							if (!dont_skip_tile_index_0) {
+								if (tile.index == 0) {
+									continue;
+								}
+							}
+
+							Rect src;
+							src.x = (tile.index % (editor.tileset_texture.width / 16)) * 16;
+							src.y = (tile.index / (editor.tileset_texture.width / 16)) * 16;
+							src.w = 16;
+							src.h = 16;
+
+							draw_texture_simple(editor.tileset_texture, src, {x * 16.0f, y * 16.0f}, {}, c, {tile.hflip, tile.vflip});
+						}
+					}
 
 					// draw hovered brush
 					if (tilemap_editor.tool == TOOL_BRUSH) {
@@ -1150,6 +1234,13 @@ void TilemapEditor::update(float delta) {
 						}
 					}
 				}
+			}
+
+			// draw selection
+			if (tilemap_editor.tilemap_selection_w > 0 && tilemap_editor.tilemap_selection_h > 0) {
+				draw_rectangle_outline_thick({(float)tilemap_editor.tilemap_selection_x * 16, (float)tilemap_editor.tilemap_selection_y * 16, (float)tilemap_editor.tilemap_selection_w * 16, (float)tilemap_editor.tilemap_selection_h * 16},
+											 1,
+											 color_white);
 			}
 
 			// draw objects
@@ -1211,11 +1302,57 @@ void TilemapEditor::update(float delta) {
 					 (PanAndZoomFlags) 0,
 					 callback);
 
+		if (tool == TOOL_SELECT) {
+			if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+				ivec2 tile_pos = view_get_tile_pos(tilemap_view,
+												   {16, 16},
+												   {editor.tm.width, editor.tm.height},
+												   ImGui::GetMousePos());
+
+				if (!tilemap_dragging) {
+					tilemap_dragging_x1 = tile_pos.x;
+					tilemap_dragging_y1 = tile_pos.y;
+					tilemap_dragging = true;
+				}
+
+				int dragging_x2 = tile_pos.x;
+				int dragging_y2 = tile_pos.y;
+
+				tilemap_selection_x = min(tilemap_dragging_x1, dragging_x2);
+				tilemap_selection_y = min(tilemap_dragging_y1, dragging_y2);
+				tilemap_selection_w = ImAbs(dragging_x2 - tilemap_dragging_x1) + 1;
+				tilemap_selection_h = ImAbs(dragging_y2 - tilemap_dragging_y1) + 1;
+			} else {
+				if (tilemap_dragging) {
+					tilemap_dragging = false;
+				}
+			}
+
+			if (ImGui::IsKeyPressed(ImGuiKey_C, false) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+				if (tilemap_selection_w > 0 && tilemap_selection_h > 0) {
+					// copy tiles to brush
+					brush.count = 0;
+					for (int tile_y = tilemap_selection_y; tile_y < tilemap_selection_y + tilemap_selection_h; tile_y++) {
+						for (int tile_x = tilemap_selection_x; tile_x < tilemap_selection_x + tilemap_selection_w; tile_x++) {
+							Tile tile = get_tile(editor.tm, tile_x, tile_y, layer_index);
+							array_add(&brush, tile);
+						}
+					}
+					brush_w = tilemap_selection_w;
+					brush_h = tilemap_selection_h;
+
+					tool = TOOL_BRUSH;
+
+					editor.notify(NOTIF_INFO, "Copied %d tiles.", brush_w * brush_h);
+				}
+			}
+		}
 
 		bool set_tiles_dragging = false;
 
+		// handle paint and erase
 		if (tool == TOOL_BRUSH) {
-			if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+			if (ImGui::IsItemActive() && (ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseDown(ImGuiMouseButton_Right))) {
 				set_tiles_dragging = true;
 
 				if (pos_in_rect(ImGui::GetMousePos(), tilemap_view.thing_p0, tilemap_view.thing_p1)) {
@@ -1241,13 +1378,22 @@ void TilemapEditor::update(float delta) {
 							}
 
 							if (found) {
-								found->tile_to = brush[x + y * brush_w];
+								if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+									found->tile_to = brush[x + y * brush_w];
+								} else {
+									found->tile_to = {};
+								}
 							} else {
 								SetTile set = {};
 								set.tile_index = tile_index;
 								set.layer_index = layer_index;
 								set.tile_from = get_tile_by_index(editor.tm, tile_index, layer_index);
-								set.tile_to = brush[x + y * brush_w];
+
+								if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+									set.tile_to = brush[x + y * brush_w];
+								} else {
+									set.tile_to = {};
+								}
 
 								array_add(&set_tiles, set);
 							}
@@ -1276,12 +1422,22 @@ void TilemapEditor::update(float delta) {
 		ImVec2 cursor = ImGui::GetCursorScreenPos();
 
 		ImGui::Checkbox("Show Objects", &show_objects);
+		if (IsKeyPressedNoMod(ImGuiKey_O, true)) show_objects ^= true;
+		ImGui::SetItemTooltip("Shortcut: O");
 
 		ImGui::SameLine();
 		ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
+		ImGui::SameLine();
+
+		ImGui::Checkbox("Highlight Current Layer", &highlight_current_layer);
+		if (IsKeyPressedNoMod(ImGuiKey_H, true)) highlight_current_layer ^= true;
+		ImGui::SetItemTooltip("Shortcut: H");
 
 		ImGui::SameLine();
-		ImGui::Checkbox("Highlight Current Layer", &highlight_current_layer);
+		ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
+		ImGui::SameLine();
+
+		ImGui::Checkbox("Highlight Any Solid Tiles", &highlight_any_solid_tiles);
 
 		bottom_part_height = (ImGui::GetCursorScreenPos() - cursor).y;
 	};
@@ -1322,8 +1478,8 @@ void TilemapEditor::update(float delta) {
 			draw_texture(editor.tileset_texture);
 
 			// draw selection
-			if (tilemap_editor.selection_w > 0 && tilemap_editor.selection_h > 0) {
-				draw_rectangle_outline_thick({(float)tilemap_editor.selection_x * 16, (float)tilemap_editor.selection_y * 16, (float)tilemap_editor.selection_w * 16, (float)tilemap_editor.selection_h * 16},
+			if (tilemap_editor.tileset_selection_w > 0 && tilemap_editor.tileset_selection_h > 0) {
+				draw_rectangle_outline_thick({(float)tilemap_editor.tileset_selection_x * 16, (float)tilemap_editor.tileset_selection_y * 16, (float)tilemap_editor.tileset_selection_w * 16, (float)tilemap_editor.tileset_selection_h * 16},
 											 1,
 											 color_white);
 			}
@@ -1355,25 +1511,25 @@ void TilemapEditor::update(float delta) {
 											   {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
 											   ImGui::GetMousePos());
 
-			if (!dragging) {
-				dragging_x1 = tile_pos.x;
-				dragging_y1 = tile_pos.y;
-				dragging = true;
+			if (!tileset_dragging) {
+				tileset_dragging_x1 = tile_pos.x;
+				tileset_dragging_y1 = tile_pos.y;
+				tileset_dragging = true;
 			}
 
 			int dragging_x2 = tile_pos.x;
 			int dragging_y2 = tile_pos.y;
 
-			selection_x = min(dragging_x1, dragging_x2);
-			selection_y = min(dragging_y1, dragging_y2);
-			selection_w = ImAbs(dragging_x2 - dragging_x1) + 1;
-			selection_h = ImAbs(dragging_y2 - dragging_y1) + 1;
+			tileset_selection_x = min(tileset_dragging_x1, dragging_x2);
+			tileset_selection_y = min(tileset_dragging_y1, dragging_y2);
+			tileset_selection_w = ImAbs(dragging_x2 - tileset_dragging_x1) + 1;
+			tileset_selection_h = ImAbs(dragging_y2 - tileset_dragging_y1) + 1;
 		} else {
-			if (dragging) {
+			if (tileset_dragging) {
 				// copy tiles to brush
 				brush.count = 0;
-				for (int tile_y = selection_y; tile_y < selection_y + selection_h; tile_y++) {
-					for (int tile_x = selection_x; tile_x < selection_x + selection_w; tile_x++) {
+				for (int tile_y = tileset_selection_y; tile_y < tileset_selection_y + tileset_selection_h; tile_y++) {
+					for (int tile_x = tileset_selection_x; tile_x < tileset_selection_x + tileset_selection_w; tile_x++) {
 						int tile_index = tile_x + tile_y * (editor.tileset_texture.width / 16);
 
 						Tile tile = {};
@@ -1383,10 +1539,10 @@ void TilemapEditor::update(float delta) {
 						array_add(&brush, tile);
 					}
 				}
-				brush_w = selection_w;
-				brush_h = selection_h;
+				brush_w = tileset_selection_w;
+				brush_h = tileset_selection_h;
 
-				dragging = false;
+				tileset_dragging = false;
 			}
 		}
 	};
@@ -1401,13 +1557,19 @@ void Editor::draw(float delta) {
 }
 
 void Editor::update_window_caption() {
-	if (is_level_open) {
-		char buf[512];
-		stb_snprintf(buf, sizeof(buf), "Editor - (%s)", current_level_dir.u8string().c_str());
-		SDL_SetWindowTitle(get_window_handle(), buf);
-	} else {
+	if (!is_level_open) {
 		SDL_SetWindowTitle(get_window_handle(), "Editor");
+		return;
 	}
+
+	const char* prefix = "";
+	if (action_index != saved_action_index) {
+		prefix = "*";
+	}
+
+	char buf[512];
+	stb_snprintf(buf, sizeof(buf), "%sEditor - (%s)", prefix, current_level_dir.u8string().c_str());
+	SDL_SetWindowTitle(get_window_handle(), buf);
 }
 
 #endif
