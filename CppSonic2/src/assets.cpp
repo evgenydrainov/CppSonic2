@@ -2,6 +2,7 @@
 
 #include "package.h"
 #include "util.h"
+#include "texture.h"
 
 static Texture    textures[NUM_TEXTURES];
 static Sprite     sprites [NUM_SPRITES];

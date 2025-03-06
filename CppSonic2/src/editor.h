@@ -3,7 +3,7 @@
 #ifdef EDITOR
 
 #include "common.h"
-#include "texture.h"
+#include "renderer.h"
 #include "game.h"
 
 #include <filesystem>

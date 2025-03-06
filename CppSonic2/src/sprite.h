@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common.h"
-#include "texture.h"
+#include "renderer.h"
 
 struct SpriteFrame {
 	int u;

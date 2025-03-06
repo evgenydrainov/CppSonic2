@@ -1,6 +1,5 @@
 #include "sprite.h"
 
-#include "renderer.h"
 #include "assets.h"
 
 Sprite create_sprite(const Texture& t,

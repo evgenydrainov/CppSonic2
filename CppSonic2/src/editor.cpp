@@ -2,9 +2,9 @@
 
 #ifdef EDITOR
 
-#include "renderer.h"
 #include "sprite.h"
 #include "assets.h"
+#include "texture.h"
 
 #undef Remove
 

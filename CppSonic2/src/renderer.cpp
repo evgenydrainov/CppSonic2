@@ -123,6 +123,84 @@ void main() {
 
 
 
+Texture load_texture(u8* pixel_data, int width, int height,
+					 int filter, int wrap,
+					 bool alpha_channel) {
+	Texture t = {};
+	t.width = width;
+	t.height = height;
+
+	glGenTextures(1, &t.id);
+	glBindTexture(GL_TEXTURE_2D, t.id);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
+
+	int internal_format = alpha_channel ? GL_RGBA8 : GL_RGB8;
+	u32 format          = alpha_channel ? GL_RGBA  : GL_RGB;
+
+	glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, format, GL_UNSIGNED_BYTE, pixel_data);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	return t;
+}
+
+Texture load_depth_texture(int width, int height) {
+	Texture t = {};
+	t.width = width;
+	t.height = height;
+
+	glGenTextures(1, &t.id);
+	glBindTexture(GL_TEXTURE_2D, t.id);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	return t;
+}
+
+void free_texture(Texture* t) {
+	if (t->id != 0) glDeleteTextures(1, &t->id);
+	*t = {};
+}
+
+Framebuffer load_framebuffer(int width, int height,
+							 int filter, int wrap,
+							 bool alpha_channel, bool depth) {
+	Framebuffer f = {};
+	f.texture = load_texture(nullptr, width, height, filter, wrap, alpha_channel);
+	if (depth) {
+		f.depth = load_depth_texture(width, height);
+	}
+
+	glGenFramebuffers(1, &f.id);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, f.id);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, f.texture.id, 0);
+	if (depth) {
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, f.depth.id, 0);
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	return f;
+}
+
+void free_framebuffer(Framebuffer* f) {
+	free_texture(&f->texture);
+	free_texture(&f->depth);
+
+	if (f->id != 0) glDeleteFramebuffers(1, &f->id);
+	*f = {};
+}
+
 static void set_vertex_attribs() {
 	// Position
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
@@ -181,17 +259,15 @@ void init_renderer() {
 		set_vertex_attribs();
 
 		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); // this one has to be after glBindVertexArray(0), unlike glBindBuffer(GL_ARRAY_BUFFER, 0)
 
 		renderer.vertices = malloc_bump_array<Vertex>(BATCH_MAX_VERTICES);
 
-		// stub texture
-		glGenTextures(1, &renderer.stub_texture);
-		glBindTexture(GL_TEXTURE_2D, renderer.stub_texture);
+		u8 pixel_data[] = {255, 255, 255, 255};
+		renderer.texture_for_shapes = load_texture(pixel_data, 1, 1);
 
-		u32 pixel_data[1] = {0xffffffff};
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel_data);
-
-		glBindTexture(GL_TEXTURE_2D, 0);
+		renderer.framebuffer = load_framebuffer(window.game_width, window.game_height);
 	}
 
 	// 
@@ -221,36 +297,17 @@ void init_renderer() {
 		renderer.current_shader = renderer.texture_shader;
 		glUseProgram(renderer.current_shader);
 	}
-
-	{
-		glGenTextures(1, &renderer.game_texture); // @Leak
-
-		glBindTexture(GL_TEXTURE_2D, renderer.game_texture);
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); // GL_LINEAR for sharp bilinear shader
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, window.game_width, window.game_height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
-
-		glBindTexture(GL_TEXTURE_2D, 0);
-	}
-
-	{
-		glGenFramebuffers(1, &renderer.game_framebuffer); // @Leak
-
-		glBindFramebuffer(GL_FRAMEBUFFER, renderer.game_framebuffer);
-
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, renderer.game_texture, 0);
-		// glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,  GL_TEXTURE_2D, game_depth_texture, 0);
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	}
 }
 
 void deinit_renderer() {
 	free(renderer.vertices.data);
+
+	glDeleteBuffers(1, &renderer.batch_vbo);
+	glDeleteBuffers(1, &renderer.batch_ebo);
+	glDeleteVertexArrays(1, &renderer.batch_vao);
+
+	free_texture(&renderer.texture_for_shapes);
+	free_framebuffer(&renderer.framebuffer);
 }
 
 void render_begin_frame(vec4 clear_color) {
@@ -266,11 +323,11 @@ void render_begin_frame(vec4 clear_color) {
 	renderer.curr_max_batch       = 0;
 	renderer.curr_total_triangles = 0;
 
-	glBindFramebuffer(GL_FRAMEBUFFER, renderer.game_framebuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, renderer.framebuffer.id);
 
 	if (clear_color.a > 0) {
 		glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a);
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 
 	glViewport(0, 0, window.game_width, window.game_height);
@@ -291,7 +348,7 @@ void render_end_frame() {
 	renderer.model_mat = {1};
 
 	glClearColor(0, 0, 0, 1);
-	glClear(GL_COLOR_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	{
 		u32 program = renderer.sharp_bilinear_shader;
@@ -321,11 +378,7 @@ void render_end_frame() {
 			glUniform2f(u_Scale, int_scale, int_scale);
 		}
 
-		Texture t;
-		t.id = renderer.game_texture;
-		t.width  = window.game_width;
-		t.height = window.game_height;
-		draw_texture(t, {}, {(float)renderer.game_texture_rect.x, (float)renderer.game_texture_rect.y}, {scale, scale}, {}, 0, color_white, {false, true});
+		draw_texture(renderer.framebuffer.texture, {}, {(float)renderer.game_texture_rect.x, (float)renderer.game_texture_rect.y}, {scale, scale}, {}, 0, color_white, {false, true});
 
 		break_batch();
 
@@ -706,15 +759,13 @@ void draw_texture_centered(const Texture& t,
 }
 
 void draw_rectangle(Rectf rect, vec4 color) {
-	Texture t = {renderer.stub_texture, 1, 1};
 	vec2 pos = {rect.x, rect.y};
 	vec2 scale = {rect.w, rect.h};
-	draw_texture(t, {}, pos, scale, {}, 0, color);
+	draw_texture(renderer.texture_for_shapes, {}, pos, scale, {}, 0, color);
 }
 
 void draw_rectangle(Rectf rect, vec2 scale,
 					vec2 origin, float angle, vec4 color) {
-	Texture t = {renderer.stub_texture, 1, 1};
 	vec2 pos = {rect.x, rect.y};
 
 	origin.x /= rect.w;
@@ -723,7 +774,7 @@ void draw_rectangle(Rectf rect, vec2 scale,
 	rect.w *= scale.x;
 	rect.h *= scale.y;
 
-	draw_texture(t, {}, pos, {rect.w, rect.h}, origin, angle, color);
+	draw_texture(renderer.texture_for_shapes, {}, pos, {rect.w, rect.h}, origin, angle, color);
 }
 
 void draw_triangle(vec2 p1, vec2 p2, vec2 p3, vec4 color) {
@@ -835,8 +886,6 @@ void draw_line_exact(vec2 p1, vec2 p2, vec4 color) {
 }
 
 void draw_line_thick(vec2 p1, vec2 p2, float thickness, vec4 color) {
-	Texture t = {renderer.stub_texture, 1, 1};
-
 	float dir = point_direction(p1, p2);
 
 	vec2 lt = p1 + lengthdir_v2(thickness / 2.0f, dir - 135);
@@ -851,7 +900,7 @@ void draw_line_thick(vec2 p1, vec2 p2, float thickness, vec4 color) {
 		{{lb.x, lb.y, 0.0f}, {}, color, {}}, // LB
 	};
 
-	draw_quad(t, vertices);
+	draw_quad(renderer.texture_for_shapes, vertices);
 }
 
 void draw_point(vec2 point, vec4 color) {

@@ -47,27 +47,6 @@ u8* decode_image_data(array<u8> buffer, int* out_width, int* out_height) {
 	return {};
 }
 
-Texture load_texture_from_pixel_data(u8* pixel_data, int width, int height,
-									 int filter, int wrap) {
-	Texture t = {};
-
-	glGenTextures(1, &t.id);
-	glBindTexture(GL_TEXTURE_2D, t.id);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel_data);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	t.width = width;
-	t.height = height;
-	return t;
-}
-
 Texture load_texture_from_memory(array<u8> buffer,
 								 int filter, int wrap) {
 	int width;
@@ -79,7 +58,7 @@ Texture load_texture_from_memory(array<u8> buffer,
 
 	defer { free(pixel_data); };
 
-	return load_texture_from_pixel_data(pixel_data, width, height, filter, wrap);
+	return load_texture(pixel_data, width, height, filter, wrap);
 }
 
 Texture load_texture_from_file(const char* fname,
@@ -106,15 +85,7 @@ Texture create_texture_stub() {
 		0,   0,   0, 255,    255, 0, 255, 255,
 	};
 
-	return load_texture_from_pixel_data(pixel_data, width, height, GL_NEAREST, GL_REPEAT);
-}
-
-void free_texture(Texture* t) {
-	if (t->id != 0) {
-		glDeleteTextures(1, &t->id);
-	}
-
-	*t = {};
+	return load_texture(pixel_data, width, height, GL_NEAREST, GL_REPEAT);
 }
 
 SDL_Surface* load_surface_from_file(const char* fname) {

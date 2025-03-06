@@ -1,12 +1,12 @@
 #include "game.h"
 
-#include "renderer.h"
 #include "window_creation.h"
 #include "package.h"
 #include "console.h"
 #include "assets.h"
 #include "particle_system.h"
 #include "program.h"
+#include "texture.h"
 
 Game game;
 

@@ -42,9 +42,7 @@ void Title_Screen::update(float delta) {
 void Title_Screen::draw(float delta) {
 	{
 		// bg
-		vec4 color = get_color(0, 0, 108);
-		glClearColor(color.r, color.g, color.b, color.a);
-		glClear(GL_COLOR_BUFFER_BIT);
+		render_clear_color(get_color(0, 0, 108));
 	}
 
 	{

@@ -2,8 +2,8 @@
 
 #include "common.h"
 
+#include "renderer.h"
 #include "font.h"
-#include "texture.h"
 
 #define PLAYER_STATE_ENUM(X) \
 	X(STATE_GROUND) \

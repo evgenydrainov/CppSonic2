@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-#include "texture.h"
+#include "renderer.h"
 #include "font.h"
 #include "sprite.h"
 #include "sound_mixer.h"

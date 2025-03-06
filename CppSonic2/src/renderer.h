@@ -1,7 +1,6 @@
 #pragma once
 
 #include "common.h"
-#include "texture.h"
 
 /*
 * A basic 2D batch renderer.
@@ -31,6 +30,33 @@ enum RenderMode {
 	MODE_CIRCLES,
 };
 
+struct Texture {
+	u32 id;
+	int width;
+	int height;
+};
+
+Texture load_texture(u8* pixel_data, int width, int height,
+					 int filter = GL_NEAREST, int wrap = GL_CLAMP_TO_EDGE,
+					 bool alpha_channel = true);
+
+Texture load_depth_texture(int width, int height);
+
+void free_texture(Texture* t);
+
+struct Framebuffer {
+	u32 id;
+	Texture texture;
+	Texture depth;
+};
+
+// NOTE: alpha channel is off by default
+Framebuffer load_framebuffer(int width, int height,
+							 int filter = GL_NEAREST, int wrap = GL_CLAMP_TO_EDGE,
+							 bool alpha_channel = false, bool depth = true);
+
+void free_framebuffer(Framebuffer* f);
+
 struct Renderer {
 	u32 current_texture;
 	RenderMode current_mode;
@@ -46,10 +72,9 @@ struct Renderer {
 	u32 batch_vao;
 	u32 batch_vbo;
 	u32 batch_ebo;
-	u32 stub_texture; // 1x1 white texture
+	Texture texture_for_shapes; // 1x1 white texture
 
-	u32 game_texture;      // Game is renderer to a framebuffer, and then the framebuffer is
-	u32 game_framebuffer;  // rendered to the screen.
+	Framebuffer framebuffer;  // Game is renderer to a framebuffer, and then the framebuffer is rendered to the screen.
 	Rect game_texture_rect;
 
 	int backbuffer_width;

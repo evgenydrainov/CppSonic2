@@ -1,7 +1,7 @@
 #include "font.h"
 
 #include "package.h"
-#include "renderer.h"
+#include "texture.h"
 
 Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath) {
 	Font f = {};
