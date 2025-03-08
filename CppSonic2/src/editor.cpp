@@ -89,6 +89,7 @@ static void pan_and_zoom(View& view,
 						   | ImGuiButtonFlags_MouseButtonRight
 						   | ImGuiButtonFlags_MouseButtonMiddle);
 
+#if 0
 	// pan with mouse
 	if (ImGui::IsItemActive()) {
 		if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle, -1)) {
@@ -96,6 +97,15 @@ static void pan_and_zoom(View& view,
 			view.scrolling.y += io.MouseDelta.y;
 		}
 	}
+#else
+	// pan with touchpad
+	if (ImGui::IsItemHovered()) {
+		if (!ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+			view.scrolling.x += io.MouseWheelH * 20;
+			view.scrolling.y += io.MouseWheel  * 20;
+		}
+	}
+#endif
 
 	// pan with keys
 	if (!(flags & DONT_MOVE_VIEW_WITH_ARROW_KEYS)) {
@@ -117,24 +127,10 @@ static void pan_and_zoom(View& view,
 		ImVec2 mouse_pos_in_thing = (io.MousePos - view.thing_p0) / view.zoom;
 		ImVec2 view_center_pos_in_thing = (view_center_pos - view.thing_p0) / view.zoom;
 
-		// zoom with mouse
-		float mouse_wheel = io.MouseWheel;
-		if (ImGui::IsItemHovered() && mouse_wheel != 0) {
-			if (mouse_wheel > 0) {
-				while (mouse_wheel > 0) {
-					view.zoom *= 1.25f;
-					mouse_wheel--;
-				}
-				Clamp(&view.zoom, MIN_ZOOM, MAX_ZOOM);
-
-				vec2 new_thing_p0 = (io.MousePos / view.zoom - mouse_pos_in_thing) * view.zoom;
-				view.scrolling += new_thing_p0 - view.thing_p0;
-			} else {
-				mouse_wheel = -mouse_wheel;
-				while (mouse_wheel > 0) {
-					view.zoom /= 1.25f;
-					mouse_wheel--;
-				}
+		if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+			// zoom with mouse
+			if (ImGui::IsItemHovered() && io.MouseWheel != 0) {
+				view.zoom *= powf(1.25f, io.MouseWheel);
 				Clamp(&view.zoom, MIN_ZOOM, MAX_ZOOM);
 
 				vec2 new_thing_p0 = (io.MousePos / view.zoom - mouse_pos_in_thing) * view.zoom;
@@ -1218,6 +1214,10 @@ void TilemapEditor::update(float delta) {
 								for (int x = 0; x < tilemap_editor.brush_w; x++) {
 									Tile tile = tilemap_editor.brush[x + y * tilemap_editor.brush_w];
 
+									if (tile.index == 0) {
+										continue;
+									}
+
 									Rect src;
 									src.x = (tile.index % (editor.tileset_texture.width / 16)) * 16;
 									src.y = (tile.index / (editor.tileset_texture.width / 16)) * 16;
@@ -1328,14 +1328,25 @@ void TilemapEditor::update(float delta) {
 				}
 			}
 
-			if (ImGui::IsKeyPressed(ImGuiKey_C, false) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+			// handle ctrl+c and ctrl+x
+			if ((ImGui::IsKeyPressed(ImGuiKey_C, false) || ImGui::IsKeyPressed(ImGuiKey_X, false)) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
 				if (tilemap_selection_w > 0 && tilemap_selection_h > 0) {
+					Action cut_action = {};
+					cut_action.type = ACTION_SET_TILES;
+
 					// copy tiles to brush
 					brush.count = 0;
 					for (int tile_y = tilemap_selection_y; tile_y < tilemap_selection_y + tilemap_selection_h; tile_y++) {
 						for (int tile_x = tilemap_selection_x; tile_x < tilemap_selection_x + tilemap_selection_w; tile_x++) {
 							Tile tile = get_tile(editor.tm, tile_x, tile_y, layer_index);
 							array_add(&brush, tile);
+							
+							SetTile set = {};
+							set.tile_index = tile_x + tile_y * editor.tm.width;
+							set.layer_index = layer_index;
+							set.tile_from = tile;
+							set.tile_to = {};
+							array_add(&cut_action.set_tiles.sets, set);
 						}
 					}
 					brush_w = tilemap_selection_w;
@@ -1343,7 +1354,15 @@ void TilemapEditor::update(float delta) {
 
 					tool = TOOL_BRUSH;
 
-					editor.notify(NOTIF_INFO, "Copied %d tiles.", brush_w * brush_h);
+					if (ImGui::IsKeyPressed(ImGuiKey_X, false)) {
+						editor.action_add_and_perform(cut_action);
+
+						editor.notify(NOTIF_INFO, "Cut %d tiles.", brush_w * brush_h);
+					} else {
+						free_action(&cut_action);
+
+						editor.notify(NOTIF_INFO, "Copied %d tiles.", brush_w * brush_h);
+					}
 				}
 			}
 		}
@@ -1363,9 +1382,14 @@ void TilemapEditor::update(float delta) {
 
 					for (int y = 0; y < brush_h; y++) {
 						for (int x = 0; x < brush_w; x++) {
+							// don't modify invisible layers
 							if (!layer_visible[layer_index]) continue;
+
+							// out of bounds
 							if ((mouse_pos.x + x) >= editor.tm.width)  continue;
 							if ((mouse_pos.y + y) >= editor.tm.height) continue;
+
+							if (brush[x + y * brush_w].index == 0) continue;
 
 							int tile_index = (mouse_pos.x + x) + (mouse_pos.y + y) * editor.tm.width;
 
