@@ -89,23 +89,23 @@ static void pan_and_zoom(View& view,
 						   | ImGuiButtonFlags_MouseButtonRight
 						   | ImGuiButtonFlags_MouseButtonMiddle);
 
-#if 0
-	// pan with mouse
-	if (ImGui::IsItemActive()) {
-		if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle, -1)) {
-			view.scrolling.x += io.MouseDelta.x;
-			view.scrolling.y += io.MouseDelta.y;
+	if (io.MouseSource == ImGuiMouseSource_Mouse) {
+		// pan with mouse
+		if (ImGui::IsItemActive()) {
+			if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle, -1)) {
+				view.scrolling.x += io.MouseDelta.x;
+				view.scrolling.y += io.MouseDelta.y;
+			}
+		}
+	} else {
+		// pan with touchpad
+		if (ImGui::IsItemHovered()) {
+			if (!ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+				view.scrolling.x += io.MouseWheelH * 20;
+				view.scrolling.y += io.MouseWheel  * 20;
+			}
 		}
 	}
-#else
-	// pan with touchpad
-	if (ImGui::IsItemHovered()) {
-		if (!ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
-			view.scrolling.x += io.MouseWheelH * 20;
-			view.scrolling.y += io.MouseWheel  * 20;
-		}
-	}
-#endif
 
 	// pan with keys
 	if (!(flags & DONT_MOVE_VIEW_WITH_ARROW_KEYS)) {
@@ -127,7 +127,7 @@ static void pan_and_zoom(View& view,
 		ImVec2 mouse_pos_in_thing = (io.MousePos - view.thing_p0) / view.zoom;
 		ImVec2 view_center_pos_in_thing = (view_center_pos - view.thing_p0) / view.zoom;
 
-		if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+		if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || io.MouseSource == ImGuiMouseSource_Mouse) {
 			// zoom with mouse
 			if (ImGui::IsItemHovered() && io.MouseWheel != 0) {
 				view.zoom *= powf(1.25f, io.MouseWheel);
@@ -247,6 +247,9 @@ static void pan_and_zoom(View& view,
 		ImVec4 border_color = ImGui::GetStyleColorVec4(ImGuiCol_Border);
 		draw_list->AddRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), ImGui::ColorConvertFloat4ToU32(border_color));
 	}
+
+	view.item_rect_min = ImGui::GetItemRectMin();
+	view.item_rect_max = ImGui::GetItemRectMax();
 }
 
 static bool ButtonActive(const char* label, bool active) {
@@ -1167,9 +1170,14 @@ void TilemapEditor::update(float delta) {
 						}
 					}
 
+					ivec2 pos_from = view_get_tile_pos(tilemap_editor.tilemap_view, {16, 16}, {editor.tm.width, editor.tm.height}, tilemap_editor.tilemap_view.item_rect_min);
+					ivec2 pos_to   = view_get_tile_pos(tilemap_editor.tilemap_view, {16, 16}, {editor.tm.width, editor.tm.height}, tilemap_editor.tilemap_view.item_rect_max);
+					pos_to.x++;
+					pos_to.y++;
+
 					// draw tilemap layer
-					for (int y = 0; y < editor.tm.height; y++) {
-						for (int x = 0; x < editor.tm.width; x++) {
+					for (int y = pos_from.y; y < pos_to.y; y++) {
+						for (int x = pos_from.x; x < pos_to.x; x++) {
 							Tile tile = get_tile(editor.tm, x, y, i);
 
 							// Tile index 0 means empty tile and it shouldn't have solidity,

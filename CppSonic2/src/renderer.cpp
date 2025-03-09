@@ -267,7 +267,7 @@ void init_renderer() {
 		u8 pixel_data[] = {255, 255, 255, 255};
 		renderer.texture_for_shapes = load_texture(pixel_data, 1, 1);
 
-		renderer.framebuffer = load_framebuffer(window.game_width, window.game_height);
+		renderer.framebuffer = load_framebuffer(window.game_width, window.game_height, GL_LINEAR);
 	}
 
 	// 

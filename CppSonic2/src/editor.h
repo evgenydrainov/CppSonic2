@@ -15,6 +15,9 @@ struct View {
 	// The thing that is being panned and zoomed inside this view.
 	vec2 thing_p0;
 	vec2 thing_p1;
+
+	vec2 item_rect_min;
+	vec2 item_rect_max;
 };
 
 #define ACTION_TYPE_ENUM(X) \
