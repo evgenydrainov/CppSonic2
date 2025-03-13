@@ -20,7 +20,18 @@ struct View {
 	vec2 item_rect_max;
 };
 
+struct Selection {
+	bool dragging;
+	int dragging_x1;
+	int dragging_y1;
+	int x;
+	int y;
+	int w;
+	int h;
+};
+
 #define ACTION_TYPE_ENUM(X) \
+	X(ACTION_NONE) \
 	X(ACTION_SET_TILE_HEIGHT) \
 	X(ACTION_SET_TILE_WIDTH) \
 	X(ACTION_SET_TILE_ANGLE) \
@@ -102,6 +113,7 @@ struct TilemapEditor {
 	enum Tool {
 		TOOL_SELECT,
 		TOOL_BRUSH,
+		TOOL_RECTANGLE,
 	};
 
 	Tool tool;
@@ -111,8 +123,7 @@ struct TilemapEditor {
 	bool layer_visible[3] = {true, false, true};
 	bool show_objects = true;
 	bool highlight_current_layer;
-
-	bool highlight_any_solid_tiles;
+	bool solidity_mode;
 
 	dynamic_array<Tile> brush;
 	int brush_w;
@@ -128,15 +139,14 @@ struct TilemapEditor {
 	int tileset_selection_w;
 	int tileset_selection_h;
 
-	bool tilemap_dragging;
-	int tilemap_dragging_x1;
-	int tilemap_dragging_y1;
-	int tilemap_selection_x;
-	int tilemap_selection_y;
-	int tilemap_selection_w;
-	int tilemap_selection_h;
+	Selection tilemap_selection;
+
+	bool rectangle_erasing;
 
 	void update(float delta);
+
+	Action get_brush_action();
+	Action get_rectangle_action();
 };
 
 struct ObjectsEditor {
@@ -145,6 +155,7 @@ struct ObjectsEditor {
 
 enum NotificationType {
 	NOTIF_INFO,
+	NOTIF_WARN,
 };
 
 struct Notification {
@@ -201,6 +212,7 @@ struct Editor {
 	void pick_and_open_level();
 	void close_level();
 	void try_save_level();
+	void try_load_layer_from_binary_file();
 
 	void try_undo();
 	void try_redo();
