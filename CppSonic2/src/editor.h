@@ -209,7 +209,8 @@ struct Editor {
 
 	void update_window_caption();
 
-	void pick_and_open_level();
+	void try_pick_and_open_level();
+	void try_open_level(const char* path);
 	void close_level();
 	void try_save_level();
 	void try_load_layer_from_binary_file();

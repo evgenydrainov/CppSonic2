@@ -21,6 +21,12 @@ void Editor::init(int argc, char* argv[]) {
 	SDL_MaximizeWindow(get_window_handle());
 
 	process_name = argv[0];
+
+	if (argc >= 3) {
+		if (strcmp(argv[1], "--editor") == 0) {
+			try_open_level(argv[2]);
+		}
+	}
 }
 
 void Editor::deinit() {
@@ -318,9 +324,7 @@ static bool pos_in_rect(vec2 pos, vec2 rect_min, vec2 rect_max) {
 	return rect.Contains(pos);
 }
 
-void Editor::pick_and_open_level() {
-	ImGuiIO& io = ImGui::GetIO();
-
+void Editor::try_pick_and_open_level() {
 	char* path = nullptr;
 	nfdresult_t res = NFD_PickFolder(nullptr, &path);
 	defer { free(path); };
@@ -330,6 +334,10 @@ void Editor::pick_and_open_level() {
 		return;
 	}
 
+	try_open_level(path);
+}
+
+void Editor::try_open_level(const char* path) {
 	close_level();
 	log_info("Opening level %s...", path);
 
@@ -503,7 +511,7 @@ void Editor::update(float delta) {
 	};
 
 	// main menu bar hotkeys
-	if (ImGui::IsKeyPressed(ImGuiKey_O, false) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) pick_and_open_level();
+	if (ImGui::IsKeyPressed(ImGuiKey_O, false) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) try_pick_and_open_level();
 
 	if (ImGui::IsKeyPressed(ImGuiKey_S, false) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) try_save_level();
 
@@ -520,7 +528,7 @@ void Editor::update(float delta) {
 		if (ImGui::BeginMenu("File")) {
 			if (ImGui::MenuItem("New Level", "Ctrl+N")) {}
 
-			if (ImGui::MenuItem("Open Level...", "Ctrl+O")) pick_and_open_level();
+			if (ImGui::MenuItem("Open Level...", "Ctrl+O")) try_pick_and_open_level();
 
 			if (ImGui::MenuItem("Save Level", "Ctrl+S")) try_save_level();
 
@@ -1113,6 +1121,118 @@ void TilesetEditor::update(float delta) {
 						}
 					}
 				}
+			} else if (tool == TOOL_AUTO) {
+				if (ImGui::IsItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+					ivec2 tile_pos = view_get_tile_pos(tileset_view,
+													   {16, 16},
+													   {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
+													   ImGui::GetMousePos());
+
+					int tile_index = tile_pos.x + tile_pos.y * (editor.tileset_texture.width / 16);
+
+					Action action = {};
+					action.type = ACTION_SET_TILE_HEIGHT;
+
+					for (int x = 0; x < 16; x++) {
+						int height = 0;
+
+						int pixel_x = tile_pos.x * 16 + x;
+						int pixel_y = tile_pos.y * 16 + 15;
+						vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
+						if (pixel.a == 0) {
+							// flipped height
+							for (int y = 0; y < 16; y++) {
+								int pixel_x = tile_pos.x * 16 + x;
+								int pixel_y = tile_pos.y * 16 + y;
+								vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
+								if (pixel.a != 0) {
+									height = 0xFF - y;
+								} else {
+									break;
+								}
+							}
+						} else {
+							// normal height
+							for (int y = 15; y >= 0; y--) {
+								int pixel_x = tile_pos.x * 16 + x;
+								int pixel_y = tile_pos.y * 16 + y;
+								vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
+								if (pixel.a != 0) {
+									height = 16 - y;
+								} else {
+									break;
+								}
+							}
+						}
+
+						SetTileHeight set = {};
+						set.tile_index = tile_index;
+						set.in_tile_pos_x = x;
+						set.height_from = get_tile_heights(editor.ts, tile_index)[x];
+						set.height_to = height;
+
+						array_add(&action.set_tile_height.sets, set);
+					}
+
+					editor.action_add_and_perform(action);
+				}
+			}
+		} else if (mode == MODE_WIDTHS) {
+			if (tool == TOOL_AUTO) {
+				if (ImGui::IsItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+					ivec2 tile_pos = view_get_tile_pos(tileset_view,
+													   {16, 16},
+													   {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
+													   ImGui::GetMousePos());
+
+					int tile_index = tile_pos.x + tile_pos.y * (editor.tileset_texture.width / 16);
+
+					Action action = {};
+					action.type = ACTION_SET_TILE_WIDTH;
+
+					for (int y = 0; y < 16; y++) {
+						int width = 0;
+
+						int pixel_x = tile_pos.x * 16 + 15;
+						int pixel_y = tile_pos.y * 16 + y;
+						vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
+						if (pixel.a == 0) {
+							// flipped width
+							for (int x = 0; x < 16; x++) {
+								int pixel_x = tile_pos.x * 16 + x;
+								int pixel_y = tile_pos.y * 16 + y;
+								vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
+								if (pixel.a != 0) {
+									width = 0xFF - x;
+								} else {
+									break;
+								}
+							}
+						} else {
+							// normal width
+							for (int x = 15; x >= 0; x--) {
+								int pixel_x = tile_pos.x * 16 + x;
+								int pixel_y = tile_pos.y * 16 + y;
+								vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
+								if (pixel.a != 0) {
+									width = 16 - x;
+								} else {
+									break;
+								}
+							}
+						}
+
+						SetTileWidth set = {};
+						set.tile_index = tile_index;
+						set.in_tile_pos_y = y;
+						set.width_from = get_tile_widths(editor.ts, tile_index)[y];
+						set.width_to = width;
+
+						array_add(&action.set_tile_width.sets, set);
+					}
+
+					editor.action_add_and_perform(action);
+				}
 			}
 		}
 
@@ -1272,11 +1392,6 @@ void TilemapEditor::update(float delta) {
 			editor.action_perform(rectangle_action);
 			defer { editor.action_revert(rectangle_action); };
 
-			bool highlight_any_solid_tiles = false;
-			if (tilemap_editor.solidity_mode) {
-				highlight_any_solid_tiles = true;
-			}
-
 			// draw layers
 			for (int i = 0; i < 3; i++) {
 				if (tilemap_editor.layer_visible[i]) {
@@ -1286,12 +1401,6 @@ void TilemapEditor::update(float delta) {
 						if (i > tilemap_editor.layer_index) {
 							color.a = 0.2f;
 						} else if (i < tilemap_editor.layer_index) {
-							color = get_color(80, 80, 80);
-						}
-					}
-
-					if (i == tilemap_editor.layer_index) {
-						if (highlight_any_solid_tiles) {
 							color = get_color(80, 80, 80);
 						}
 					}
@@ -1306,24 +1415,8 @@ void TilemapEditor::update(float delta) {
 						for (int x = pos_from.x; x < pos_to.x; x++) {
 							Tile tile = get_tile(editor.tm, x, y, i);
 
-							// Tile index 0 means empty tile and it shouldn't have solidity,
-							// but if it has solidity, then show the tile in the editor, so you can erase it.
-							bool dont_skip_tile_index_0 = false;
-
-							vec4 c = color;
-							if (i == tilemap_editor.layer_index) {
-								if (highlight_any_solid_tiles) {
-									if (tile.top_solid || tile.lrb_solid) {
-										c = color_white;
-										dont_skip_tile_index_0 = true;
-									}
-								}
-							}
-
-							if (!dont_skip_tile_index_0) {
-								if (tile.index == 0) {
-									continue;
-								}
+							if (tile.index == 0) {
+								continue;
 							}
 
 							Rect src;
@@ -1332,7 +1425,41 @@ void TilemapEditor::update(float delta) {
 							src.w = 16;
 							src.h = 16;
 
-							draw_texture_simple(editor.tileset_texture, src, {x * 16.0f, y * 16.0f}, {}, c, {tile.hflip, tile.vflip});
+							draw_texture_simple(editor.tileset_texture, src, {x * 16.0f, y * 16.0f}, {}, color, {tile.hflip, tile.vflip});
+						}
+					}
+
+					// draw layer collision
+					if (tilemap_editor.solidity_mode) {
+						if (i == tilemap_editor.layer_index) {
+							for (int y = pos_from.y; y < pos_to.y; y++) {
+								for (int x = pos_from.x; x < pos_to.x; x++) {
+									Tile tile = get_tile(editor.tm, x, y, i);
+
+									vec4 color;
+									if (tile.top_solid && tile.lrb_solid) {
+										color = {1, 1, 1, 0.75f};
+									} else if (tile.top_solid && !tile.lrb_solid) {
+										color = {0.5f, 0.5f, 1, 0.75f};
+									} else if (!tile.top_solid && tile.lrb_solid) {
+										color = {1, 0.5f, 0.5f, 0.75f};
+									} else { // !top_solid && !lrb_solid
+										continue;
+									}
+
+									Rect src;
+									src.x = (tile.index % (editor.tileset_texture.width / 16)) * 16;
+									src.y = (tile.index / (editor.tileset_texture.width / 16)) * 16;
+									src.w = 16;
+									src.h = 16;
+
+									if (tile.index == 0) {
+										draw_rectangle({x * 16.0f, y * 16.0f, 16, 16}, color);
+									} else {
+										draw_texture_simple(editor.heightmap, src, {x * 16.0f, y * 16.0f}, {}, color, {tile.hflip, tile.vflip});
+									}
+								}
+							}
 						}
 					}
 
@@ -1349,14 +1476,34 @@ void TilemapEditor::update(float delta) {
 									if (mouse_pos.x + x >= editor.tm.width)  continue;
 									if (mouse_pos.y + y >= editor.tm.height) continue;
 
+									if (tilemap_editor.brush[x + y * tilemap_editor.brush_w].index == 0) {
+										continue;
+									}
+
 									bool dont_skip_tile_index_0 = false;
 
 									Tile tile;
+									Texture t;
+
+									vec4 color = color_white;
+
 									if (tilemap_editor.solidity_mode) {
 										tile = get_tile(editor.tm, mouse_pos.x + x, mouse_pos.y + y, tilemap_editor.layer_index);
+										t = editor.heightmap;
 										dont_skip_tile_index_0 = true;
+
+										if (tilemap_editor.brush[x + y * tilemap_editor.brush_w].top_solid && tilemap_editor.brush[x + y * tilemap_editor.brush_w].lrb_solid) {
+											color = {1, 1, 1, 1};
+										} else if (tilemap_editor.brush[x + y * tilemap_editor.brush_w].top_solid && !tilemap_editor.brush[x + y * tilemap_editor.brush_w].lrb_solid) {
+											color = {0.5f, 0.5f, 1, 1};
+										} else if (!tilemap_editor.brush[x + y * tilemap_editor.brush_w].top_solid && tilemap_editor.brush[x + y * tilemap_editor.brush_w].lrb_solid) {
+											color = {1, 0.5f, 0.5f, 1};
+										} else { // !top_solid && !lrb_solid
+											color = {0, 0, 0, 1};
+										}
 									} else {
 										tile = tilemap_editor.brush[x + y * tilemap_editor.brush_w];
+										t = editor.tileset_texture;
 									}
 
 									if (!dont_skip_tile_index_0) {
@@ -1375,7 +1522,11 @@ void TilemapEditor::update(float delta) {
 									pos.x = (mouse_pos.x + x) * 16;
 									pos.y = (mouse_pos.y + y) * 16;
 
-									draw_texture_simple(editor.tileset_texture, src, pos);
+									if (tile.index == 0) { // can only happen in solidity_mode
+										draw_rectangle({pos.x, pos.y, 16, 16}, color);
+									} else {
+										draw_texture_simple(t, src, pos, {}, color, {tile.hflip, tile.vflip});
+									}
 								}
 							}
 						}
@@ -1582,8 +1733,8 @@ void TilemapEditor::update(float delta) {
 								if (solidity_mode) {
 									if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
 										set.tile_to = set.tile_from;
-										set.tile_to.top_solid = 1;
-										set.tile_to.lrb_solid = 1;
+										set.tile_to.top_solid = brush[x + y * brush_w].top_solid;
+										set.tile_to.lrb_solid = brush[x + y * brush_w].lrb_solid;
 									} else {
 										set.tile_to = set.tile_from;
 										set.tile_to.top_solid = 0;
@@ -1602,6 +1753,41 @@ void TilemapEditor::update(float delta) {
 						}
 					}
 				}
+			}
+		}
+
+		// shortcuts that modify the brush
+		if (tool == TOOL_BRUSH || tool == TOOL_RECTANGLE) {
+			if (IsKeyPressedNoMod(ImGuiKey_H)) {
+				for (int x = 0; x < brush_w / 2; x++) {
+					for (int y = 0; y < brush_h; y++) {
+						Tile temp = brush[x + y * brush_w];
+						brush[x + y * brush_w] = brush[(brush_w - x - 1) + y * brush_w];
+						brush[(brush_w - x - 1) + y * brush_w] = temp;
+					}
+				}
+
+				For (it, brush) it->hflip ^= 1;
+			}
+
+			if (IsKeyPressedNoMod(ImGuiKey_V)) {
+				for (int y = 0; y < brush_h / 2; y++) {
+					for (int x = 0; x < brush_w; x++) {
+						Tile temp = brush[x + y * brush_w];
+						brush[x + y * brush_w] = brush[x + (brush_h - y - 1) * brush_w];
+						brush[x + (brush_h - y - 1) * brush_w] = temp;
+					}
+				}
+
+				For (it, brush) it->vflip ^= 1;
+			}
+
+			if (IsKeyPressedNoMod(ImGuiKey_T)) {
+				For (it, brush) it->top_solid ^= 1;
+			}
+
+			if (IsKeyPressedNoMod(ImGuiKey_L)) {
+				For (it, brush) it->lrb_solid ^= 1;
 			}
 		}
 
@@ -1625,8 +1811,8 @@ void TilemapEditor::update(float delta) {
 		ImGui::SameLine();
 
 		ImGui::Checkbox("Highlight Current Layer", &highlight_current_layer);
-		if (IsKeyPressedNoMod(ImGuiKey_H, true)) highlight_current_layer ^= true;
-		ImGui::SetItemTooltip("Shortcut: H");
+		//if (IsKeyPressedNoMod(ImGuiKey_H, true)) highlight_current_layer ^= true;
+		//ImGui::SetItemTooltip("Shortcut: H");
 
 		ImGui::SameLine();
 		ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
@@ -1775,10 +1961,22 @@ Action TilemapEditor::get_rectangle_action() {
 				set.layer_index = layer_index;
 				set.tile_from = get_tile(editor.tm, x, y, layer_index);
 
-				if (rectangle_erasing) {
-					set.tile_to = {};
+				if (solidity_mode) {
+					if (rectangle_erasing) {
+						set.tile_to = set.tile_from;
+						set.tile_to.top_solid = 0;
+						set.tile_to.lrb_solid = 0;
+					} else {
+						set.tile_to = set.tile_from;
+						set.tile_to.top_solid = brush[brush_x + brush_y * brush_w].top_solid;
+						set.tile_to.lrb_solid = brush[brush_x + brush_y * brush_w].lrb_solid;
+					}
 				} else {
-					set.tile_to = brush[brush_x + brush_y * brush_w];
+					if (rectangle_erasing) {
+						set.tile_to = {};
+					} else {
+						set.tile_to = brush[brush_x + brush_y * brush_w];
+					}
 				}
 
 				array_add(&action.set_tiles.sets, set);

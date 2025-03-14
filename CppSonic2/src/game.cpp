@@ -1033,7 +1033,7 @@ static bool player_try_slip(Player* p) {
 	// Check for slipping/falling when Ground Speed is too low on walls/ceilings.
 
 	float a = angle_wrap(p->ground_angle);
-	if (a >= 46.0f && a < 316.0f) {
+	if (a >= 46.0f && a < 314.0f) {
 		if (fabsf(p->ground_speed) < 2.5f) {
 			p->state = STATE_AIR;
 			p->ground_speed = 0.0f;
@@ -3866,7 +3866,8 @@ void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture&
 						1,
 						heights[i]
 					};
-					SDL_FillRect(surf, &line, SDL_MapRGB(surf->format, 255, 255, 255));
+					u32 color = SDL_MapRGB(surf->format, 255, 255, 255);
+					SDL_FillRect(surf, &line, color);
 				} else if (heights[i] >= 0xF0) {
 					SDL_Rect line = {
 						(tile_index % stride) * 16 + i,
@@ -3874,7 +3875,8 @@ void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture&
 						1,
 						16 - (heights[i] - 0xF0)
 					};
-					SDL_FillRect(surf, &line, SDL_MapRGB(surf->format, 255, 0, 0));
+					u32 color = SDL_MapRGB(surf->format, 255, 255, 255) /*SDL_MapRGB(surf->format, 255, 0, 0)*/;
+					SDL_FillRect(surf, &line, color);
 				}
 			}
 		}
@@ -3918,7 +3920,8 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 						widths[i],
 						1
 					};
-					SDL_FillRect(wsurf, &line, SDL_MapRGB(wsurf->format, 255, 255, 255));
+					u32 color = SDL_MapRGB(wsurf->format, 255, 255, 255);
+					SDL_FillRect(wsurf, &line, color);
 				} else if (widths[i] >= 0xF0) {
 					SDL_Rect line = {
 						(tile_index % stride) * 16,
@@ -3926,7 +3929,8 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 						16 - (widths[i] - 0xF0),
 						1
 					};
-					SDL_FillRect(wsurf, &line, SDL_MapRGB(wsurf->format, 0, 0, 255));
+					u32 color = SDL_MapRGB(wsurf->format, 255, 255, 255) /*SDL_MapRGB(wsurf->format, 0, 0, 255)*/;
+					SDL_FillRect(wsurf, &line, color);
 				}
 			}
 		}
