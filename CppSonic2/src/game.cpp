@@ -42,19 +42,6 @@ void Game::load_level(const char* path) {
 	stb_snprintf(buf, sizeof(buf), "%s/Objects.bin", path);
 	read_objects(&objects, buf);
 
-	// give IDs to the objects
-	For (it, objects) {
-		it->id = next_id++;
-
-		switch (it->type) {
-			case OBJ_MOVING_PLATFORM: {
-				it->mplatform.init_pos = it->pos;
-				it->mplatform.prev_pos = it->pos;
-				break;
-			}
-		}
-	}
-
 	// search for player init pos
 	{
 		bool found = false;
@@ -71,6 +58,29 @@ void Game::load_level(const char* path) {
 			log_warn("Couldn't find OBJ_PLAYER_INIT_POS object.");
 
 			player.pos = {80, 944};
+		}
+	}
+
+	// init objects
+	For (it, objects) {
+		it->id = next_id++;
+
+		switch (it->type) {
+			case OBJ_MOVING_PLATFORM: {
+				it->mplatform.init_pos = it->pos;
+				it->mplatform.prev_pos = it->pos;
+				break;
+			}
+
+			case OBJ_LAYER_SWITCHER_VERTICAL:
+			case OBJ_LAYER_SWITCHER_HORIZONTAL: {
+				if (player.pos.x >= it->pos.x) {
+					it->layswitch.current_side = 1;
+				} else {
+					it->layswitch.current_side = 0;
+				}
+				break;
+			}
 		}
 	}
 
@@ -1005,6 +1015,7 @@ static void push_sensor_collision(Player* p) {
 
 			if (p->input & INPUT_RIGHT) {
 				p->pushing = true;
+				p->facing = 1;
 			}
 		}
 	}
@@ -1024,6 +1035,7 @@ static void push_sensor_collision(Player* p) {
 
 			if (p->input & INPUT_LEFT) {
 				p->pushing = true;
+				p->facing = -1;
 			}
 		}
 	}
@@ -1104,9 +1116,10 @@ static bool object_is_solid(ObjType type) {
 	return false;
 }
 
-static bool object_is_solid_through(ObjType type) {
+static bool object_is_nonsolid(ObjType type) {
 	switch (type) {
-		case OBJ_MOVING_PLATFORM: return true;
+		case OBJ_RING:         return true;
+		case OBJ_RING_DROPPED: return true;
 	}
 	return false;
 }
@@ -1453,9 +1466,15 @@ static void player_collide_with_solid_objects(Player* p) {
 					Direction dir = (x_distance > 0) ? DIR_RIGHT : DIR_LEFT;
 
 					if (!player_collide_solid_object_side(p, it, dir)) {
+						p->pushing = true;
+						if (p->speed.x > 0) {
+							p->facing = 1;
+						} else { // p->speed.x < 0
+							p->facing = -1;
+						}
+
 						p->ground_speed = 0;
 						p->speed.x = 0;
-						p->pushing = true;
 					}
 
 					// we could remove dead objects at the end of the frame but idk
@@ -1470,11 +1489,11 @@ static void player_collide_with_solid_objects(Player* p) {
 		}
 	}
 
-	// handle jump through platforms
+	// handle OBJ_MOVING_PLATFORM
 	for (int i = 0; i < game.objects.count; i++) {
 		Object* it = &game.objects[i];
 
-		if (!object_is_solid_through(it->type)) continue;
+		if (it->type != OBJ_MOVING_PLATFORM) continue;
 
 		if (p->speed.y < 0) continue;
 
@@ -1494,7 +1513,7 @@ static void player_collide_with_solid_objects(Player* p) {
 		if (dist < -16 || dist >= 0) continue;
 
 		p->pos.y += dist + 3;
-		p->pos.x += it->pos.x - it->mplatform.prev_pos.x; // @Hack
+		p->pos.x += it->pos.x - it->mplatform.prev_pos.x;
 
 		if (p->state == STATE_AIR) {
 			if (player_roll_condition(p)) {
@@ -1507,6 +1526,74 @@ static void player_collide_with_solid_objects(Player* p) {
 		}
 		p->speed.y = 0;
 		p->landed_on_solid_object = true;
+	}
+}
+
+static bool player_collides_with_nonsolid_object(Player* p, const Object& o) {
+	Rectf r1 = player_get_rect(p);
+
+	vec2 size = get_object_size(o);
+	vec2 pos = o.pos - size / 2.0f;
+	Rectf r2 = {pos.x, pos.y, size.x, size.y};
+
+	return rect_vs_rect(r1, r2);
+}
+
+static void player_collide_with_nonsolid_objects(Player* p) {
+	For (it, game.objects) {
+		if (object_is_nonsolid(it->type)) {
+			if (player_collides_with_nonsolid_object(p, *it)) {
+				switch (it->type) {
+					case OBJ_RING:
+					case OBJ_RING_DROPPED: {
+						if (p->ignore_rings > 0) break;
+
+						game.player_rings++;
+
+						Particle p = {};
+						p.pos = it->pos;
+						p.sprite_index = spr_ring_disappear;
+
+						const Sprite& s = get_sprite(p.sprite_index);
+						p.lifespan = (1.0f / s.anim_spd) * s.frames.count;
+
+						add_particle(p);
+
+						play_sound(get_sound(snd_ring));
+
+						it->flags |= FLAG_INSTANCE_DEAD;
+						break;
+					}
+				}
+
+				if (it->flags & FLAG_INSTANCE_DEAD) {
+					Remove(it, game.objects);
+					continue;
+				}
+			}
+		} else if (it->type == OBJ_LAYER_SWITCHER_VERTICAL) {
+			if (p->pos.y > it->pos.y - it->layswitch.radius.y && p->pos.y < it->pos.y + it->layswitch.radius.y) {
+				if (it->layswitch.current_side == 0) {
+					if (p->pos.x >= it->pos.x) {
+						p->layer = it->layswitch.layer_2;
+						//p->priority = it->layswitch.priority_2;
+					}
+				} else { // current_side == 1
+					if (p->pos.x < it->pos.x) {
+						p->layer = it->layswitch.layer_1;
+						//p->priority = it->layswitch.priority_1;
+					}
+				}
+			}
+
+			if (p->pos.x >= it->pos.x) {
+				it->layswitch.current_side = 1;
+			} else {
+				it->layswitch.current_side = 0;
+			}
+		} else if (it->type == OBJ_LAYER_SWITCHER_HORIZONTAL) {
+			// TODO
+		}
 	}
 }
 
@@ -2062,48 +2149,8 @@ static void player_update(Player* p, float delta) {
 
 	Approach(&p->ignore_rings, 0.0f, delta);
 
-	auto player_collides_with_nonsolid_object = [](Player* p, const Object& o) -> bool {
-		Rectf r1 = player_get_rect(p);
-
-		vec2 size = get_object_size(o);
-		vec2 pos = o.pos - size / 2.0f;
-		Rectf r2 = {pos.x, pos.y, size.x, size.y};
-
-		return rect_vs_rect(r1, r2);
-	};
-
 	// collide with nonsolid objects
-	For (it, game.objects) {
-		if (player_collides_with_nonsolid_object(p, *it)) {
-			switch (it->type) {
-				case OBJ_RING:
-				case OBJ_RING_DROPPED: {
-					if (p->ignore_rings > 0) break;
-
-					game.player_rings++;
-
-					Particle p = {};
-					p.pos = it->pos;
-					p.sprite_index = spr_ring_disappear;
-
-					const Sprite& s = get_sprite(p.sprite_index);
-					p.lifespan = (1.0f / s.anim_spd) * s.frames.count;
-
-					add_particle(p);
-
-					play_sound(get_sound(snd_ring));
-
-					it->flags |= FLAG_INSTANCE_DEAD;
-					break;
-				}
-			}
-
-			if (it->flags & FLAG_INSTANCE_DEAD) {
-				Remove(it, game.objects);
-				continue;
-			}
-		}
-	}
+	player_collide_with_nonsolid_objects(p);
 
 	auto anim_get_frame_count = [](anim_index anim) -> int {
 		const Sprite& s = anim_get_sprite(anim);
@@ -3703,6 +3750,25 @@ void write_objects(array<Object> objects, const char* fname) {
 				break;
 			}
 
+			case OBJ_LAYER_SWITCHER_VERTICAL:
+			case OBJ_LAYER_SWITCHER_HORIZONTAL: {
+				vec2 radius = o.layswitch.radius;
+				SDL_RWwrite(f, &radius, sizeof radius, 1);
+
+				int layer_1 = o.layswitch.layer_1;
+				SDL_RWwrite(f, &layer_1, sizeof layer_1, 1);
+
+				int layer_2 = o.layswitch.layer_2;
+				SDL_RWwrite(f, &layer_2, sizeof layer_2, 1);
+
+				int priority_1 = o.layswitch.priority_1;
+				SDL_RWwrite(f, &priority_1, sizeof priority_1, 1);
+
+				int priority_2 = o.layswitch.priority_2;
+				SDL_RWwrite(f, &priority_2, sizeof priority_2, 1);
+				break;
+			}
+
 			default: {
 				Assert(false);
 				break;
@@ -3835,6 +3901,30 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 				float time_multiplier;
 				SDL_RWread(f, &time_multiplier, sizeof time_multiplier, 1);
 				o->mplatform.time_multiplier = time_multiplier;
+				return true;
+			}
+
+			case OBJ_LAYER_SWITCHER_VERTICAL:
+			case OBJ_LAYER_SWITCHER_HORIZONTAL: {
+				vec2 radius;
+				SDL_RWread(f, &radius, sizeof radius, 1);
+				o->layswitch.radius = radius;
+
+				int layer_1;
+				SDL_RWread(f, &layer_1, sizeof layer_1, 1);
+				o->layswitch.layer_1 = layer_1;
+
+				int layer_2;
+				SDL_RWread(f, &layer_2, sizeof layer_2, 1);
+				o->layswitch.layer_2 = layer_2;
+
+				int priority_1;
+				SDL_RWread(f, &priority_1, sizeof priority_1, 1);
+				o->layswitch.priority_1 = priority_1;
+
+				int priority_2;
+				SDL_RWread(f, &priority_2, sizeof priority_2, 1);
+				o->layswitch.priority_2 = priority_2;
 				return true;
 			}
 		}

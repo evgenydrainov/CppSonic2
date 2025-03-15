@@ -363,6 +363,24 @@ static vec2 sprite_get_uv1(const Sprite& s, int frame_index) {
 	return {u2, v2};
 }
 
+static void AddArrow(ImDrawList* draw_list,
+					 ImVec2 p1, ImVec2 p2, ImU32 col,
+					 float thickness, float zoom) {
+	draw_list->AddLine(p1, p2, col, thickness * zoom);
+
+	float dir = point_direction(p1.x, p1.y, p2.x, p2.y);
+
+	ImVec2 p3 = p2;
+	p3.x += dcos(dir + 90 + 45) * (2 * zoom);
+	p3.y -= dsin(dir + 90 + 45) * (2 * zoom);
+	draw_list->AddLine(p2, p3, col, thickness * zoom);
+
+	ImVec2 p4 = p2;
+	p4.x += dcos(dir - 90 - 45) * (2 * zoom);
+	p4.y -= dsin(dir - 90 - 45) * (2 * zoom);
+	draw_list->AddLine(p2, p4, col, thickness * zoom);
+}
+
 void Editor::try_pick_and_open_level() {
 	char* path = nullptr;
 	nfdresult_t res = NFD_PickFolder(nullptr, &path);
@@ -1287,6 +1305,45 @@ void TilesetEditor::update(float delta) {
 					editor.action_add_and_perform(action);
 				}
 			}
+		} else if (mode == MODE_ANGLES) {
+			if (tool == TOOL_BRUSH) {
+				static bool dragging;
+				static vec2 start_pos;
+
+				vec2 pos = view_get_pos(tileset_view, ImGui::GetMousePos());
+
+				if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+					if (!dragging) {
+						start_pos = pos;
+						dragging = true;
+					}
+
+					ImDrawList* draw_list = ImGui::GetWindowDrawList();
+					AddArrow(draw_list,
+							 tileset_view.thing_p0 + start_pos * tileset_view.zoom,
+							 tileset_view.thing_p0 + pos * tileset_view.zoom,
+							 IM_COL32_WHITE, 0.5, tileset_view.zoom);
+				} else {
+					if (dragging) {
+						if (point_distance(start_pos.x, start_pos.y, pos.x, pos.y) > 1) {
+							int tile_x = clamp((int)(start_pos.x / 16), 0, editor.tileset_texture.width  / 16 - 1);
+							int tile_y = clamp((int)(start_pos.y / 16), 0, editor.tileset_texture.height / 16 - 1);
+							int tile_index = tile_x + tile_y * (editor.tileset_texture.width / 16);
+							float angle = point_direction(start_pos.x, start_pos.y, pos.x, pos.y);
+
+							Action action = {};
+							action.type = ACTION_SET_TILE_ANGLE;
+							action.set_tile_angle.tile_index = tile_index;
+							action.set_tile_angle.angle_from = editor.ts.angles[tile_index];
+							action.set_tile_angle.angle_to = angle;
+
+							editor.action_add_and_perform(action);
+						}
+
+						dragging = false;
+					}
+				}
+			}
 		}
 
 		if (!set_tile_heights_dragging) {
@@ -2072,6 +2129,19 @@ void ObjectsEditor::update(float delta) {
 			draw_tilemap_layer(editor.tm, 2, editor.tileset_texture, pos_from.x, pos_from.y, pos_to.x, pos_to.y, color_white);
 
 			draw_objects(editor.objects, SDL_GetTicks() / (1000.0f / 60.0f), true);
+
+			// draw grids
+			{
+				if (tilemap_view.zoom > 2) {
+					draw_grid_exact({16, 16},
+									{editor.tm.width, editor.tm.height},
+									get_color(0xffffff80));
+				}
+
+				draw_grid_exact({256, 256},
+								{editor.tm.width / 16, editor.tm.height / 16},
+								color_white);
+			}
 
 			break_batch();
 		};
