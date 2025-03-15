@@ -35,7 +35,8 @@ struct Selection {
 	X(ACTION_SET_TILE_HEIGHT) \
 	X(ACTION_SET_TILE_WIDTH) \
 	X(ACTION_SET_TILE_ANGLE) \
-	X(ACTION_SET_TILES)
+	X(ACTION_SET_TILES) \
+	X(ACTION_ADD_OBJECT)
 
 DEFINE_NAMED_ENUM(ActionType, ACTION_TYPE_ENUM)
 
@@ -80,6 +81,10 @@ struct Action {
 		struct {
 			dynamic_array<SetTile> sets;
 		} set_tiles;
+
+		struct {
+			Object o;
+		} add_object;
 	};
 };
 
@@ -121,9 +126,9 @@ struct TilemapEditor {
 	View tileset_view;
 	int layer_index;
 	bool layer_visible[3] = {true, false, true};
-	bool show_objects = true;
+	bool show_objects;
 	bool highlight_current_layer;
-	bool solidity_mode;
+	bool edit_collision;
 
 	dynamic_array<Tile> brush;
 	int brush_w;
@@ -150,6 +155,8 @@ struct TilemapEditor {
 };
 
 struct ObjectsEditor {
+	int object_index = -1;
+
 	void update(float delta);
 };
 
@@ -201,6 +208,8 @@ struct Editor {
 	const char* process_name;
 
 	dynamic_array<Notification> notifications;
+
+	bool laptop_mode;
 
 	void init(int argc, char* argv[]);
 	void deinit();

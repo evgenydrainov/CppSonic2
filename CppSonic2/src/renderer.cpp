@@ -888,10 +888,17 @@ void draw_line_exact(vec2 p1, vec2 p2, vec4 color) {
 void draw_line_thick(vec2 p1, vec2 p2, float thickness, vec4 color) {
 	float dir = point_direction(p1, p2);
 
-	vec2 lt = p1 + lengthdir_v2(thickness / 2.0f, dir - 135);
-	vec2 rt = p1 + lengthdir_v2(thickness / 2.0f, dir + 135);
-	vec2 lb = p2 + lengthdir_v2(thickness / 2.0f, dir - 45);
-	vec2 rb = p2 + lengthdir_v2(thickness / 2.0f, dir + 45);
+	/*vec2 lt = p1 + lengthdir_v2(thickness * 0.5f, dir - 90);
+	vec2 rt = p1 + lengthdir_v2(thickness * 0.5f, dir + 90);
+	vec2 lb = p2 + lengthdir_v2(thickness * 0.5f, dir - 90);
+	vec2 rb = p2 + lengthdir_v2(thickness * 0.5f, dir + 90);*/
+
+	const float sqrt2_over_2 = 0.70710678118654752440084436210485f;
+
+	vec2 lt = p1 + lengthdir_v2(thickness * sqrt2_over_2, dir - 135);
+	vec2 rt = p1 + lengthdir_v2(thickness * sqrt2_over_2, dir + 135);
+	vec2 lb = p2 + lengthdir_v2(thickness * sqrt2_over_2, dir - 45);
+	vec2 rb = p2 + lengthdir_v2(thickness * sqrt2_over_2, dir + 45);
 
 	Vertex vertices[] = {
 		{{lt.x, lt.y, 0.0f}, {}, color, {}}, // LT

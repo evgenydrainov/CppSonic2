@@ -89,17 +89,19 @@ struct Player {
 
 // has to be forward compatible
 #define OBJ_TYPE_ENUM(X) \
-	X(OBJ_PLAYER_INIT_POS,  0) \
-	X(OBJ_LAYER_SET,        1) \
-	X(OBJ_LAYER_FLIP,       2) \
-	X(OBJ_RING,             3) \
-	X(OBJ_MONITOR,          4) \
-	X(OBJ_SPRING,           5) \
-	X(OBJ_MONITOR_BROKEN,   6) \
-	X(OBJ_MONITOR_ICON,     7) \
-	X(OBJ_SPIKE,            8) \
-	X(OBJ_RING_DROPPED,     9) \
-	X(OBJ_MOVING_PLATFORM, 10)
+	X(OBJ_PLAYER_INIT_POS,            0) \
+	X(OBJ_LAYER_SET_DEPRECATED,       1) \
+	X(OBJ_LAYER_FLIP_DEPRECATED,      2) \
+	X(OBJ_RING,                       3) \
+	X(OBJ_MONITOR,                    4) \
+	X(OBJ_SPRING,                     5) \
+	X(OBJ_MONITOR_BROKEN,             6) \
+	X(OBJ_MONITOR_ICON,               7) \
+	X(OBJ_SPIKE,                      8) \
+	X(OBJ_RING_DROPPED,               9) \
+	X(OBJ_MOVING_PLATFORM,           10) \
+	X(OBJ_LAYER_SWITCHER_VERTICAL,   11) \
+	X(OBJ_LAYER_SWITCHER_HORIZONTAL, 12)
 
 DEFINE_NAMED_ENUM_WITH_VALUES(ObjType, OBJ_TYPE_ENUM)
 
@@ -197,6 +199,15 @@ struct Object {
 			vec2 init_pos;
 			vec2 prev_pos;
 		} mplatform; // OBJ_MOVING_PLATFORM
+
+		struct {
+			vec2 radius;
+			int layer_1;
+			int layer_2;
+			int priority_1;
+			int priority_2;
+			int current_side;
+		} layswitch; // OBJ_LAYER_SWITCHER_HORIZONTAL and OBJ_LAYER_SWITCHER_VERTICAL
 	};
 };
 

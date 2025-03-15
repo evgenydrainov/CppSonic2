@@ -27,6 +27,13 @@ void Editor::init(int argc, char* argv[]) {
 			try_open_level(argv[2]);
 		}
 	}
+
+	{
+		char* LAPTOP_MODE = SDL_getenv("LAPTOP_MODE"); // @Leak
+		if (LAPTOP_MODE) {
+			laptop_mode = atoi(LAPTOP_MODE);
+		}
+	}
 }
 
 void Editor::deinit() {
@@ -44,6 +51,14 @@ static bool IsKeyPressedNoMod(ImGuiKey key, bool repeat = false) {
 	if (ImGui::IsKeyDown(ImGuiKey_RightAlt)) return false;
 
 	return ImGui::IsKeyPressed(key, repeat);
+}
+
+static vec2 view_get_pos(const View& view, vec2 screen_pos) {
+	vec2 pos = screen_pos;
+	pos -= view.thing_p0;
+	pos /= view.zoom;
+
+	return pos;
 }
 
 static ivec2 view_get_tile_pos(const View& view, ivec2 tile_size, ivec2 clamp_size, vec2 screen_pos) {
@@ -96,20 +111,20 @@ static void pan_and_zoom(View& view,
 						   | ImGuiButtonFlags_MouseButtonRight
 						   | ImGuiButtonFlags_MouseButtonMiddle);
 
-	if (io.MouseSource == ImGuiMouseSource_Mouse) {
+	if (editor.laptop_mode) {
+		// pan with touchpad
+		if (ImGui::IsItemHovered()) {
+			if (!ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+				view.scrolling.x += io.MouseWheelH * 30;
+				view.scrolling.y += io.MouseWheel  * 30;
+			}
+		}
+	} else {
 		// pan with mouse
 		if (ImGui::IsItemActive()) {
 			if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle, -1)) {
 				view.scrolling.x += io.MouseDelta.x;
 				view.scrolling.y += io.MouseDelta.y;
-			}
-		}
-	} else {
-		// pan with touchpad
-		if (ImGui::IsItemHovered()) {
-			if (!ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
-				view.scrolling.x += io.MouseWheelH * 20;
-				view.scrolling.y += io.MouseWheel  * 20;
 			}
 		}
 	}
@@ -134,7 +149,7 @@ static void pan_and_zoom(View& view,
 		ImVec2 mouse_pos_in_thing = (io.MousePos - view.thing_p0) / view.zoom;
 		ImVec2 view_center_pos_in_thing = (view_center_pos - view.thing_p0) / view.zoom;
 
-		if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || io.MouseSource == ImGuiMouseSource_Mouse) {
+		if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || !editor.laptop_mode) {
 			// zoom with mouse
 			if (ImGui::IsItemHovered() && io.MouseWheel != 0) {
 				view.zoom *= powf(1.25f, io.MouseWheel);
@@ -324,6 +339,30 @@ static bool pos_in_rect(vec2 pos, vec2 rect_min, vec2 rect_max) {
 	return rect.Contains(pos);
 }
 
+static vec2 sprite_get_uv0(const Sprite& s, int frame_index) {
+	const Texture& t = s.texture;
+
+	const SpriteFrame& f = s.frames[frame_index];
+
+	Rect src = {f.u, f.v, f.w, f.h};
+
+	float u1 = src.x / (float)t.width;
+	float v1 = src.y / (float)t.height;
+	return {u1, v1};
+}
+
+static vec2 sprite_get_uv1(const Sprite& s, int frame_index) {
+	const Texture& t = s.texture;
+
+	const SpriteFrame& f = s.frames[frame_index];
+
+	Rect src = {f.u, f.v, f.w, f.h};
+
+	float u2 = (src.x + src.w) / (float)t.width;
+	float v2 = (src.y + src.h) / (float)t.height;
+	return {u2, v2};
+}
+
 void Editor::try_pick_and_open_level() {
 	char* path = nullptr;
 	nfdresult_t res = NFD_PickFolder(nullptr, &path);
@@ -403,6 +442,7 @@ void Editor::close_level() {
 
 	free(objects.data);
 	objects = {};
+	objects_editor.object_index = -1;
 
 	free_texture(&heightmap);
 	free_texture(&widthmap);
@@ -508,6 +548,7 @@ void Editor::update(float delta) {
 		if (!is_level_open) return;
 
 		objects.count = 0;
+		objects_editor.object_index = -1;
 	};
 
 	// main menu bar hotkeys
@@ -849,6 +890,12 @@ void Editor::action_perform(const Action& action) {
 			break;
 		}
 
+		case ACTION_ADD_OBJECT: {
+			array_add(&objects, action.add_object.o);
+			objects_editor.object_index = -1;
+			break;
+		}
+
 		default: {
 			Assert(!"action not implemented");
 			break;
@@ -897,6 +944,12 @@ void Editor::action_revert(const Action& action) {
 			For (it, action.set_tiles.sets) {
 				set_tile_by_index(&tm, it->tile_index, it->layer_index, it->tile_from);
 			}
+			break;
+		}
+
+		case ACTION_ADD_OBJECT: {
+			array_remove(&objects, objects.count - 1);
+			objects_editor.object_index = -1;
 			break;
 		}
 
@@ -1430,7 +1483,7 @@ void TilemapEditor::update(float delta) {
 					}
 
 					// draw layer collision
-					if (tilemap_editor.solidity_mode) {
+					if (tilemap_editor.edit_collision) {
 						if (i == tilemap_editor.layer_index) {
 							for (int y = pos_from.y; y < pos_to.y; y++) {
 								for (int x = pos_from.x; x < pos_to.x; x++) {
@@ -1487,7 +1540,7 @@ void TilemapEditor::update(float delta) {
 
 									vec4 color = color_white;
 
-									if (tilemap_editor.solidity_mode) {
+									if (tilemap_editor.edit_collision) {
 										tile = get_tile(editor.tm, mouse_pos.x + x, mouse_pos.y + y, tilemap_editor.layer_index);
 										t = editor.heightmap;
 										dont_skip_tile_index_0 = true;
@@ -1717,7 +1770,7 @@ void TilemapEditor::update(float delta) {
 							}
 
 							if (found) {
-								if (!solidity_mode) {
+								if (!edit_collision) {
 									if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
 										found->tile_to = brush[x + y * brush_w];
 									} else {
@@ -1730,7 +1783,7 @@ void TilemapEditor::update(float delta) {
 								set.layer_index = layer_index;
 								set.tile_from = get_tile_by_index(editor.tm, tile_index, layer_index);
 
-								if (solidity_mode) {
+								if (edit_collision) {
 									if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
 										set.tile_to = set.tile_from;
 										set.tile_to.top_solid = brush[x + y * brush_w].top_solid;
@@ -1818,7 +1871,7 @@ void TilemapEditor::update(float delta) {
 		ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
 		ImGui::SameLine();
 
-		ImGui::Checkbox("Solidity Mode", &solidity_mode);
+		ImGui::Checkbox("Edit Collision", &edit_collision);
 
 		bottom_part_height = (ImGui::GetCursorScreenPos() - cursor).y;
 	};
@@ -1961,7 +2014,7 @@ Action TilemapEditor::get_rectangle_action() {
 				set.layer_index = layer_index;
 				set.tile_from = get_tile(editor.tm, x, y, layer_index);
 
-				if (solidity_mode) {
+				if (edit_collision) {
 					if (rectangle_erasing) {
 						set.tile_to = set.tile_from;
 						set.tile_to.top_solid = 0;
@@ -1994,6 +2047,210 @@ Action TilemapEditor::get_rectangle_action() {
 }
 
 void ObjectsEditor::update(float delta) {
+	auto objects_editor_window = [&]() {
+		ImGui::Begin("Objects Editor##objects_editor");
+		defer { ImGui::End(); };
+
+		if (!editor.is_level_open) {
+			ImGui::Text("No level opened.");
+			return;
+		}
+
+		auto callback = []() {
+			ObjectsEditor& objects_editor = editor.objects_editor;
+
+			// reuse the same view
+			View& tilemap_view = editor.tilemap_editor.tilemap_view;
+
+			ivec2 pos_from = view_get_tile_pos(tilemap_view, {16, 16}, {editor.tm.width, editor.tm.height}, tilemap_view.item_rect_min);
+			ivec2 pos_to   = view_get_tile_pos(tilemap_view, {16, 16}, {editor.tm.width, editor.tm.height}, tilemap_view.item_rect_max);
+			pos_to.x++;
+			pos_to.y++;
+
+			// draw layers
+			draw_tilemap_layer(editor.tm, 0, editor.tileset_texture, pos_from.x, pos_from.y, pos_to.x, pos_to.y, color_white);
+			draw_tilemap_layer(editor.tm, 2, editor.tileset_texture, pos_from.x, pos_from.y, pos_to.x, pos_to.y, color_white);
+
+			draw_objects(editor.objects, SDL_GetTicks() / (1000.0f / 60.0f), true);
+
+			break_batch();
+		};
+
+		// reuse the same view
+		View& tilemap_view = editor.tilemap_editor.tilemap_view;
+
+		pan_and_zoom(tilemap_view,
+					 {},
+					 {editor.tm.width * 16, editor.tm.height * 16},
+					 (PanAndZoomFlags) 0,
+					 callback);
+
+		// add objects
+		if (ImGui::BeginDragDropTarget()) {
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ADD_OBJECT")) {
+				ObjType type;
+				Assert(payload->DataSize == sizeof(type));
+				type = *(ObjType*)payload->Data;
+
+				vec2 pos = floor(view_get_pos(tilemap_view, ImGui::GetMousePos()));
+
+				Object o = {};
+				o.pos = pos;
+				o.type = type;
+
+				switch (o.type) {
+					case OBJ_SPRING: {
+						o.spring.direction = DIR_UP;
+						break;
+					}
+
+					case OBJ_LAYER_SWITCHER_VERTICAL: {
+						o.layswitch.radius.y = 128;
+						break;
+					}
+
+					case OBJ_LAYER_SWITCHER_HORIZONTAL: {
+						o.layswitch.radius.x = 128;
+						break;
+					}
+				}
+
+				Action action = {};
+				action.type = ACTION_ADD_OBJECT;
+				action.add_object.o = o;
+
+				//editor.action_add_and_perform(action); TODO
+				editor.action_perform(action);
+			}
+
+			ImGui::EndDragDropTarget();
+		}
+	};
+
+	objects_editor_window();
+
+	auto object_types_window = [&]() {
+		ImGui::Begin("Object Types##object_editor");
+		defer { ImGui::End(); };
+
+		int id = 0;
+
+		auto button = [&](ObjType type) {
+			const Sprite& s = get_object_sprite(type);
+
+			if (s.width + ImGui::GetStyle().FramePadding.x * 2 > ImGui::GetContentRegionAvail().x) {
+				ImGui::NewLine();
+			}
+
+			ImGui::PushID(id++);
+			ImGui::ImageButton("object button", s.texture.id, ImVec2(s.width, s.height), sprite_get_uv0(s, 0), sprite_get_uv1(s, 0));
+			ImGui::PopID();
+
+			ImGui::SameLine();
+
+			ImGui::SetItemTooltip("%s", GetObjTypeName(type));
+
+			if (ImGui::BeginDragDropSource()) {
+				ImGui::SetDragDropPayload("ADD_OBJECT", &type, sizeof(type));
+
+				ImGui::Text("%s", GetObjTypeName(type));
+
+				ImGui::EndDragDropSource();
+			}
+		};
+
+		button(OBJ_PLAYER_INIT_POS);
+		button(OBJ_RING);
+		button(OBJ_MONITOR);
+		button(OBJ_SPRING);
+		button(OBJ_LAYER_SWITCHER_VERTICAL);
+		button(OBJ_LAYER_SWITCHER_HORIZONTAL);
+	};
+
+	object_types_window();
+
+	auto objects_window = [&]() {
+		ImGui::Begin("Objects##object_editor");
+		defer { ImGui::End(); };
+
+		for (int i = 0; i < editor.objects.count; i++) {
+			char buf[32];
+			stb_snprintf(buf, sizeof(buf), "%d: %s", i, GetObjTypeName(editor.objects[i].type));
+
+			if (ImGui::Selectable(buf, i == object_index)) {
+				object_index = i;
+			}
+		}
+	};
+
+	objects_window();
+
+	auto object_properties_window = [&]() {
+		ImGui::Begin("Object Properties##object_editor");
+		defer { ImGui::End(); };
+
+		if (object_index == -1) {
+			return;
+		}
+
+		Object* o = &editor.objects[object_index];
+
+		ImGui::DragFloat2("Position", &o->pos[0], 1, 0, 0, "%.0f");
+
+		switch (o->type) {
+			case OBJ_LAYER_SWITCHER_VERTICAL:
+			case OBJ_LAYER_SWITCHER_HORIZONTAL: {
+				if (o->type == OBJ_LAYER_SWITCHER_VERTICAL) {
+					ImGui::DragFloat("Height Radius", &o->layswitch.radius.y);
+				} else {
+					ImGui::DragFloat("Width Radius", &o->layswitch.radius.x);
+				}
+
+				{
+					const char* values[] = {"A", "B"};
+					if (ImGui::BeginCombo("Layer 1", values[o->layswitch.layer_1])) {
+						if (ImGui::Selectable(values[0], o->layswitch.layer_1 == 0)) o->layswitch.layer_1 = 0;
+						if (ImGui::Selectable(values[1], o->layswitch.layer_1 == 1)) o->layswitch.layer_1 = 1;
+
+						ImGui::EndCombo();
+					}
+
+					if (ImGui::BeginCombo("Layer 2", values[o->layswitch.layer_2])) {
+						if (ImGui::Selectable(values[0], o->layswitch.layer_2 == 0)) o->layswitch.layer_2 = 0;
+						if (ImGui::Selectable(values[1], o->layswitch.layer_2 == 1)) o->layswitch.layer_2 = 1;
+
+						ImGui::EndCombo();
+					}
+				}
+
+				{
+					const char* values[] = {"Low", "High"};
+					if (ImGui::BeginCombo("Priority 1", values[o->layswitch.priority_1])) {
+						if (ImGui::Selectable(values[0], o->layswitch.priority_1 == 0)) o->layswitch.priority_1 = 0;
+						if (ImGui::Selectable(values[1], o->layswitch.priority_1 == 1)) o->layswitch.priority_1 = 1;
+
+						ImGui::EndCombo();
+					}
+
+					if (ImGui::BeginCombo("Priority 2", values[o->layswitch.priority_2])) {
+						if (ImGui::Selectable(values[0], o->layswitch.priority_2 == 0)) o->layswitch.priority_2 = 0;
+						if (ImGui::Selectable(values[1], o->layswitch.priority_2 == 1)) o->layswitch.priority_2 = 1;
+
+						ImGui::EndCombo();
+					}
+				}
+				break;
+			}
+		}
+
+		if (ImGui::Button("Delete Object")) {
+			array_remove(&editor.objects, object_index);
+			object_index = -1;
+			return;
+		}
+	};
+
+	object_properties_window();
 }
 
 void Editor::draw(float delta) {

@@ -2072,33 +2072,10 @@ static void player_update(Player* p, float delta) {
 		return rect_vs_rect(r1, r2);
 	};
 
+	// collide with nonsolid objects
 	For (it, game.objects) {
 		if (player_collides_with_nonsolid_object(p, *it)) {
 			switch (it->type) {
-				case OBJ_LAYER_SET: {
-					p->layer = it->layset.layer;
-					break;
-				}
-
-				case OBJ_LAYER_FLIP: {
-					bool dont_set_layer = false;
-
-					if (it->flags & FLAG_LAYER_FLIP_GROUNDED) {
-						if (!player_is_grounded(p)) {
-							dont_set_layer = true;
-						}
-					}
-
-					if (!dont_set_layer) {
-						if (sign_int(p->speed.x) == 1) {
-							p->layer = 0;
-						} else if (sign_int(p->speed.x) == -1) {
-							p->layer = 1;
-						}
-					}
-					break;
-				}
-
 				case OBJ_RING:
 				case OBJ_RING_DROPPED: {
 					if (p->ignore_rings > 0) break;
@@ -2665,7 +2642,7 @@ void draw_objects(array<Object> objects, float time_frames, bool show_editor_obj
 				break;
 			}
 
-			case OBJ_LAYER_FLIP: {
+			case OBJ_LAYER_FLIP_DEPRECATED: {
 				if (!show_editor_objects) break;
 				
 				const Sprite& s = get_object_sprite(it->type);
@@ -2674,7 +2651,7 @@ void draw_objects(array<Object> objects, float time_frames, bool show_editor_obj
 				break;
 			}
 
-			case OBJ_LAYER_SET: {
+			case OBJ_LAYER_SET_DEPRECATED: {
 				if (!show_editor_objects) break;
 
 				const Sprite& s = get_object_sprite(it->type);
@@ -2765,6 +2742,35 @@ void draw_objects(array<Object> objects, float time_frames, bool show_editor_obj
 				u32 sprite_index = sprite_indices[it->mplatform.sprite_index];
 
 				draw_sprite(get_sprite(sprite_index), 0, it->pos);
+				break;
+			}
+
+			case OBJ_LAYER_SWITCHER_VERTICAL: {
+				if (!show_editor_objects) break;
+
+				const float w = it->layswitch.radius.y;
+
+				float x = it->pos.x;
+				if (it->layswitch.current_side == 1) {
+					x -= w;
+				}
+				draw_rectangle({x, it->pos.y - it->layswitch.radius.y, w, it->layswitch.radius.y * 2}, get_color(0xff7d1262));
+
+				draw_line_thick(it->pos - vec2{0, it->layswitch.radius.y} + vec2{0.5f, 0.5f},
+								it->pos + vec2{0, it->layswitch.radius.y} + vec2{0.5f, 0.5f},
+								1,
+								get_color(0xf0761fff));
+
+				draw_rectangle({it->pos.x + 1, it->pos.y, 1, 1}, color_white);
+				draw_rectangle({it->pos.x - 1, it->pos.y, 1, 1}, color_white);
+				draw_rectangle({it->pos.x, it->pos.y + 1, 1, 1}, color_white);
+				draw_rectangle({it->pos.x, it->pos.y - 1, 1, 1}, color_white);
+
+				draw_sprite(get_sprite(spr_layer_switcher_layer_letter), it->layswitch.layer_1, it->pos + vec2{-6, -8});
+				draw_sprite(get_sprite(spr_layer_switcher_layer_letter), it->layswitch.layer_2, it->pos + vec2{ 2, -8});
+
+				draw_sprite(get_sprite(spr_layer_switcher_priority_letter), it->layswitch.priority_1, it->pos + vec2{-6, 2});
+				draw_sprite(get_sprite(spr_layer_switcher_priority_letter), it->layswitch.priority_2, it->pos + vec2{ 2, 2});
 				break;
 			}
 
@@ -3638,10 +3644,13 @@ void write_objects(array<Object> objects, const char* fname) {
 
 		switch (o.type) {
 			case OBJ_PLAYER_INIT_POS:
-			case OBJ_RING:
+			case OBJ_RING: {
 				break;
+			}
 
-			case OBJ_LAYER_SET: {
+			case OBJ_LAYER_SET_DEPRECATED: {
+				log_warn("Serializing deprecated object %s!", GetObjTypeName(o.type));
+
 				vec2 radius = o.layset.radius;
 				SDL_RWwrite(f, &radius, sizeof radius, 1);
 
@@ -3650,7 +3659,9 @@ void write_objects(array<Object> objects, const char* fname) {
 				break;
 			}
 
-			case OBJ_LAYER_FLIP: {
+			case OBJ_LAYER_FLIP_DEPRECATED: {
+				log_warn("Serializing deprecated object %s!", GetObjTypeName(o.type));
+
 				vec2 radius = o.layflip.radius;
 				SDL_RWwrite(f, &radius, sizeof radius, 1);
 				break;
@@ -3757,10 +3768,13 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 
 		switch (o->type) {
 			case OBJ_PLAYER_INIT_POS:
-			case OBJ_RING:
+			case OBJ_RING: {
 				return true;
+			}
 
-			case OBJ_LAYER_SET: {
+			case OBJ_LAYER_SET_DEPRECATED: {
+				log_warn("Deserializing deprecated object %s!", GetObjTypeName(o->type));
+
 				vec2 radius;
 				SDL_RWread(f, &radius, sizeof radius, 1);
 				o->layset.radius = radius;
@@ -3771,7 +3785,9 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 				return true;
 			}
 
-			case OBJ_LAYER_FLIP: {
+			case OBJ_LAYER_FLIP_DEPRECATED: {
+				log_warn("Deserializing deprecated object %s!", GetObjTypeName(o->type));
+
 				vec2 radius;
 				SDL_RWread(f, &radius, sizeof radius, 1);
 				o->layflip.radius = radius;
@@ -3951,16 +3967,18 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 
 const Sprite& get_object_sprite(ObjType type) {
 	switch (type) {
-		case OBJ_PLAYER_INIT_POS: return get_sprite(spr_sonic_editor_preview);
-		case OBJ_LAYER_SET:       return get_sprite(spr_layer_set);
-		case OBJ_LAYER_FLIP:      return get_sprite(spr_layer_flip);
-		case OBJ_RING:            return get_sprite(spr_ring);
-		case OBJ_MONITOR:         return get_sprite(spr_monitor);
-		case OBJ_SPRING:          return get_sprite(spr_spring_yellow);
-		case OBJ_MONITOR_BROKEN:  return get_sprite(spr_monitor_broken);
-		case OBJ_MONITOR_ICON:    return get_sprite(spr_monitor_icon);
-		case OBJ_SPIKE:           return get_sprite(spr_spike);
-		case OBJ_RING_DROPPED:    return get_sprite(spr_ring);
+		case OBJ_PLAYER_INIT_POS:           return get_sprite(spr_sonic_editor_preview);
+		case OBJ_LAYER_SET_DEPRECATED:      return get_sprite(spr_layer_set);
+		case OBJ_LAYER_FLIP_DEPRECATED:     return get_sprite(spr_layer_flip);
+		case OBJ_RING:                      return get_sprite(spr_ring);
+		case OBJ_MONITOR:                   return get_sprite(spr_monitor);
+		case OBJ_SPRING:                    return get_sprite(spr_spring_yellow);
+		case OBJ_MONITOR_BROKEN:            return get_sprite(spr_monitor_broken);
+		case OBJ_MONITOR_ICON:              return get_sprite(spr_monitor_icon);
+		case OBJ_SPIKE:                     return get_sprite(spr_spike);
+		case OBJ_RING_DROPPED:              return get_sprite(spr_ring);
+		case OBJ_LAYER_SWITCHER_VERTICAL:   return get_sprite(spr_layer_switcher_vertical);
+		case OBJ_LAYER_SWITCHER_HORIZONTAL: return get_sprite(spr_layer_switcher_horizontal);
 	}
 
 	Assert(!"invalid object type");
@@ -3970,8 +3988,8 @@ const Sprite& get_object_sprite(ObjType type) {
 vec2 get_object_size(const Object& o) {
 	switch (o.type) {
 		case OBJ_PLAYER_INIT_POS: return {30, 44};
-		case OBJ_LAYER_SET:       return o.layset.radius  * 2.0f;
-		case OBJ_LAYER_FLIP:      return o.layflip.radius * 2.0f;
+		case OBJ_LAYER_SET_DEPRECATED:       return o.layset.radius  * 2.0f;
+		case OBJ_LAYER_FLIP_DEPRECATED:      return o.layflip.radius * 2.0f;
 		case OBJ_MONITOR:         return {30, 30};
 		case OBJ_SPRING: {
 			vec2 size = {32, 16};
