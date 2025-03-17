@@ -774,6 +774,10 @@ void Editor::update(float delta) {
 				ImGui::Text("(Saved)");
 			}
 
+			if (i == actions.count - 1) {
+				ImGui::SetItemDefaultFocus();
+			}
+
 			i++;
 		}
 	};
@@ -1953,6 +1957,8 @@ void TilemapEditor::update(float delta) {
 		ImGui::SameLine();
 
 		ImGui::Checkbox("Edit Collision", &edit_collision);
+		if (IsKeyPressedNoMod(ImGuiKey_C, true)) edit_collision ^= true;
+		ImGui::SetItemTooltip("Shortcut: C");
 
 		bottom_part_height = (ImGui::GetCursorScreenPos() - cursor).y;
 	};
