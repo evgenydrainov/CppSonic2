@@ -376,7 +376,8 @@ inline T clamp(T a, T mn, T mx) {
 
 template <typename T>
 inline T lerp(T a, T b, float f) {
-	return a + (b - a) * f;
+	// This version has more precision.
+	return a * (1.0f - f) + (b * f);
 }
 
 template <typename T>

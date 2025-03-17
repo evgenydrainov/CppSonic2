@@ -86,14 +86,14 @@ static ivec2 view_get_in_tile_pos(const View& view, ivec2 tile_size, ivec2 clamp
 	return {x, y};
 }
 
-enum PanAndZoomFlags {
+enum {
 	DONT_MOVE_VIEW_WITH_ARROW_KEYS = 1 << 0,
 };
 
 static void pan_and_zoom(View& view,
 						 vec2 view_size,
 						 vec2 thing_size,
-						 PanAndZoomFlags flags,
+						 u32 flags,
 						 void (*user_callback)()) {
 	if (view_size.x == 0) view_size.x = ImGui::GetContentRegionAvail().x;
 	if (view_size.y == 0) view_size.y = ImGui::GetContentRegionAvail().y;
@@ -379,6 +379,55 @@ static void AddArrow(ImDrawList* draw_list,
 	p4.x += dcos(dir - 90 - 45) * (2 * zoom);
 	p4.y -= dsin(dir - 90 - 45) * (2 * zoom);
 	draw_list->AddLine(p2, p4, col, thickness * zoom);
+}
+
+template <typename T>
+static void combo_menu_for_enum(const char* label,
+								const char* (*GetEnumName)(T t),
+								T* obj_member,
+								T num_enums) {
+	if (ImGui::BeginCombo(label, GetEnumName(*obj_member))) {
+		for (int i = 0; i < num_enums; i++) {
+			if (ImGui::Selectable(GetEnumName((T) i), i == *obj_member)) {
+				*obj_member = (T) i;
+			}
+
+			if (i == *obj_member) {
+				ImGui::SetItemDefaultFocus();
+			}
+		}
+
+		ImGui::EndCombo();
+	}
+}
+
+static void draw_editor_object_gizmos() {
+	For (it, editor.objects) {
+		switch (it->type) {
+			case OBJ_MOVING_PLATFORM: {
+				{
+					vec2 p1 = it->pos;
+					vec2 p2 = it->pos + it->mplatform.offset;
+
+					float length = point_distance(p1, p2);
+					float direction = point_direction(p1, p2);
+
+					draw_arrow_thick(p1, length, direction, 2, 1, color_white);
+				}
+
+				{
+					vec2 p1 = it->pos;
+					vec2 p2 = it->pos - it->mplatform.offset;
+
+					float length = point_distance(p1, p2);
+					float direction = point_direction(p1, p2);
+
+					draw_arrow_thick(p1, length, direction, 2, 1, color_white);
+				}
+				break;
+			}
+		}
+	}
 }
 
 void Editor::try_pick_and_open_level() {
@@ -1127,7 +1176,7 @@ void TilesetEditor::update(float delta) {
 		pan_and_zoom(tileset_view,
 					 {},
 					 {editor.tileset_texture.width, editor.tileset_texture.height},
-					 (PanAndZoomFlags) 0,
+					 0,
 					 callback);
 
 		if (tool == TOOL_SELECT) {
@@ -1655,32 +1704,7 @@ void TilemapEditor::update(float delta) {
 			if (tilemap_editor.show_objects) {
 				draw_objects(editor.objects, SDL_GetTicks() / (1000.0f / 60.0f), true);
 
-				For (it, editor.objects) {
-					switch (it->type) {
-						case OBJ_MOVING_PLATFORM: {
-							{
-								vec2 p1 = it->pos;
-								vec2 p2 = it->pos + it->mplatform.offset;
-
-								float length = point_distance(p1, p2);
-								float direction = point_direction(p1, p2);
-
-								draw_arrow_thick(p1, length, direction, 2, 1, color_white);
-							}
-
-							{
-								vec2 p1 = it->pos;
-								vec2 p2 = it->pos - it->mplatform.offset;
-
-								float length = point_distance(p1, p2);
-								float direction = point_direction(p1, p2);
-
-								draw_arrow_thick(p1, length, direction, 2, 1, color_white);
-							}
-							break;
-						}
-					}
-				}
+				draw_editor_object_gizmos();
 			}
 
 			// draw grid and border
@@ -1707,7 +1731,7 @@ void TilemapEditor::update(float delta) {
 		pan_and_zoom(tilemap_view,
 					 ImGui::GetContentRegionAvail() - ImVec2(0, bottom_part_height),
 					 {editor.tm.width * 16, editor.tm.height * 16},
-					 (PanAndZoomFlags) 0,
+					 0,
 					 callback);
 
 		if (tool == TOOL_SELECT || tool == TOOL_RECTANGLE) {
@@ -1993,7 +2017,7 @@ void TilemapEditor::update(float delta) {
 		pan_and_zoom(tileset_view,
 					 {},
 					 {editor.tileset_texture.width, editor.tileset_texture.height},
-					 (PanAndZoomFlags) 0,
+					 0,
 					 callback);
 
 		if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
@@ -2130,6 +2154,18 @@ void ObjectsEditor::update(float delta) {
 
 			draw_objects(editor.objects, SDL_GetTicks() / (1000.0f / 60.0f), true);
 
+			draw_editor_object_gizmos();
+
+			// selected object
+			if (objects_editor.object_index != -1) {
+				const Object& o = editor.objects[objects_editor.object_index];
+				vec2 size = get_object_size(o);
+
+				draw_rectangle_outline_thick({o.pos.x - size.x/2, o.pos.y - size.y/2, size.x, size.y},
+											 1,
+											 color_white);
+			}
+
 			// draw grids
 			{
 				if (tilemap_view.zoom > 2) {
@@ -2149,10 +2185,55 @@ void ObjectsEditor::update(float delta) {
 		// reuse the same view
 		View& tilemap_view = editor.tilemap_editor.tilemap_view;
 
+		u32 pan_and_zoom_flags = 0;
+
+		// move object with arrow keys
+		if (object_index != -1) {
+			Object& obj = editor.objects[object_index];
+
+			if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+					obj.pos.y = ceilf_to(obj.pos.y, 16);
+					obj.pos.y -= 16;
+				} else {
+					obj.pos.y -= 1;
+				}
+			}
+
+			if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+					obj.pos.y = floorf_to(obj.pos.y, 16);
+					obj.pos.y += 16;
+				} else {
+					obj.pos.y += 1;
+				}
+			}
+
+			if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
+				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+					obj.pos.x = ceilf_to(obj.pos.x, 16);
+					obj.pos.x -= 16;
+				} else {
+					obj.pos.x -= 1;
+				}
+			}
+
+			if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
+				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+					obj.pos.x = floorf_to(obj.pos.x, 16);
+					obj.pos.x += 16;
+				} else {
+					obj.pos.x += 1;
+				}
+			}
+
+			pan_and_zoom_flags |= DONT_MOVE_VIEW_WITH_ARROW_KEYS;
+		}
+
 		pan_and_zoom(tilemap_view,
 					 {},
 					 {editor.tm.width * 16, editor.tm.height * 16},
-					 (PanAndZoomFlags) 0,
+					 pan_and_zoom_flags,
 					 callback);
 
 		// add objects
@@ -2174,6 +2255,11 @@ void ObjectsEditor::update(float delta) {
 						break;
 					}
 
+					case OBJ_SPIKE: {
+						o.spike.direction = DIR_UP;
+						break;
+					}
+
 					case OBJ_LAYER_SWITCHER_VERTICAL: {
 						o.layswitch.radius.y = 128;
 						break;
@@ -2181,6 +2267,13 @@ void ObjectsEditor::update(float delta) {
 
 					case OBJ_LAYER_SWITCHER_HORIZONTAL: {
 						o.layswitch.radius.x = 128;
+						break;
+					}
+
+					case OBJ_MOVING_PLATFORM: {
+						o.mplatform.radius = {32, 6};
+						o.mplatform.offset = {32, 0};
+						o.mplatform.time_multiplier = 1.0f / 32.0f;
 						break;
 					}
 				}
@@ -2194,6 +2287,51 @@ void ObjectsEditor::update(float delta) {
 			}
 
 			ImGui::EndDragDropTarget();
+		}
+
+		// drag object position
+		{
+			static bool dragging;
+			static vec2 drag_offset;
+
+			if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+				if (dragging) {
+					Object& obj = editor.objects[object_index];
+					vec2 mouse_pos = view_get_pos(tilemap_view, ImGui::GetMousePos());
+
+					obj.pos = floor(mouse_pos + drag_offset);
+
+					if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+						obj.pos.x = floorf_to(obj.pos.x, 16);
+						obj.pos.y = floorf_to(obj.pos.y, 16);
+					}
+				} else {
+					if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+						int new_object_index = -1;
+						for (int i = 0; i < editor.objects.count; i++) {
+							const Object& o = editor.objects[i];
+							vec2 size = get_object_size(o);
+							vec2 mouse_pos = view_get_pos(tilemap_view, ImGui::GetMousePos());
+
+							if (point_in_rect(mouse_pos, {o.pos.x - size.x/2, o.pos.y - size.y/2, size.x, size.y})) {
+								new_object_index = i;
+								break;
+							}
+						}
+
+						if (object_index == new_object_index && object_index != -1) {
+							dragging = true;
+							drag_offset = editor.objects[object_index].pos - view_get_pos(tilemap_view, ImGui::GetMousePos());
+						}
+
+						object_index = new_object_index;
+					}
+				}
+			} else {
+				if (dragging) {
+					dragging = false;
+				}
+			}
 		}
 	};
 
@@ -2233,6 +2371,8 @@ void ObjectsEditor::update(float delta) {
 		button(OBJ_RING);
 		button(OBJ_MONITOR);
 		button(OBJ_SPRING);
+		button(OBJ_SPIKE);
+		button(OBJ_MOVING_PLATFORM);
 		button(OBJ_LAYER_SWITCHER_VERTICAL);
 		button(OBJ_LAYER_SWITCHER_HORIZONTAL);
 	};
@@ -2268,6 +2408,35 @@ void ObjectsEditor::update(float delta) {
 		ImGui::DragFloat2("Position", &o->pos[0], 1, 0, 0, "%.0f");
 
 		switch (o->type) {
+			case OBJ_MONITOR: {
+				combo_menu_for_enum("Monitor Icon",
+									GetMonitorIconName,
+									&o->monitor.icon,
+									NUM_MONITOR_ICONS);
+				break;
+			}
+
+			case OBJ_SPRING: {
+				combo_menu_for_enum("Spring Color",
+									GetSpringColorName,
+									&o->spring.color,
+									NUM_SPING_COLORS);
+
+				combo_menu_for_enum("Direction",
+									GetDirectionName,
+									&o->spring.direction,
+									NUM_DIRS);
+				break;
+			}
+
+			case OBJ_SPIKE: {
+				combo_menu_for_enum("Direction",
+									GetDirectionName,
+									&o->spike.direction,
+									NUM_DIRS);
+				break;
+			}
+
 			case OBJ_LAYER_SWITCHER_VERTICAL:
 			case OBJ_LAYER_SWITCHER_HORIZONTAL: {
 				if (o->type == OBJ_LAYER_SWITCHER_VERTICAL) {
@@ -2309,6 +2478,23 @@ void ObjectsEditor::update(float delta) {
 						ImGui::EndCombo();
 					}
 				}
+				break;
+			}
+
+			case OBJ_MOVING_PLATFORM: {
+				{
+					const char* values[] = {"spr_EEZ_platform1", "spr_EEZ_platform2"};
+					if (ImGui::BeginCombo("Priority 1", values[o->mplatform.sprite_index])) {
+						if (ImGui::Selectable(values[0], o->mplatform.sprite_index == 0)) o->mplatform.sprite_index = 0;
+						if (ImGui::Selectable(values[1], o->mplatform.sprite_index == 1)) o->mplatform.sprite_index = 1;
+
+						ImGui::EndCombo();
+					}
+				}
+
+				ImGui::DragFloat2("Radius", &o->mplatform.radius[0]);
+				ImGui::DragFloat2("Offset", &o->mplatform.offset[0]);
+				ImGui::InputFloat("Time Multiplier", &o->mplatform.time_multiplier);
 				break;
 			}
 		}

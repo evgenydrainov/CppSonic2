@@ -2830,6 +2830,67 @@ void draw_objects(array<Object> objects, float time_frames, bool show_editor_obj
 	}
 }
 
+static void draw_player(Player* p) {
+	int frame_index = p->frame_index;
+
+	if (/*p->anim == anim_roll*/0 || p->anim == anim_spindash) {
+		if (frame_index % 2 == 0) {
+			frame_index = 0;
+		} else {
+			frame_index = 1 + frame_index / 2;
+		}
+	}
+
+	const Sprite& s = anim_get_sprite(p->anim);
+
+	//float angle = roundf_to(p->ground_angle, 45.0f);
+	float angle = p->ground_angle;
+
+	if ((player_is_grounded(p) && p->ground_speed == 0) || p->anim == anim_roll) {
+		angle = 0;
+	}
+
+	bool dont_draw = false;
+
+	if (p->invulnerable > 0) {
+		if (p->anim != anim_hurt) {
+			if (SDL_GetTicks() % (int)(16.66 * 8) > (int)(16.66 * 4)) {
+				dont_draw = true;
+			}
+		}
+	}
+
+	if (!dont_draw) {
+		set_shader(get_shader(shd_palette));
+
+		glUniform1i(glGetUniformLocation(get_shader(shd_palette), "u_Palette"), 1);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, get_texture(tex_sonic_palette).id);
+
+		int palette_index = 1;
+
+		glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteIndex"),  palette_index);
+		glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteWidth"),  get_texture(tex_sonic_palette).width);
+		glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteHeight"), get_texture(tex_sonic_palette).height);
+
+		draw_sprite(s, frame_index, floor(p->pos), {p->facing, 1}, angle);
+
+		reset_shader();
+	}
+
+	// draw spindash smoke
+	if (p->anim == anim_spindash) {
+		const Sprite& s = get_sprite(spr_spindash_smoke);
+
+		int frame_index = SDL_GetTicks() / (16.66 * 2);
+		frame_index %= s.frames.count;
+
+		vec2 pos = floor(p->pos);
+
+		draw_sprite(s, frame_index, pos, {p->facing, 1});
+	}
+}
+
 void Game::draw(float delta) {
 	set_proj_mat(get_ortho(0, window.game_width, window.game_height, 0));
 	defer { set_proj_mat({1}); };
@@ -2898,112 +2959,48 @@ void Game::draw(float delta) {
 		reset_shader();
 	}
 
-	// draw tilemap
-	{
-		int xfrom = clamp((int)camera_pos.x / 16, 0, tm.width  - 1);
-		int yfrom = clamp((int)camera_pos.y / 16, 0, tm.height - 1);
+	int xfrom = clamp((int)camera_pos.x / 16, 0, tm.width  - 1);
+	int yfrom = clamp((int)camera_pos.y / 16, 0, tm.height - 1);
 
-		int xto = clamp((int)(camera_pos.x + window.game_width  + 15) / 16, 0, tm.width);
-		int yto = clamp((int)(camera_pos.y + window.game_height + 15) / 16, 0, tm.height);
+	int xto = clamp((int)(camera_pos.x + window.game_width  + 15) / 16, 0, tm.width);
+	int yto = clamp((int)(camera_pos.y + window.game_height + 15) / 16, 0, tm.height);
 
-		// draw layer A
-		draw_tilemap_layer(tm, 0, tileset_texture, xfrom, yfrom, xto, yto, color_white);
-
-		// draw layer C
-		draw_tilemap_layer(tm, 2, tileset_texture, xfrom, yfrom, xto, yto, color_white);
-
-		// show_height
-#ifdef DEVELOPER
-		if (show_height || show_width) {
-			for (int y = yfrom; y < yto; y++) {
-				for (int x = xfrom; x < xto; x++) {
-					Tile tile = get_tile(tm, x, y, player.layer);
-
-					if (tile.index == 0) {
-						continue;
-					}
-
-					Rect src;
-					src.x = (tile.index % tileset_width) * 16;
-					src.y = (tile.index / tileset_width) * 16;
-					src.w = 16;
-					src.h = 16;
-
-					if (tile.top_solid || tile.lrb_solid) {
-						draw_texture(show_height ? heightmap : widthmap, src, {x * 16.0f, y * 16.0f}, {1, 1}, {}, 0, color_white, {tile.hflip, tile.vflip});
-					}
-				}
-			}
-		}
-#endif
-	}
-
-	Player* p = &player;
-
-	// draw player
-	{
-		int frame_index = p->frame_index;
-
-		if (/*p->anim == anim_roll*/0 || p->anim == anim_spindash) {
-			if (frame_index % 2 == 0) {
-				frame_index = 0;
-			} else {
-				frame_index = 1 + frame_index / 2;
-			}
-		}
-
-		const Sprite& s = anim_get_sprite(p->anim);
-
-		//float angle = roundf_to(p->ground_angle, 45.0f);
-		float angle = p->ground_angle;
-
-		if ((player_is_grounded(p) && p->ground_speed == 0) || p->anim == anim_roll) {
-			angle = 0;
-		}
-
-		bool dont_draw = false;
-
-		if (p->invulnerable > 0) {
-			if (p->anim != anim_hurt) {
-				if (SDL_GetTicks() % (int)(16.66 * 8) > (int)(16.66 * 4)) {
-					dont_draw = true;
-				}
-			}
-		}
-
-		if (!dont_draw) {
-			set_shader(get_shader(shd_palette));
-
-			glUniform1i(glGetUniformLocation(get_shader(shd_palette), "u_Palette"), 1);
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, get_texture(tex_sonic_palette).id);
-
-			int palette_index = 1;
-
-			glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteIndex"),  palette_index);
-			glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteWidth"),  get_texture(tex_sonic_palette).width);
-			glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteHeight"), get_texture(tex_sonic_palette).height);
-
-			draw_sprite(s, frame_index, floor(player.pos), {p->facing, 1}, angle);
-
-			reset_shader();
-		}
-
-		// draw spindash smoke
-		if (p->anim == anim_spindash) {
-			const Sprite& s = get_sprite(spr_spindash_smoke);
-
-			int frame_index = SDL_GetTicks() / (16.66 * 2);
-			frame_index %= s.frames.count;
-
-			vec2 pos = floor(p->pos);
-
-			draw_sprite(s, frame_index, pos, {p->facing, 1});
-		}
-	}
+	// draw layer A
+	draw_tilemap_layer(tm, 0, tileset_texture, xfrom, yfrom, xto, yto, color_white);
 
 	// draw objects
 	draw_objects(objects, time_frames, false);
+
+	// draw player
+	draw_player(&player);
+
+	// draw layer C
+	draw_tilemap_layer(tm, 2, tileset_texture, xfrom, yfrom, xto, yto, color_white);
+
+	// show_height
+#ifdef DEVELOPER
+	if (show_height || show_width) {
+		for (int y = yfrom; y < yto; y++) {
+			for (int x = xfrom; x < xto; x++) {
+				Tile tile = get_tile(tm, x, y, player.layer);
+
+				if (tile.index == 0) {
+					continue;
+				}
+
+				Rect src;
+				src.x = (tile.index % tileset_width) * 16;
+				src.y = (tile.index / tileset_width) * 16;
+				src.w = 16;
+				src.h = 16;
+
+				if (tile.top_solid || tile.lrb_solid) {
+					draw_texture(show_height ? heightmap : widthmap, src, {x * 16.0f, y * 16.0f}, {1, 1}, {}, 0, color_white, {tile.hflip, tile.vflip});
+				}
+			}
+		}
+	}
+#endif
 
 	// draw particles
 	draw_particles(delta);
@@ -3064,6 +3061,8 @@ void Game::draw(float delta) {
 #ifdef DEVELOPER
 	// draw player hitbox
 	if (show_player_hitbox) {
+		Player* p = &player;
+
 		{
 			auto radius = p->prev_radius;
 			auto mode = p->prev_mode;
@@ -3137,16 +3136,16 @@ void Game::draw(float delta) {
 		SensorResult res;
 		vec2 pos = mouse_world_pos;
 
-		res = sensor_check_up(pos, p->layer);
+		res = sensor_check_up(pos, player.layer);
 		draw_line(pos, pos + vec2{0, -res.dist}, color_blue);
 
-		res = sensor_check_left(pos, p->layer);
+		res = sensor_check_left(pos, player.layer);
 		draw_line(pos, pos + vec2{-res.dist, 0}, color_blue);
 
-		res = sensor_check_down(pos, p->layer);
+		res = sensor_check_down(pos, player.layer);
 		draw_line(pos, pos + vec2{0, res.dist}, color_red);
 
-		res = sensor_check_right(pos, p->layer);
+		res = sensor_check_right(pos, player.layer);
 		draw_line(pos, pos + vec2{res.dist, 0}, color_red);
 	}
 #endif
@@ -3238,12 +3237,12 @@ void Game::draw(float delta) {
 			string str;
 
 			vec2 pos = {112, 8};
-			if (p->state == STATE_DEBUG) {
+			if (player.state == STATE_DEBUG) {
 				pos.x += 8;
 			}
 
-			if (p->state == STATE_DEBUG) {
-				str = Sprintf(buf, "%08d", (int)p->pos.x);
+			if (player.state == STATE_DEBUG) {
+				str = Sprintf(buf, "%08d", (int)player.pos.x);
 			} else {
 				str = Sprintf(buf, "%d", player_score);
 			}
@@ -3254,8 +3253,8 @@ void Game::draw(float delta) {
 			int sec = (int)(player_time / 60.0f) % 60;
 			int ms  = (int)(player_time / 60.0f * 100.0f) % 100; // not actually milliseconds
 
-			if (p->state == STATE_DEBUG) {
-				str = Sprintf(buf, "%08d", (int)p->pos.y);
+			if (player.state == STATE_DEBUG) {
+				str = Sprintf(buf, "%08d", (int)player.pos.y);
 			} else {
 				str = Sprintf(buf, "%d'%02d\"%02d", min, sec, ms);
 			}
@@ -4069,6 +4068,7 @@ const Sprite& get_object_sprite(ObjType type) {
 		case OBJ_RING_DROPPED:              return get_sprite(spr_ring);
 		case OBJ_LAYER_SWITCHER_VERTICAL:   return get_sprite(spr_layer_switcher_vertical);
 		case OBJ_LAYER_SWITCHER_HORIZONTAL: return get_sprite(spr_layer_switcher_horizontal);
+		case OBJ_MOVING_PLATFORM:           return get_sprite(spr_EEZ_platform1);
 	}
 
 	Assert(!"invalid object type");
@@ -4077,10 +4077,13 @@ const Sprite& get_object_sprite(ObjType type) {
 
 vec2 get_object_size(const Object& o) {
 	switch (o.type) {
-		case OBJ_PLAYER_INIT_POS: return {30, 44};
-		case OBJ_LAYER_SET_DEPRECATED:       return o.layset.radius  * 2.0f;
-		case OBJ_LAYER_FLIP_DEPRECATED:      return o.layflip.radius * 2.0f;
-		case OBJ_MONITOR:         return {30, 30};
+		case OBJ_PLAYER_INIT_POS:           return {30, 44};
+		case OBJ_LAYER_SET_DEPRECATED:      return o.layset.radius  * 2.0f;
+		case OBJ_LAYER_FLIP_DEPRECATED:     return o.layflip.radius * 2.0f;
+		case OBJ_MONITOR:                   return {30, 30};
+		case OBJ_MOVING_PLATFORM:           return o.mplatform.radius * 2.0f;
+		case OBJ_LAYER_SWITCHER_VERTICAL:   return {o.layswitch.radius.y * 2, o.layswitch.radius.y * 2};
+		case OBJ_LAYER_SWITCHER_HORIZONTAL: return {o.layswitch.radius.x * 2, o.layswitch.radius.x * 2};
 		case OBJ_SPRING: {
 			vec2 size = {32, 16};
 			if (o.spring.direction == DIR_LEFT || o.spring.direction == DIR_RIGHT) {
@@ -4090,7 +4093,6 @@ vec2 get_object_size(const Object& o) {
 			}
 			return size;
 		}
-		case OBJ_MOVING_PLATFORM: return o.mplatform.radius * 2.0f;
 	}
 
 	const Sprite& s = get_object_sprite(o.type);
