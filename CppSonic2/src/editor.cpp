@@ -304,12 +304,22 @@ static bool IconButtonActive(const char* label, bool active) {
 	return res;
 }
 
+static bool SmallButton2(const char* label, ImVec2 size) {
+	ImGuiContext& g = *GImGui;
+	float backup_padding_y = g.Style.FramePadding.y;
+	g.Style.FramePadding.y = 0.0f;
+	bool pressed = ImGui::ButtonEx(label, size, ImGuiButtonFlags_AlignTextBaseLine);
+	g.Style.FramePadding.y = backup_padding_y;
+	return pressed;
+}
+
 static bool SmallIconButtonActive(const char* label, bool active) {
 	if (active) {
 		ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
 	}
 
-	bool res = ImGui::SmallButton(label);
+	ImVec2 size = ImVec2(16 + ImGui::GetStyle().FramePadding.x * 2, 0);
+	bool res = SmallButton2(label, size);
 
 	if (active) {
 		ImGui::PopStyleColor();
@@ -572,16 +582,7 @@ void Editor::try_load_layer_from_binary_file() {
 	array<Tile> loaded = calloc_array<Tile>(width * height);
 	SDL_RWread(f, loaded.data, sizeof(loaded[0]), loaded.count);
 
-	array<Tile> tiles = {};
-	if (tilemap_editor.layer_index == 0) {
-		tiles = tm.tiles_a;
-	} else if (tilemap_editor.layer_index == 1) {
-		tiles = tm.tiles_b;
-	} else if (tilemap_editor.layer_index == 2) {
-		tiles = tm.tiles_c;
-	} else {
-		Assert(false);
-	}
+	array<Tile> tiles = get_tiles_array(tm, tilemap_editor.layer_index);
 
 	int copy_w = min(tm.width, width);
 	int copy_h = min(tm.height, height);
@@ -601,12 +602,7 @@ void Editor::update(float delta) {
 	auto try_clear_layer = [&]() {
 		if (!is_level_open) return;
 
-		array<Tile> tiles = tm.tiles_a;
-		if (tilemap_editor.layer_index == 1) {
-			tiles = tm.tiles_b;
-		} else if (tilemap_editor.layer_index == 2) {
-			tiles = tm.tiles_c;
-		}
+		array<Tile> tiles = get_tiles_array(tm, tilemap_editor.layer_index);
 
 		For (it, tiles) *it = {};
 	};
@@ -840,13 +836,18 @@ void Editor::update(float delta) {
 void Editor::try_undo() {
 	if (!is_level_open) return;
 
-	if (action_index == -1) {
-		notify(NOTIF_INFO, "Nothing to Undo.");
+	if (ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseDown(ImGuiMouseButton_Right) || ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
+		notify(NOTIF_WARN, "Can't undo while dragging the mouse.");
 		return;
 	}
 
-	if (ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseDown(ImGuiMouseButton_Right) || ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
-		notify(NOTIF_WARN, "Can't undo while dragging the mouse.");
+	if (ImGui::GetActiveID() != 0) {
+		notify(NOTIF_WARN, "Can't undo while interacting with a widget.");
+		return;
+	}
+
+	if (action_index == -1) {
+		notify(NOTIF_INFO, "Nothing to Undo.");
 		return;
 	}
 
@@ -866,13 +867,18 @@ void Editor::try_undo() {
 void Editor::try_redo() {
 	if (!is_level_open) return;
 
-	if (action_index + 1 >= actions.count) {
-		notify(NOTIF_INFO, "Nothing to Redo.");
+	if (ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseDown(ImGuiMouseButton_Right) || ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
+		notify(NOTIF_WARN, "Can't redo while dragging the mouse.");
 		return;
 	}
 
-	if (ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseDown(ImGuiMouseButton_Right) || ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
-		notify(NOTIF_WARN, "Can't redo while dragging the mouse.");
+	if (ImGui::GetActiveID() != 0) {
+		notify(NOTIF_WARN, "Can't redo while interacting with a widget.");
+		return;
+	}
+
+	if (action_index + 1 >= actions.count) {
+		notify(NOTIF_INFO, "Nothing to Redo.");
 		return;
 	}
 
@@ -1556,14 +1562,16 @@ void TilemapEditor::update(float delta) {
 			defer { editor.action_revert(rectangle_action); };
 
 			// draw layers
-			for (int i = 0; i < 3; i++) {
+			int visual_layer_index[4] = {1, 2, 3, 0};
+
+			auto draw_layer = [&](int i) {
 				if (tilemap_editor.layer_visible[i]) {
 					vec4 color = color_white;
 
 					if (tilemap_editor.highlight_current_layer) {
-						if (i > tilemap_editor.layer_index) {
+						if (visual_layer_index[i] > visual_layer_index[tilemap_editor.layer_index]) {
 							color.a = 0.2f;
-						} else if (i < tilemap_editor.layer_index) {
+						} else if (visual_layer_index[i] < visual_layer_index[tilemap_editor.layer_index]) {
 							color = get_color(80, 80, 80);
 						}
 					}
@@ -1695,7 +1703,12 @@ void TilemapEditor::update(float delta) {
 						}
 					}
 				}
-			}
+			};
+
+			draw_layer(3);
+			draw_layer(0);
+			draw_layer(1);
+			draw_layer(2);
 
 			// draw selection
 			if (tilemap_editor.tilemap_selection.w > 0 && tilemap_editor.tilemap_selection.h > 0) {
@@ -1969,17 +1982,28 @@ void TilemapEditor::update(float delta) {
 		ImGui::Begin("Layers##tilemap_editor");
 		defer { ImGui::End(); };
 
-		if (SmallIconButtonActive(ICON_FA_EYE "##2", layer_visible[2])) layer_visible[2] ^= true;
-		ImGui::SameLine();
-		if (ImGui::Selectable("Layer C", layer_index == 2)) layer_index = 2;
+		auto layer_button = [&](int i, const char* name) {
+			const char* icon = layer_visible[i] ? ICON_FA_EYE : ICON_FA_EYE_SLASH;
 
-		if (SmallIconButtonActive(ICON_FA_EYE "##1", layer_visible[1])) layer_visible[1] ^= true;
-		ImGui::SameLine();
-		if (ImGui::Selectable("Layer B", layer_index == 1)) layer_index = 1;
+			ImGui::PushID(i);
 
-		if (SmallIconButtonActive(ICON_FA_EYE "##0", layer_visible[0])) layer_visible[0] ^= true;
-		ImGui::SameLine();
-		if (ImGui::Selectable("Layer A", layer_index == 0)) layer_index = 0;
+			if (SmallIconButtonActive(icon, layer_visible[i])) {
+				layer_visible[i] ^= true;
+			}
+
+			ImGui::SameLine();
+
+			if (ImGui::Selectable(name, layer_index == i)) {
+				layer_index = i;
+			}
+
+			ImGui::PopID();
+		};
+
+		layer_button(2, "Layer C");
+		layer_button(1, "Layer B");
+		layer_button(0, "Layer A");
+		layer_button(3, "Layer D");
 	};
 
 	layers_window();
@@ -2155,6 +2179,7 @@ void ObjectsEditor::update(float delta) {
 			pos_to.y++;
 
 			// draw layers
+			draw_tilemap_layer(editor.tm, 3, editor.tileset_texture, pos_from.x, pos_from.y, pos_to.x, pos_to.y, color_white);
 			draw_tilemap_layer(editor.tm, 0, editor.tileset_texture, pos_from.x, pos_from.y, pos_to.x, pos_to.y, color_white);
 			draw_tilemap_layer(editor.tm, 2, editor.tileset_texture, pos_from.x, pos_from.y, pos_to.x, pos_to.y, color_white);
 
@@ -2396,6 +2421,10 @@ void ObjectsEditor::update(float delta) {
 			if (ImGui::Selectable(buf, i == object_index)) {
 				object_index = i;
 			}
+
+			/*if (object_index == i) {
+				ImGui::SetItemDefaultFocus();
+			}*/
 		}
 	};
 
@@ -2490,9 +2519,15 @@ void ObjectsEditor::update(float delta) {
 			case OBJ_MOVING_PLATFORM: {
 				{
 					const char* values[] = {"spr_EEZ_platform1", "spr_EEZ_platform2"};
-					if (ImGui::BeginCombo("Priority 1", values[o->mplatform.sprite_index])) {
-						if (ImGui::Selectable(values[0], o->mplatform.sprite_index == 0)) o->mplatform.sprite_index = 0;
-						if (ImGui::Selectable(values[1], o->mplatform.sprite_index == 1)) o->mplatform.sprite_index = 1;
+					if (ImGui::BeginCombo("Sprite Index", values[o->mplatform.sprite_index])) {
+						if (ImGui::Selectable(values[0], o->mplatform.sprite_index == 0)) {
+							o->mplatform.sprite_index = 0;
+							o->mplatform.radius = {32, 6};
+						}
+						if (ImGui::Selectable(values[1], o->mplatform.sprite_index == 1)) {
+							o->mplatform.sprite_index = 1;
+							o->mplatform.radius = {64, 14};
+						}
 
 						ImGui::EndCombo();
 					}

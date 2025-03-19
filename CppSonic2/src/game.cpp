@@ -10,6 +10,23 @@
 
 Game game;
 
+static bool object_is_solid(ObjType type) {
+	switch (type) {
+		case OBJ_MONITOR: return true;
+		case OBJ_SPRING:  return true;
+		case OBJ_SPIKE:   return true;
+	}
+	return false;
+}
+
+static bool object_is_nonsolid(ObjType type) {
+	switch (type) {
+		case OBJ_RING:         return true;
+		case OBJ_RING_DROPPED: return true;
+	}
+	return false;
+}
+
 void Game::load_level(const char* path) {
 	log_info("Loading level %s...", path);
 
@@ -50,7 +67,7 @@ void Game::load_level(const char* path) {
 			if (it->type == OBJ_PLAYER_INIT_POS) {
 				player.pos = it->pos;
 				found = true;
-				break;
+				//break;
 			}
 		}
 
@@ -61,14 +78,29 @@ void Game::load_level(const char* path) {
 		}
 	}
 
-	// init objects
 	For (it, objects) {
 		it->id = next_id++;
+	}
 
+	// init objects
+	For (it, objects) {
 		switch (it->type) {
 			case OBJ_MOVING_PLATFORM: {
 				it->mplatform.init_pos = it->pos;
 				it->mplatform.prev_pos = it->pos;
+
+				// search for mount
+				For (obj, objects) {
+					if (it == obj) continue;
+
+					if (!object_is_solid(obj->type)) continue;
+
+					vec2 size = get_object_size(*it);
+					vec2 obj_size = get_object_size(*obj);
+					if (rect_vs_rect({it->pos.x - size.x/2 - 1, it->pos.y - size.y/2 - 1, size.x + 2, size.y + 2}, {obj->pos.x - obj_size.x/2, obj->pos.y - obj_size.y/2, obj_size.x, obj_size.y})) {
+						it->mplatform.mount = obj->id;
+					}
+				}
 				break;
 			}
 
@@ -1107,23 +1139,6 @@ static void player_keep_in_bounds(Player* p) {
 	if (p->pos.y > bottom) {p->pos.y = bottom;}
 }
 
-static bool object_is_solid(ObjType type) {
-	switch (type) {
-		case OBJ_MONITOR: return true;
-		case OBJ_SPRING:  return true;
-		case OBJ_SPIKE:   return true;
-	}
-	return false;
-}
-
-static bool object_is_nonsolid(ObjType type) {
-	switch (type) {
-		case OBJ_RING:         return true;
-		case OBJ_RING_DROPPED: return true;
-	}
-	return false;
-}
-
 static Direction opposite_dir(Direction dir) {
 	/*switch (dir) {
 		case DIR_RIGHT: return DIR_LEFT;
@@ -1504,7 +1519,7 @@ static void player_collide_with_solid_objects(Player* p) {
 		}
 
 		float surface_y = it->pos.y - obj_size.y/2;
-		float bottom_y = p->pos.y + player_radius.y + 4;
+		float bottom_y = p->pos.y + player_radius.y + 7;
 
 		if (surface_y > bottom_y) continue;
 
@@ -1512,7 +1527,7 @@ static void player_collide_with_solid_objects(Player* p) {
 
 		if (dist < -16 || dist >= 0) continue;
 
-		p->pos.y += dist + 3;
+		p->pos.y += dist + 6;
 		p->pos.x += it->pos.x - it->mplatform.prev_pos.x;
 
 		if (p->state == STATE_AIR) {
@@ -2314,6 +2329,12 @@ void Game::update(float delta) {
 					float a = player_time * it->mplatform.time_multiplier;
 					it->pos.x = floorf(it->mplatform.init_pos.x - sinf(a) * it->mplatform.offset.x);
 					it->pos.y = floorf(it->mplatform.init_pos.y + sinf(a) * it->mplatform.offset.y);
+
+					if (it->mplatform.mount != 0) {
+						if (Object* obj = find_object(it->mplatform.mount)) {
+							obj->pos += it->pos - it->mplatform.prev_pos;
+						}
+					}
 					break;
 				}
 			}
@@ -2965,6 +2986,9 @@ void Game::draw(float delta) {
 	int xto = clamp((int)(camera_pos.x + window.game_width  + 15) / 16, 0, tm.width);
 	int yto = clamp((int)(camera_pos.y + window.game_height + 15) / 16, 0, tm.height);
 
+	// draw layer D
+	draw_tilemap_layer(tm, 3, tileset_texture, xfrom, yfrom, xto, yto, color_white);
+
 	// draw layer A
 	draw_tilemap_layer(tm, 0, tileset_texture, xfrom, yfrom, xto, yto, color_white);
 
@@ -3242,7 +3266,7 @@ void Game::draw(float delta) {
 			}
 
 			if (player.state == STATE_DEBUG) {
-				str = Sprintf(buf, "%08d", (int)player.pos.x);
+				str = Sprintf(buf, "%8d", (int)player.pos.x);
 			} else {
 				str = Sprintf(buf, "%d", player_score);
 			}
@@ -3254,7 +3278,7 @@ void Game::draw(float delta) {
 			int ms  = (int)(player_time / 60.0f * 100.0f) % 100; // not actually milliseconds
 
 			if (player.state == STATE_DEBUG) {
-				str = Sprintf(buf, "%08d", (int)player.pos.y);
+				str = Sprintf(buf, "%8d", (int)player.pos.y);
 			} else {
 				str = Sprintf(buf, "%d'%02d\"%02d", min, sec, ms);
 			}
@@ -3404,6 +3428,7 @@ void free_tilemap(Tilemap* tm) {
 	free(tm->tiles_a.data);
 	free(tm->tiles_b.data);
 	free(tm->tiles_c.data);
+	free(tm->tiles_d.data);
 
 	*tm = {};
 }
@@ -3524,7 +3549,7 @@ void write_tilemap(const Tilemap& tm, const char* fname) {
 	char magic[4] = {'T', 'M', 'A', 'P'};
 	SDL_RWwrite(f, magic, sizeof magic, 1);
 
-	u32 version = 2;
+	u32 version = 3;
 	SDL_RWwrite(f, &version, sizeof version, 1);
 
 	int width = tm.width;
@@ -3541,6 +3566,9 @@ void write_tilemap(const Tilemap& tm, const char* fname) {
 
 	Assert(tm.tiles_c.count == width * height);
 	SDL_RWwrite(f, tm.tiles_c.data, sizeof(tm.tiles_c[0]), tm.tiles_c.count);
+
+	Assert(tm.tiles_d.count == width * height);
+	SDL_RWwrite(f, tm.tiles_d.data, sizeof(tm.tiles_d[0]), tm.tiles_d.count);
 }
 
 void write_tileset(const Tileset& ts, const char* fname) {
@@ -3575,47 +3603,76 @@ void write_tileset(const Tileset& ts, const char* fname) {
 	SDL_RWwrite(f, angles.data, sizeof(angles[0]), angles.count);
 }
 
-void read_tilemap(Tilemap* tm, const char* fname) {
+bool read_tilemap(Tilemap* tm, const char* fname) {
 	free_tilemap(tm);
 
 	size_t filesize;
 	u8* filedata = get_file(fname, &filesize);
 
-	if (!filedata) return;
+	if (!filedata) {
+		log_error("Couldn't read tilemap: couldn't open file.");
+		free_tilemap(tm);
+		return false;
+	}
 
 	SDL_RWops* f = SDL_RWFromConstMem(filedata, filesize);
 	defer { SDL_RWclose(f); };
 
 	char magic[4];
 	SDL_RWread(f, magic, sizeof magic, 1);
-	Assert(magic[0] == 'T'
-		   && magic[1] == 'M'
-		   && magic[2] == 'A'
-		   && magic[3] == 'P');
+	if (!(magic[0] == 'T'
+		  && magic[1] == 'M'
+		  && magic[2] == 'A'
+		  && magic[3] == 'P'))
+	{
+		log_error("Couldn't read tilemap: wrong magic value.");
+		free_tilemap(tm);
+		return false;
+	}
 	
 	u32 version;
 	SDL_RWread(f, &version, sizeof version, 1);
-	Assert(version >= 1 && version <= 2);
+	if (!(version >= 1 && version <= 3)) {
+		log_error("Couldn't read tilemap: version %u is not supported.", version);
+		free_tilemap(tm);
+		return false;
+	}
 
 	int width;
 	SDL_RWread(f, &width, sizeof width, 1);
-	Assert(width > 0);
+	if (width <= 0) {
+		log_error("Couldn't read tilemap: invalid width.");
+		free_tilemap(tm);
+		return false;
+	}
+
 	tm->width = width;
 
 	int height;
 	SDL_RWread(f, &height, sizeof height, 1);
-	Assert(height > 0);
+	if (height <= 0) {
+		log_error("Couldn't read tilemap: invalid height.");
+		free_tilemap(tm);
+		return false;
+	}
+
 	tm->height = height;
 
 	tm->tiles_a = calloc_array<Tile>(width * height);
+	tm->tiles_b = calloc_array<Tile>(width * height);
+	tm->tiles_c = calloc_array<Tile>(width * height);
+	tm->tiles_d = calloc_array<Tile>(width * height);
+
 	SDL_RWread(f, tm->tiles_a.data, sizeof(tm->tiles_a[0]), tm->tiles_a.count);
 
-	tm->tiles_b = calloc_array<Tile>(width * height);
 	SDL_RWread(f, tm->tiles_b.data, sizeof(tm->tiles_b[0]), tm->tiles_b.count);
 
-	tm->tiles_c = calloc_array<Tile>(width * height);
 	if (version >= 2) {
 		SDL_RWread(f, tm->tiles_c.data, sizeof(tm->tiles_c[0]), tm->tiles_c.count);
+
+		if (version >= 3) {
+			SDL_RWread(f, tm->tiles_d.data, sizeof(tm->tiles_d[0]), tm->tiles_d.count);
+		}
 	}
 }
 
@@ -4097,4 +4154,27 @@ vec2 get_object_size(const Object& o) {
 
 	const Sprite& s = get_object_sprite(o.type);
 	return {s.width, s.height};
+}
+
+template <typename T>
+static T* binary_search(array<T> arr, instance_id id) {
+	ssize_t left = 0;
+	ssize_t right = (ssize_t)arr.count - 1;
+
+	while (left <= right) {
+		ssize_t middle = (left + right) / 2;
+		if (arr[middle].id < id) {
+			left = middle + 1;
+		} else if (arr[middle].id > id) {
+			right = middle - 1;
+		} else {
+			return &arr[middle];
+		}
+	}
+
+	return nullptr;
+}
+
+Object* Game::find_object(instance_id id) {
+	return binary_search<Object>(objects, id);
 }

@@ -848,14 +848,13 @@ void draw_line(vec2 p1, vec2 p2, vec4 color) {
 
 	{
 		/* stolen from SDL2 */
-		/* still not pixel perfect */
 
 		/* bump a little in the direction we are moving in. */
 		float deltax = p2.x - p1.x;
 		float deltay = p2.y - p1.y;
 		float angle = atan2f(deltay, deltax);
-		p2.x += cosf(angle) * 0.25f;
-		p2.y += sinf(angle) * 0.25f;
+		p2.x += cosf(angle) * 0.50f;
+		p2.y += sinf(angle) * 0.50f;
 	}
 
 	Vertex vertices[] = {
@@ -961,7 +960,7 @@ void draw_rectangle_outline_thick(Rectf rect, float thickness, vec4 color) {
 void draw_arrow_thick(vec2 p1, float length, float direction, float arrow_head_length, float thickness, vec4 color) {
 	vec2 p2 = p1 + lengthdir_v2(length, direction);
 
-	draw_line_thick(p1, p2, thickness, color);
+	draw_line_thick(p1, p2 - lengthdir_v2(0.5f, direction), thickness, color);
 
 	vec2 p3 = p2 + lengthdir_v2(arrow_head_length, direction + 135);
 	draw_line_thick(p2, p3, thickness, color);

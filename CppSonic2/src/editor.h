@@ -125,7 +125,7 @@ struct TilemapEditor {
 	View tilemap_view;
 	View tileset_view;
 	int layer_index;
-	bool layer_visible[3] = {true, true, true};
+	bool layer_visible[4] = {true, true, true, true};
 	bool show_objects;
 	bool highlight_current_layer = true;
 	bool edit_collision;

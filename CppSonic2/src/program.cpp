@@ -25,7 +25,7 @@ void Program::init(int argc, char* argv[]) {
 #endif
 
 	if (level_filepath.count == 0) {
-		level_filepath = copy_string("levels/EEZ_Act1_tiled");
+		level_filepath = copy_string("levels/EEZ_Act1");
 	}
 
 	set_program_mode(mode);

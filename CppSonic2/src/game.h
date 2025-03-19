@@ -198,6 +198,8 @@ struct Object {
 
 			vec2 init_pos;
 			vec2 prev_pos;
+
+			instance_id mount;
 		} mplatform; // OBJ_MOVING_PLATFORM
 
 		struct {
@@ -247,14 +249,17 @@ struct Tilemap {
 	int width;
 	int height;
 
-	// Solid and drawn
+	// Has collision and drawn
 	array<Tile> tiles_a;
 
-	// Solid and not drawn. For alternate collision layer (to make loops work).
+	// Has collision and not drawn. For alternate collision layer (to make loops work).
 	array<Tile> tiles_b;
 
-	// Not solid and drawn. For visuals (grass).
+	// No collision and drawn. For visuals (grass).
 	array<Tile> tiles_c;
+
+	// No collision and drawn. For background.
+	array<Tile> tiles_d;
 };
 
 struct Game {
@@ -267,7 +272,7 @@ struct Game {
 
 	bump_array<Object> objects;
 
-	instance_id next_id;
+	instance_id next_id = 1;
 
 	vec2 camera_pos;
 	float camera_lock;
@@ -346,6 +351,7 @@ struct Game {
 	void draw(float delta);
 
 	void load_level(const char* path);
+	Object* find_object(instance_id id);
 };
 
 extern Game game;
@@ -368,7 +374,7 @@ void read_tileset_old_format(Tileset* ts, const char* fname);
 void write_tilemap(const Tilemap& tm, const char* fname);
 void write_tileset(const Tileset& ts, const char* fname);
 
-void read_tilemap(Tilemap* tm, const char* fname);
+bool read_tilemap(Tilemap* tm, const char* fname);
 void read_tileset(Tileset* ts, const char* fname);
 
 void write_objects(array<Object>       objects, const char* fname);
@@ -377,77 +383,72 @@ bool read_objects (bump_array<Object>* objects, const char* fname);
 void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture& tileset_texture);
 void gen_widthmap_texture (Texture* widthmap,  const Tileset& ts, const Texture& tileset_texture);
 
-inline Tile get_tile(const Tilemap& tm, int tile_x, int tile_y, int layer) {
-	Assert((0 <= tile_x && tile_x < tm.width) && (0 <= tile_y && tile_y < tm.height));
-	Assert(layer >= 0 && layer < 3);
-	if (layer == 0) {
-		return tm.tiles_a[tile_x + tile_y * tm.width];
-	} else if (layer == 1) {
-		return tm.tiles_b[tile_x + tile_y * tm.width];
-	} else {
-		return tm.tiles_c[tile_x + tile_y * tm.width];
+inline array<Tile> get_tiles_array(const Tilemap& tm, int layer_index) {
+	switch (layer_index) {
+		case 0: return tm.tiles_a;
+		case 1: return tm.tiles_b;
+		case 2: return tm.tiles_c;
+		case 3: return tm.tiles_d;
 	}
-}
 
-inline Tile get_tile_safe(const Tilemap& tm, int tile_x, int tile_y, int layer) {
-	if ((0 <= tile_x && tile_x < tm.width) && (0 <= tile_y && tile_y < tm.height)) {
-		if (layer == 0) {
-			return tm.tiles_a[tile_x + tile_y * tm.width];
-		} else if (layer == 1) {
-			return tm.tiles_b[tile_x + tile_y * tm.width];
-		} else {
-			return tm.tiles_c[tile_x + tile_y * tm.width];
-		}
-	}
+	Assert(!"Invalid layer index.");
 	return {};
 }
 
-inline Tile get_tile_by_index(const Tilemap& tm, int tile_index, int layer) {
-	Assert(tile_index >= 0 && tile_index < tm.width * tm.height);
-	Assert(layer >= 0 && layer < 3);
-	if (layer == 0) {
-		return tm.tiles_a[tile_index];
-	} else if (layer == 1) {
-		return tm.tiles_b[tile_index];
-	} else {
-		return tm.tiles_c[tile_index];
-	}
+inline Tile get_tile(const Tilemap& tm, int tile_x, int tile_y, int layer_index) {
+	Assert(tile_x >= 0
+		   && tile_x < tm.width
+		   && tile_y >= 0
+		   && tile_y < tm.height);
+
+	return get_tiles_array(tm, layer_index)[tile_x + tile_y * tm.width];
 }
 
-inline void set_tile(Tilemap* tm, int tile_x, int tile_y, int layer, Tile tile) {
-	Assert((0 <= tile_x && tile_x < tm->width) && (0 <= tile_y && tile_y < tm->height));
-	Assert(layer >= 0 && layer < 3);
-	if (layer == 0) {
-		tm->tiles_a[tile_x + tile_y * tm->width] = tile;
-	} else if (layer == 1) {
-		tm->tiles_b[tile_x + tile_y * tm->width] = tile;
-	} else {
-		tm->tiles_c[tile_x + tile_y * tm->width] = tile;
+inline Tile get_tile_safe(const Tilemap& tm, int tile_x, int tile_y, int layer_index) {
+	if (!(tile_x >= 0
+		  && tile_x < tm.width
+		  && tile_y >= 0
+		  && tile_y < tm.height))
+	{
+		return {};
 	}
+
+	return get_tiles_array(tm, layer_index)[tile_x + tile_y * tm.width];
 }
 
-inline void set_tile_safe(Tilemap* tm, int tile_x, int tile_y, int layer, Tile tile) {
-	if ((0 <= tile_x && tile_x < tm->width) && (0 <= tile_y && tile_y < tm->height)) {
-		if (layer == 0) {
-			tm->tiles_a[tile_x + tile_y * tm->width] = tile;
-		} else if (layer == 1) {
-			tm->tiles_b[tile_x + tile_y * tm->width] = tile;
-		} else {
-			tm->tiles_c[tile_x + tile_y * tm->width] = tile;
-		}
-	}
+inline Tile get_tile_by_index(const Tilemap& tm, int tile_index, int layer_index) {
+	Assert(tile_index >= 0
+		   && tile_index < tm.width * tm.height);
+
+	return get_tiles_array(tm, layer_index)[tile_index];
 }
 
-inline void set_tile_by_index(Tilemap* tm, int tile_index, int layer, Tile tile) {
-	Assert(tile_index >= 0 && tile_index < tm->width * tm->height);
-	Assert(layer >= 0 && layer < 3);
-	if (layer == 0) {
-		tm->tiles_a[tile_index] = tile;
-	} else if (layer == 1) {
-		tm->tiles_b[tile_index] = tile;
-	} else {
-		tm->tiles_c[tile_index] = tile;
+inline void set_tile(Tilemap* tm, int tile_x, int tile_y, int layer_index, Tile tile) {
+	Assert(tile_x >= 0
+		   && tile_x < tm->width
+		   && tile_y >= 0
+		   && tile_y < tm->height);
+
+	get_tiles_array(*tm, layer_index)[tile_x + tile_y * tm->width] = tile;
+}
+
+inline void set_tile_safe(Tilemap* tm, int tile_x, int tile_y, int layer_index, Tile tile) {
+	if (!(tile_x >= 0
+		   && tile_x < tm->width
+		   && tile_y >= 0
+		   && tile_y < tm->height))
+	{
+		return;
 	}
+
+	get_tiles_array(*tm, layer_index)[tile_x + tile_y * tm->width] = tile;
+}
+
+inline void set_tile_by_index(Tilemap* tm, int tile_index, int layer_index, Tile tile) {
+	Assert(tile_index >= 0
+		   && tile_index < tm->width * tm->height);
+
+	get_tiles_array(*tm, layer_index)[tile_index] = tile;
 }
 
 inline array<u8> get_tile_heights(const Tileset& ts, int tile_index) {
