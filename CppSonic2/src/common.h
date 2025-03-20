@@ -369,8 +369,7 @@ inline T max(T a, T b) {
 
 template <typename T>
 inline T clamp(T a, T mn, T mx) {
-	// Prioritize lower bound for situations like
-	//   clamp(index, 0, size - 1) when size is 0.
+	// Prioritize lower bound for situations like `clamp(index, 0, size - 1)` when `size` is 0.
 	return max(min(a, mx), mn);
 }
 
@@ -382,6 +381,7 @@ inline T lerp(T a, T b, float f) {
 
 template <typename T>
 inline T lerp_delta(T a, T b, float f, float delta) {
+	// If your delta time is in seconds, you have to multiply it by some base fps value, e.g. `val = lerp_delta(val, target, delta * 60.0f);`.
 	f = 1.0f - f;
 	return lerp(a, b, 1.0f - powf(f, delta));
 }
@@ -396,11 +396,12 @@ inline T lerp3(T a, T b, T c, float f) {
 }
 
 inline vec2 normalize0(vec2 v) {
-	float length = sqrtf(v.x * v.x + v.y * v.y);
-	if (length != 0) {
-		return {v.x / length, v.y / length};
+	float length_sq = v.x * v.x + v.y * v.y;
+	if (length_sq == 0) {
+		return {};
 	} else {
-		return {0, 0};
+		float length = sqrtf(length_sq);
+		return {v.x / length, v.y / length};
 	}
 }
 

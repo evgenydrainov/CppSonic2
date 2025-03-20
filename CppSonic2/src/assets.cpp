@@ -25,12 +25,20 @@ void load_global_assets() {
 		sprites[spr_skid_dust]      = create_sprite(t,  0, 208, 16, 16,  8,  8, 4, 4, 1.0f / 4.0f);
 		sprites[spr_spike]          = create_sprite(t,  0, 224, 32, 32, 16, 16);
 		sprites[spr_water_surface]  = create_sprite(t, 64,  32, 32, 16,  0,  8, 4);
+		sprites[spr_mosqui]         = create_sprite(t,  0, 384, 32, 32, 16, 16, 5);
+		sprites[spr_flower]         = create_sprite(t,  0, 416, 32, 64, 16, 48, 9);
 
 		sprites[spr_spring_yellow]  = create_sprite(t, 32, 112, 32, 32, 16, 24);
 		sprites[spr_spring_red]     = create_sprite(t, 32, 144, 32, 32, 16, 24);
 
 		sprites[spr_spring_bounce_yellow]  = create_sprite(t,  0, 112, 32, 32, 16, 24, 3, 3, 1.0f / 3.0f);
 		sprites[spr_spring_bounce_red]     = create_sprite(t,  0, 144, 32, 32, 16, 24, 3, 3, 1.0f / 3.0f);
+
+		sprites[spr_spring_diagonal_yellow]  = create_sprite(t, 80, 272, 32, 32, 16, 16);
+		sprites[spr_spring_diagonal_red]     = create_sprite(t, 80, 336, 32, 32, 16, 16);
+
+		sprites[spr_spring_diagonal_bounce_yellow]  = create_sprite(t,  0, 256, 64, 64, 32, 32, 3, 3, 1.0f / 3.0f);
+		sprites[spr_spring_diagonal_bounce_red]     = create_sprite(t,  0, 320, 64, 64, 32, 32, 3, 3, 1.0f / 3.0f);
 	}
 
 	{

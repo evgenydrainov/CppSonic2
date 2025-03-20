@@ -59,6 +59,8 @@ enum {
 	spr_skid_dust,
 	spr_spike,
 	spr_water_surface,
+	spr_mosqui,
+	spr_flower,
 
 	// has to be in order
 	spr_spring_yellow,
@@ -67,6 +69,14 @@ enum {
 	// has to be in order
 	spr_spring_bounce_yellow,
 	spr_spring_bounce_red,
+
+	// has to be in order
+	spr_spring_diagonal_yellow,
+	spr_spring_diagonal_red,
+
+	// has to be in order
+	spr_spring_diagonal_bounce_yellow,
+	spr_spring_diagonal_bounce_red,
 
 	spr_EEZ_platform1,
 	spr_EEZ_platform2,

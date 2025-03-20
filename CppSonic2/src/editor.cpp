@@ -2281,7 +2281,8 @@ void ObjectsEditor::update(float delta) {
 				o.type = type;
 
 				switch (o.type) {
-					case OBJ_SPRING: {
+					case OBJ_SPRING:
+					case OBJ_SPRING_DIAGONAL: {
 						o.spring.direction = DIR_UP;
 						break;
 					}
@@ -2303,7 +2304,7 @@ void ObjectsEditor::update(float delta) {
 
 					case OBJ_MOVING_PLATFORM: {
 						o.mplatform.radius = {32, 6};
-						o.mplatform.offset = {32, 0};
+						o.mplatform.offset = {0, 32};
 						o.mplatform.time_multiplier = 1.0f / 32.0f;
 						break;
 					}
@@ -2402,10 +2403,12 @@ void ObjectsEditor::update(float delta) {
 		button(OBJ_RING);
 		button(OBJ_MONITOR);
 		button(OBJ_SPRING);
+		button(OBJ_SPRING_DIAGONAL);
 		button(OBJ_SPIKE);
 		button(OBJ_MOVING_PLATFORM);
 		button(OBJ_LAYER_SWITCHER_VERTICAL);
 		button(OBJ_LAYER_SWITCHER_HORIZONTAL);
+		button(OBJ_MOSQUI);
 	};
 
 	object_types_window();
@@ -2415,7 +2418,7 @@ void ObjectsEditor::update(float delta) {
 		defer { ImGui::End(); };
 
 		for (int i = 0; i < editor.objects.count; i++) {
-			char buf[32];
+			char buf[64];
 			stb_snprintf(buf, sizeof(buf), "%d: %s", i, GetObjTypeName(editor.objects[i].type));
 
 			if (ImGui::Selectable(buf, i == object_index)) {
@@ -2440,6 +2443,8 @@ void ObjectsEditor::update(float delta) {
 
 		Object* o = &editor.objects[object_index];
 
+		ImGui::Text("ID: %d", object_index);
+
 		ImGui::DragFloat2("Position", &o->pos[0], 1, 0, 0, "%.0f");
 
 		switch (o->type) {
@@ -2451,7 +2456,8 @@ void ObjectsEditor::update(float delta) {
 				break;
 			}
 
-			case OBJ_SPRING: {
+			case OBJ_SPRING:
+			case OBJ_SPRING_DIAGONAL: {
 				combo_menu_for_enum("Spring Color",
 									GetSpringColorName,
 									&o->spring.color,

@@ -66,6 +66,7 @@ struct Renderer {
 	u32 color_shader;
 	u32 circle_shader;
 	u32 sharp_bilinear_shader;
+	u32 hq4x_shader;
 
 	u32 current_shader;
 

@@ -122,6 +122,51 @@ void main() {
 )";
 
 
+static char hq4x_frag_shader_src[] =
+R"(layout(location = 0) out vec4 FragColor;
+
+in vec4 v_Color;
+in vec2 v_TexCoord;
+
+uniform sampler2D u_Texture;
+
+uniform vec2 u_TexelSize;
+
+void main()
+{
+	vec2 dg1 = u_TexelSize * 0.5;
+	vec2 dg2 = vec2(-dg1.x, dg1.y);
+	vec2 sd1 = dg1 * 0.5;
+	vec2 sd2 = dg2 * 0.5;
+	
+	vec4 c  = texture2D(u_Texture, v_TexCoord);
+	vec4 i1 = texture2D(u_Texture, v_TexCoord - sd1);
+	vec4 i2 = texture2D(u_Texture, v_TexCoord - sd2);
+	vec4 i3 = texture2D(u_Texture, v_TexCoord + sd1);
+	vec4 i4 = texture2D(u_Texture, v_TexCoord + sd2);
+	vec4 o1 = texture2D(u_Texture, v_TexCoord - dg1);
+	vec4 o3 = texture2D(u_Texture, v_TexCoord + dg1);
+	vec4 o2 = texture2D(u_Texture, v_TexCoord - dg2);
+	vec4 o4 = texture2D(u_Texture, v_TexCoord + dg2);
+	
+	float ko1 = dot(abs(o1 - c), vec4(1.0));
+	float ko2 = dot(abs(o2 - c), vec4(1.0));
+	float ko3 = dot(abs(o3 - c), vec4(1.0));
+	float ko4 = dot(abs(o4 - c), vec4(1.0));
+	
+	float k1 = min(dot(abs(i1 - i3), vec4(1.0)), max(ko1, ko3));
+	float k2 = min(dot(abs(i2 - i4), vec4(1.0)), max(ko2, ko4));
+	
+	float w1 = k2; if (ko3 < ko1) w1 *= ko3 / ko1;
+	float w2 = k1; if (ko4 < ko2) w2 *= ko4 / ko2;
+	float w3 = k2; if (ko1 < ko3) w3 *= ko1 / ko3;
+	float w4 = k1; if (ko2 < ko4) w4 *= ko2 / ko4;
+	
+	FragColor = (w1 * o1 + w2 * o2 + w3 * o3 + w4 * o4 + 0.001 * c) / (w1 + w2 + w3 + w4 + 0.001) * v_Color;
+}
+)";
+
+
 
 Texture load_texture(u8* pixel_data, int width, int height,
 					 int filter, int wrap,
@@ -289,10 +334,14 @@ void init_renderer() {
 		u32 sharp_bilinear_frag_shader = compile_shader(GL_FRAGMENT_SHADER, sharp_bilinear_frag_shader_src, "sharp_bilinear_frag");
 		defer { glDeleteShader(sharp_bilinear_frag_shader); };
 
+		u32 hq4x_frag_shader = compile_shader(GL_FRAGMENT_SHADER, hq4x_frag_shader_src, "hq4x_frag");
+		defer { glDeleteShader(hq4x_frag_shader); };
+
 		renderer.texture_shader        = link_program(texture_vert_shader, texture_frag_shader,        "texture_shader");
 		renderer.color_shader          = link_program(texture_vert_shader, color_frag_shader,          "color_shader");
 		renderer.circle_shader         = link_program(texture_vert_shader, circle_frag_shader,         "circle_shader");
 		renderer.sharp_bilinear_shader = link_program(texture_vert_shader, sharp_bilinear_frag_shader, "sharp_bilinear_shader");
+		renderer.hq4x_shader           = link_program(texture_vert_shader, hq4x_frag_shader,           "hq4x_shader");
 
 		renderer.current_shader = renderer.texture_shader;
 		glUseProgram(renderer.current_shader);
@@ -334,7 +383,11 @@ void render_begin_frame(vec4 clear_color) {
 }
 
 void render_end_frame() {
-	Assert(renderer.vertices.count == 0);
+	if (renderer.vertices.count != 0) {
+		log_warn("Renderer was not flushed!");
+		break_batch();
+		Assert(false);
+	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -377,6 +430,11 @@ void render_end_frame() {
 			int u_Scale = glGetUniformLocation(program, "u_Scale");
 			glUniform2f(u_Scale, int_scale, int_scale);
 		}
+
+		/*{
+			int u_TexelSize = glGetUniformLocation(program, "u_TexelSize");
+			glUniform2f(u_TexelSize, 1.0f / (float)window.game_width, 1.0f / (float)window.game_height);
+		}*/
 
 		draw_texture(renderer.framebuffer.texture, {}, {(float)renderer.game_texture_rect.x, (float)renderer.game_texture_rect.y}, {scale, scale}, {}, 0, color_white, {false, true});
 

@@ -11,10 +11,12 @@
 Title_Screen title_screen;
 
 void Title_Screen::init() {
-	
+	play_music("music/Title.mp3");
 }
 
 void Title_Screen::deinit() {
+	stop_music();
+
 	SDL_SetRelativeMouseMode(SDL_FALSE);
 }
 
@@ -36,6 +38,8 @@ void Title_Screen::update(float delta) {
 
 	if (press) {
 		program.set_program_mode(PROGRAM_GAME);
+
+		Mix_FadeOutMusic(1000);
 	}
 }
 

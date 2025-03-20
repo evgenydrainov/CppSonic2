@@ -2,6 +2,8 @@
 
 #include "package.h"
 
+Mix_Music* g_Music;
+
 void init_mixer() {
 	SDL_Init(SDL_INIT_AUDIO);
 
@@ -70,12 +72,18 @@ void init_mixer() {
 			music_volume = (float) SDL_atof(MUSIC_VOLUME);
 		}
 
+		master_volume = clamp(master_volume, 0.0f, 1.0f);
+		sound_volume  = clamp(sound_volume,  0.0f, 1.0f);
+		music_volume  = clamp(music_volume,  0.0f, 1.0f);
+
 		Mix_Volume(-1,  (int)(MIX_MAX_VOLUME * (master_volume * sound_volume)));
 		Mix_VolumeMusic((int)(MIX_MAX_VOLUME * (master_volume * music_volume)));
 	}
 }
 
 void deinit_mixer() {
+	stop_music();
+
 	Mix_CloseAudio();
 	Mix_Quit();
 
@@ -110,5 +118,20 @@ void stop_sound(Mix_Chunk* chunk) {
 		if (Mix_Playing(i) && Mix_GetChunk(i) == chunk) {
 			Mix_HaltChannel(i);
 		}
+	}
+}
+
+void play_music(const char* fname) {
+	stop_music();
+
+	g_Music = Mix_LoadMUS(fname);
+	Mix_PlayMusic(g_Music, -1);
+}
+
+void stop_music() {
+	if (g_Music) {
+		Mix_HaltMusic();
+		Mix_FreeMusic(g_Music);
+		g_Music = nullptr;
 	}
 }

@@ -12,9 +12,10 @@ Game game;
 
 static bool object_is_solid(ObjType type) {
 	switch (type) {
-		case OBJ_MONITOR: return true;
-		case OBJ_SPRING:  return true;
-		case OBJ_SPIKE:   return true;
+		case OBJ_MONITOR:         return true;
+		case OBJ_SPRING:          return true;
+		case OBJ_SPIKE:           return true;
+		case OBJ_SPRING_DIAGONAL: return true;
 	}
 	return false;
 }
@@ -23,6 +24,7 @@ static bool object_is_nonsolid(ObjType type) {
 	switch (type) {
 		case OBJ_RING:         return true;
 		case OBJ_RING_DROPPED: return true;
+		case OBJ_MOSQUI:       return true;
 	}
 	return false;
 }
@@ -98,7 +100,11 @@ void Game::load_level(const char* path) {
 					vec2 size = get_object_size(*it);
 					vec2 obj_size = get_object_size(*obj);
 					if (rect_vs_rect({it->pos.x - size.x/2 - 1, it->pos.y - size.y/2 - 1, size.x + 2, size.y + 2}, {obj->pos.x - obj_size.x/2, obj->pos.y - obj_size.y/2, obj_size.x, obj_size.y})) {
-						it->mplatform.mount = obj->id;
+						if (it->mplatform.mounts[0] == 0) {
+							it->mplatform.mounts[0] = obj->id;
+						} else if (it->mplatform.mounts[1] == 0) {
+							it->mplatform.mounts[1] = obj->id;
+						}
 					}
 				}
 				break;
@@ -111,6 +117,12 @@ void Game::load_level(const char* path) {
 				} else {
 					it->layswitch.current_side = 0;
 				}
+				break;
+			}
+
+			case OBJ_MOSQUI: {
+				it->mosqui.timer = 64;
+				it->mosqui.xspeed = 1;
 				break;
 			}
 		}
@@ -135,6 +147,10 @@ void Game::init(int argc, char* argv[]) {
 	camera_pos.y = player.pos.y - window.game_height / 2;
 
 	// show_player_hitbox = true;
+
+	debug_rects = malloc_bump_array<Rectf>(100);
+
+	play_music("music/EEZ_Act1.mp3");
 }
 
 void Game::deinit() {
@@ -1159,6 +1175,14 @@ static float get_spring_force(const Object& o) {
 	return force;
 }
 
+static u32 get_spring_sprite_stationary(const Object& o) {
+	return ((o.type == OBJ_SPRING_DIAGONAL) ? spr_spring_diagonal_yellow : spr_spring_yellow) + o.spring.color;
+}
+
+static u32 get_spring_sprite_animating(const Object& o) {
+	return ((o.type == OBJ_SPRING_DIAGONAL) ? spr_spring_diagonal_bounce_yellow : spr_spring_bounce_yellow) + o.spring.color;
+}
+
 static void player_drop_rings(Player* p, int amount) {
 	amount = min(amount, 32);
 
@@ -1204,162 +1228,170 @@ static void player_get_hit(Player* p, int side) {
 	play_sound(get_sound(snd_lose_rings));
 }
 
+static bool player_reaction_monitor(Player* p, Object* obj, Direction dir) {
+	if (p->anim != anim_roll) return false;
+
+	if (dir == DIR_DOWN) {
+		float bounce_speed = 0;
+
+		if (p->input & INPUT_JUMP) {
+			bounce_speed = fabsf(p->speed.y);
+		}
+
+		if (bounce_speed < 4) bounce_speed = 4;
+
+		p->state   = STATE_AIR;
+		p->speed.y = -bounce_speed;
+	}
+
+	obj->flags |= FLAG_INSTANCE_DEAD;
+
+	{
+		Object icon = {};
+		icon.id = game.next_id++;
+		icon.type = OBJ_MONITOR_ICON;
+		icon.pos = obj->pos;
+		icon.monitor.icon = obj->monitor.icon;
+
+		array_add(&game.objects, icon);
+	}
+
+	{
+		Object broken_monitor = {};
+		broken_monitor.id = game.next_id++;
+		broken_monitor.type = OBJ_MONITOR_BROKEN;
+		broken_monitor.pos = obj->pos;
+
+		array_add(&game.objects, broken_monitor);
+	}
+
+	{
+		Particle p = {};
+		p.pos = obj->pos;
+		p.sprite_index = spr_explosion;
+		p.lifespan = 30;
+
+		add_particle(p);
+	}
+
+	play_sound(get_sound(snd_destroy_monitor));
+
+	return true;
+}
+
+static bool player_reaction_spring(Player* p, Object* obj, Direction dir) {
+	if (obj->spring.direction != opposite_dir(dir)) return false;
+
+	float force = get_spring_force(*obj);
+
+	if (dir == DIR_LEFT || dir == DIR_RIGHT) {
+		if (obj->spring.direction == DIR_RIGHT) {
+			p->ground_speed = force;
+			p->speed.x = force;
+		} else {
+			p->ground_speed = -force;
+			p->speed.x = -force;
+		}
+		p->control_lock = 30;
+	} else {
+		// TODO: bounce downward
+
+		p->state   = STATE_AIR;
+		p->speed.y = -force;
+		p->jumped  = false;
+
+		p->next_anim = anim_rise;
+		p->frame_duration = 5;
+	}
+
+	obj->spring.animating = true;
+	obj->spring.frame_index = 0;
+
+	play_sound(get_sound(snd_spring_bounce));
+
+	return true;
+}
+
+static bool player_reaction_spring_diagonal(Player* p, Object* obj, Direction dir) {
+	float force = get_spring_force(*obj);
+
+	float spring_direction = obj->spring.direction * 90 - 45;
+
+	p->state   = STATE_AIR;
+	p->speed.x = lengthdir_x(force, spring_direction);
+	p->speed.y = lengthdir_y(force, spring_direction);
+	p->jumped  = false;
+
+	p->next_anim = anim_rise;
+	p->frame_duration = 5;
+
+	obj->spring.animating = true;
+	obj->spring.frame_index = 0;
+
+	play_sound(get_sound(snd_spring_bounce));
+
+	return true;
+}
+
+static bool player_reaction_spike(Player* p, Object* obj, Direction dir) {
+	if (obj->spike.direction != opposite_dir(dir)) return false;
+
+	if (p->invulnerable > 0) return false;
+
+	if (p->anim == anim_hurt) return false;
+
+	float side = signf(p->pos.x - obj->pos.x);
+	if (side == 0) side = 1;
+
+	player_get_hit(p, side);
+
+	return true;
+}
+
 static void player_collide_with_solid_objects(Player* p) {
 	vec2 player_radius = player_get_radius(p);
 	
 	// reset the flag
 	p->landed_on_solid_object = false;
 
-	auto player_land_on_solid_object = [&](Player* p, Object* o) -> bool {
-		switch (o->type) {
+	auto player_land_on_solid_object = [&](Player* p, Object* obj) -> bool {
+		switch (obj->type) {
 			case OBJ_MONITOR: {
-				if (p->anim != anim_roll) return false;
-
-				float bounce_speed = 0;
-
-				if (p->input & INPUT_JUMP) {
-					bounce_speed = fabsf(p->speed.y);
-				}
-
-				if (bounce_speed < 2) bounce_speed = 2;
-
-				p->state   = STATE_AIR;
-				p->speed.y = -bounce_speed;
-
-				o->flags |= FLAG_INSTANCE_DEAD;
-
-				{
-					Object icon = {};
-					icon.id = game.next_id++;
-					icon.type = OBJ_MONITOR_ICON;
-					icon.pos = o->pos;
-					icon.monitor.icon = o->monitor.icon;
-
-					array_add(&game.objects, icon);
-				}
-
-				{
-					Object broken_monitor = {};
-					broken_monitor.id = game.next_id++;
-					broken_monitor.type = OBJ_MONITOR_BROKEN;
-					broken_monitor.pos = o->pos;
-
-					array_add(&game.objects, broken_monitor);
-				}
-
-				{
-					Particle p = {};
-					p.pos = o->pos;
-					p.sprite_index = spr_explosion;
-					p.lifespan = 30;
-
-					add_particle(p);
-				}
-
-				play_sound(get_sound(snd_destroy_monitor));
-				
-				return true;
+				return player_reaction_monitor(p, obj, DIR_DOWN);
 			}
 
 			case OBJ_SPRING: {
-				if (o->spring.direction != DIR_UP) return false;
-
-				float force = get_spring_force(*o);
-
-				p->state   = STATE_AIR;
-				p->speed.y = -force;
-				p->jumped  = false;
-
-				p->next_anim = anim_rise;
-				p->frame_duration = 5;
-
-				o->spring.animating = true;
-				o->spring.frame_index = 0;
-
-				play_sound(get_sound(snd_spring_bounce));
-
-				return true;
+				return player_reaction_spring(p, obj, DIR_DOWN);
 			}
 
 			case OBJ_SPIKE: {
-				if (o->spike.direction != DIR_UP) return false;
+				return player_reaction_spike(p, obj, DIR_DOWN);
+			}
 
-				if (p->invulnerable > 0) return false;
-
-				if (p->anim == anim_hurt) return false;
-
-				float side = signf(p->pos.x - o->pos.x);
-				if (side == 0) side = 1;
-
-				player_get_hit(p, side);
-
-				return true;
+			case OBJ_SPRING_DIAGONAL: {
+				return player_reaction_spring_diagonal(p, obj, DIR_DOWN);
 			}
 		}
 
 		return false;
 	};
 
-	auto player_collide_solid_object_side = [&](Player* p, Object* o, Direction dir) {
-		switch (o->type) {
+	auto player_collide_solid_object_side = [&](Player* p, Object* obj, Direction dir) {
+		switch (obj->type) {
 			case OBJ_MONITOR: {
-				if (p->anim != anim_roll) return false;
-
-				o->flags |= FLAG_INSTANCE_DEAD;
-
-				{
-					Object icon = {};
-					icon.id = game.next_id++;
-					icon.type = OBJ_MONITOR_ICON;
-					icon.pos = o->pos;
-					icon.monitor.icon = o->monitor.icon;
-
-					array_add(&game.objects, icon);
-				}
-
-				{
-					Object broken_monitor = {};
-					broken_monitor.id = game.next_id++;
-					broken_monitor.type = OBJ_MONITOR_BROKEN;
-					broken_monitor.pos = o->pos;
-
-					array_add(&game.objects, broken_monitor);
-				}
-
-				{
-					Particle p = {};
-					p.pos = o->pos;
-					p.sprite_index = spr_explosion;
-					p.lifespan = 30;
-
-					add_particle(p);
-				}
-
-				play_sound(get_sound(snd_destroy_monitor));
-				
-				return true;
+				return player_reaction_monitor(p, obj, dir);
 			}
 
 			case OBJ_SPRING: {
-				if (o->spring.direction != opposite_dir(dir)) return false;
+				return player_reaction_spring(p, obj, dir);
+			}
 
-				float force = get_spring_force(*o);
+			case OBJ_SPIKE: {
+				return player_reaction_spike(p, obj, dir);
+			}
 
-				if (o->spring.direction == DIR_RIGHT) {
-					p->ground_speed = force;
-					p->speed.x = force;
-				} else {
-					p->ground_speed = -force;
-					p->speed.x = -force;
-				}
-				p->control_lock = 30;
-
-				o->spring.animating = true;
-				o->spring.frame_index = 0;
-
-				play_sound(get_sound(snd_spring_bounce));
-
-				return true;
+			case OBJ_SPRING_DIAGONAL: {
+				return player_reaction_spring_diagonal(p, obj, dir);
 			}
 		}
 
@@ -1446,9 +1478,9 @@ static void player_collide_with_solid_objects(Player* p) {
 							p->state = STATE_GROUND;
 						}
 						p->ground_speed = p->speed.x;
-						p->ground_angle = 0;
 					}
 
+					p->ground_angle = 0;
 					p->speed.y = 0;
 					p->landed_on_solid_object = true;
 				}
@@ -1555,7 +1587,12 @@ static bool player_collides_with_nonsolid_object(Player* p, const Object& o) {
 }
 
 static void player_collide_with_nonsolid_objects(Player* p) {
-	For (it, game.objects) {
+	// because we add objects while iterating
+	int object_count = game.objects.count;
+
+	for (int i = 0; i < object_count; i++) {
+		Object* it = &game.objects[i];
+
 		if (object_is_nonsolid(it->type)) {
 			if (player_collides_with_nonsolid_object(p, *it)) {
 				switch (it->type) {
@@ -1579,10 +1616,53 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 						it->flags |= FLAG_INSTANCE_DEAD;
 						break;
 					}
+
+					case OBJ_MOSQUI: {
+						if (p->anim == anim_roll) {
+							// kill enemy
+							it->flags |= FLAG_INSTANCE_DEAD;
+
+							// bounce
+							if (player_is_moving_mostly_down(p)) {
+								float bounce_speed = 0;
+								if (p->input & INPUT_JUMP) {
+									bounce_speed = fabsf(p->speed.y);
+								}
+								if (bounce_speed < 4) bounce_speed = 4;
+
+								p->state   = STATE_AIR;
+								p->speed.y = -bounce_speed;
+							}
+
+							Particle p = {};
+							p.pos = it->pos;
+							p.sprite_index = spr_explosion;
+							p.lifespan = 30;
+
+							add_particle(p);
+
+							play_sound(get_sound(snd_destroy_monitor));
+
+							Object flower = {};
+							flower.id = game.next_id++;
+							flower.type = OBJ_FLOWER;
+							flower.pos = it->pos;
+							flower.flower.timer = 30;
+
+							array_add(&game.objects, flower);
+						} else {
+							// take hit
+							float side = signf(p->pos.x - it->pos.x);
+							if (side == 0) side = 1;
+							player_get_hit(p, side);
+						}
+						break;
+					}
 				}
 
 				if (it->flags & FLAG_INSTANCE_DEAD) {
-					Remove(it, game.objects);
+					array_remove(&game.objects, i);
+					object_count--;
 					continue;
 				}
 			}
@@ -2330,8 +2410,13 @@ void Game::update(float delta) {
 					it->pos.x = floorf(it->mplatform.init_pos.x - sinf(a) * it->mplatform.offset.x);
 					it->pos.y = floorf(it->mplatform.init_pos.y + sinf(a) * it->mplatform.offset.y);
 
-					if (it->mplatform.mount != 0) {
-						if (Object* obj = find_object(it->mplatform.mount)) {
+					if (it->mplatform.mounts[0] != 0) {
+						if (Object* obj = find_object(it->mplatform.mounts[0])) {
+							obj->pos += it->pos - it->mplatform.prev_pos;
+						}
+					}
+					if (it->mplatform.mounts[1] != 0) {
+						if (Object* obj = find_object(it->mplatform.mounts[1])) {
 							obj->pos += it->pos - it->mplatform.prev_pos;
 						}
 					}
@@ -2393,9 +2478,10 @@ void Game::update(float delta) {
 		// update objects
 		For (it, objects) {
 			switch (it->type) {
-				case OBJ_SPRING: {
+				case OBJ_SPRING:
+				case OBJ_SPRING_DIAGONAL: {
 					if (it->spring.animating) {
-						const Sprite& s = get_sprite(spr_spring_bounce_yellow + it->spring.color);
+						const Sprite& s = get_sprite(get_spring_sprite_animating(*it));
 
 						it->spring.frame_index += s.anim_spd * delta;
 						if (it->spring.frame_index >= s.frames.count) {
@@ -2406,7 +2492,6 @@ void Game::update(float delta) {
 				}
 
 				case OBJ_MONITOR_ICON: {
-					it->pos.y -= delta;
 					it->monitor.timer += delta;
 
 					if (it->monitor.timer > 64) {
@@ -2430,6 +2515,8 @@ void Game::update(float delta) {
 
 							it->flags |= FLAG_MONITOR_ICON_GOT_REWARD;
 						}
+					} else {
+						it->pos.y -= delta;
 					}
 					break;
 				}
@@ -2454,6 +2541,82 @@ void Game::update(float delta) {
 					it->ring_dropped.lifetime += delta;
 					if (it->ring_dropped.lifetime > 256) {
 						it->flags |= FLAG_INSTANCE_DEAD;
+					}
+					break;
+				}
+
+				case OBJ_MOSQUI: {
+					if (it->flags & FLAG_MOSQUI_IS_DIVING) {
+						it->mosqui.frame_index += (1.0f / 4.0f) * delta;
+						if (it->mosqui.frame_index >= 4) {
+							it->mosqui.frame_index = 4;
+
+							it->pos.y += it->mosqui.yspeed * delta;
+
+							SensorResult res = sensor_check_down(it->pos + vec2{0, 14}, 0);
+							if (res.dist < 0) {
+								it->pos.y += res.dist;
+								it->pos = floor(it->pos);
+								it->mosqui.yspeed = 0;
+							}
+						}
+					} else {
+						it->mosqui.timer -= delta;
+						if (it->mosqui.timer <= 0) {
+							it->mosqui.timer += 128;
+							it->mosqui.xspeed = -it->mosqui.xspeed;
+						}
+
+						it->pos.x += it->mosqui.xspeed * delta;
+
+						it->mosqui.frame_index += (1.0f / 4.0f) * delta;
+						it->mosqui.frame_index = fmodf(it->mosqui.frame_index, 2);
+
+						Rectf rect;
+						rect.w = 32;
+						rect.h = 150;
+						rect.x = it->pos.x - rect.w / 2;
+						rect.y = it->pos.y;
+
+						if (point_in_rect(player.pos, rect)) {
+							it->flags |= FLAG_MOSQUI_IS_DIVING;
+							it->mosqui.yspeed = 4;
+						}
+					}
+					break;
+				}
+
+				case OBJ_FLOWER: {
+					if (it->flower.timer > 0) {
+						it->flower.timer -= delta;
+
+						it->flower.frame_index += (1.0f / 4.0f) * delta;
+						it->flower.frame_index = fmodf(it->flower.frame_index, 2);
+
+						if (it->flower.timer <= 0) {
+							it->flower.yspeed = 2;
+						}
+					} else {
+						if (it->flower.yspeed == 0) {
+							if (it->flower.frame_index >= 7) {
+								it->flower.frame_index += (1.0f / 20.0f) * delta;
+								it->flower.frame_index = 7 + fmodf(it->flower.frame_index - 7, 2);
+							} else {
+								it->flower.frame_index += (1.0f / 4.0f) * delta;	
+							}
+						} else {
+							SensorResult res = sensor_check_down(it->pos + vec2{0, 2}, 0);
+							if (res.dist < 0) {
+								it->pos.y += res.dist;
+								it->pos = floor(it->pos);
+								it->flower.yspeed = 0;
+							}
+
+							it->flower.frame_index += (1.0f / 4.0f) * delta;
+							it->flower.frame_index = fmodf(it->flower.frame_index, 2);
+
+							it->pos.y += it->flower.yspeed * delta;
+						}
 					}
 					break;
 				}
@@ -2760,12 +2923,13 @@ void draw_objects(array<Object> objects, float time_frames, bool show_editor_obj
 				break;
 			}
 
-			case OBJ_SPRING: {
-				u32 sprite_index = spr_spring_yellow + it->spring.color;
+			case OBJ_SPRING:
+			case OBJ_SPRING_DIAGONAL: {
+				u32 sprite_index = get_spring_sprite_stationary(*it);
 				float frame_index = 0;
 
 				if (it->spring.animating) {
-					sprite_index = spr_spring_bounce_yellow + it->spring.color;
+					sprite_index = get_spring_sprite_animating(*it);
 					frame_index = it->spring.frame_index;
 				}
 
@@ -2839,6 +3003,26 @@ void draw_objects(array<Object> objects, float time_frames, bool show_editor_obj
 
 				draw_sprite(get_sprite(spr_layer_switcher_priority_letter), it->layswitch.priority_1, it->pos + vec2{-6, 2});
 				draw_sprite(get_sprite(spr_layer_switcher_priority_letter), it->layswitch.priority_2, it->pos + vec2{ 2, 2});
+				break;
+			}
+
+			case OBJ_MOSQUI: {
+				u32 sprite_index = spr_mosqui;
+				float frame_index = it->mosqui.frame_index;
+
+				vec2 scale = {1, 1};
+				if (it->mosqui.xspeed != 0) {
+					scale.x = -signf(it->mosqui.xspeed);
+				}
+
+				draw_sprite(get_sprite(sprite_index), frame_index, it->pos, scale);
+				break;
+			}
+
+			case OBJ_FLOWER: {
+				u32 sprite_index = spr_flower;
+				float frame_index = it->flower.frame_index;
+				draw_sprite(get_sprite(sprite_index), frame_index, it->pos);
 				break;
 			}
 
@@ -2928,9 +3112,9 @@ void Game::draw(float delta) {
 
 	// draw background
 	{
-		auto draw_part = [&](float bg_height, float bg_pos_y, const Texture& t, Rect src, float parallax) {
+		auto draw_part = [&](float bg_height, float bg_pos_y, const Texture& t, Rect src, float parallax, float time_mul) {
 			vec2 pos;
-			pos.x = camera_pos.x * parallax;
+			pos.x = camera_pos.x * parallax + time_seconds * time_mul;
 			pos.y = lerp(0.0f, tm.height * 16.0f - bg_height, camera_pos.y / (tm.height * 16.0f - window.game_height));
 
 			pos.y += src.y;
@@ -2965,17 +3149,19 @@ void Game::draw(float delta) {
 			glUniform1f(glGetUniformLocation(get_shader(shd_sine), "u_WaterPosY"), water_pos_y_on_screen);
 		}
 
-		draw_part(bg_height, 0, back, {0, 0, 1024, 96}, 0.96f);
+		const float time_mul = -10;
+
+		draw_part(bg_height, 0, back, {0, 0, 1024, 96}, 0.96f, 1.0f * time_mul);
 
 		for (int i = 0; i < 12; i++) {
 			float f = i / 11.0f;
 			float parallax = lerp(0.94f, 0.92f, f);
 			int y = 16 * (i + 6);
-			draw_part(bg_height, 0, back, {0, y, 1024, 16}, parallax);
+			draw_part(bg_height, 0, back, {0, y, 1024, 16}, parallax, lerp(0.9f, 0.0f, f) * time_mul);
 		}
 
-		draw_part(bg_height, 176, front, {0,   0, 1024, 208}, 0.90f);
-		draw_part(bg_height, 176, front, {0, 208, 1024, 128}, 0.88f);
+		draw_part(bg_height, 176, front, {0,   0, 1024, 208}, 0.90f, 0);
+		draw_part(bg_height, 176, front, {0, 208, 1024, 128}, 0.88f, 0);
 
 		reset_shader();
 	}
@@ -3018,13 +3204,26 @@ void Game::draw(float delta) {
 				src.w = 16;
 				src.h = 16;
 
-				if (tile.top_solid || tile.lrb_solid) {
-					draw_texture(show_height ? heightmap : widthmap, src, {x * 16.0f, y * 16.0f}, {1, 1}, {}, 0, color_white, {tile.hflip, tile.vflip});
+				vec4 color;
+				if (tile.top_solid && tile.lrb_solid) {
+					color = {1, 1, 1, 1};
+				} else if (tile.top_solid && !tile.lrb_solid) {
+					color = {0.5f, 0.5f, 1, 1};
+				} else if (!tile.top_solid && tile.lrb_solid) {
+					color = {1, 0.5f, 0.5f, 1};
+				} else { // !tile.top_solid && !tile.lrb_solid
+					continue;
 				}
+
+				draw_texture(show_height ? heightmap : widthmap, src, {x * 16.0f, y * 16.0f}, {1, 1}, {}, 0, color, {tile.hflip, tile.vflip});
 			}
 		}
 	}
 #endif
+
+	// draw debug rects
+	For (it, debug_rects) draw_rectangle_outline(*it, color_red);
+	debug_rects.count = 0;
 
 	// draw particles
 	draw_particles(delta);
@@ -3070,6 +3269,10 @@ void Game::draw(float delta) {
 	// draw object hitboxes
 	if (show_hitboxes) {
 		For (it, objects) {
+			if (!(object_is_solid(it->type) || object_is_nonsolid(it->type))) {
+				continue;
+			}
+
 			vec2 size = get_object_size(*it);
 
 			Rectf rect;
@@ -3747,7 +3950,8 @@ void write_objects(array<Object> objects, const char* fname) {
 
 		switch (o.type) {
 			case OBJ_PLAYER_INIT_POS:
-			case OBJ_RING: {
+			case OBJ_RING:
+			case OBJ_MOSQUI: {
 				break;
 			}
 
@@ -3776,7 +3980,8 @@ void write_objects(array<Object> objects, const char* fname) {
 				break;
 			}
 
-			case OBJ_SPRING: {
+			case OBJ_SPRING:
+			case OBJ_SPRING_DIAGONAL: {
 				SpringColor color = o.spring.color;
 				SDL_RWwrite(f, &color, sizeof color, 1);
 
@@ -3890,7 +4095,8 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 
 		switch (o->type) {
 			case OBJ_PLAYER_INIT_POS:
-			case OBJ_RING: {
+			case OBJ_RING:
+			case OBJ_MOSQUI: {
 				return true;
 			}
 
@@ -3923,7 +4129,8 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 				return true;
 			}
 
-			case OBJ_SPRING: {
+			case OBJ_SPRING:
+			case OBJ_SPRING_DIAGONAL: {
 				SpringColor color;
 				SDL_RWread(f, &color, sizeof color, 1);
 				o->spring.color = color;
@@ -4126,6 +4333,8 @@ const Sprite& get_object_sprite(ObjType type) {
 		case OBJ_LAYER_SWITCHER_VERTICAL:   return get_sprite(spr_layer_switcher_vertical);
 		case OBJ_LAYER_SWITCHER_HORIZONTAL: return get_sprite(spr_layer_switcher_horizontal);
 		case OBJ_MOVING_PLATFORM:           return get_sprite(spr_EEZ_platform1);
+		case OBJ_SPRING_DIAGONAL:           return get_sprite(spr_spring_diagonal_yellow);
+		case OBJ_MOSQUI:                    return get_sprite(spr_mosqui);
 	}
 
 	Assert(!"invalid object type");
@@ -4141,6 +4350,9 @@ vec2 get_object_size(const Object& o) {
 		case OBJ_MOVING_PLATFORM:           return o.mplatform.radius * 2.0f;
 		case OBJ_LAYER_SWITCHER_VERTICAL:   return {o.layswitch.radius.y * 2, o.layswitch.radius.y * 2};
 		case OBJ_LAYER_SWITCHER_HORIZONTAL: return {o.layswitch.radius.x * 2, o.layswitch.radius.x * 2};
+		case OBJ_SPRING_DIAGONAL:           return {30, 30};
+		case OBJ_MOSQUI:                    return {16, 16};
+
 		case OBJ_SPRING: {
 			vec2 size = {32, 16};
 			if (o.spring.direction == DIR_LEFT || o.spring.direction == DIR_RIGHT) {

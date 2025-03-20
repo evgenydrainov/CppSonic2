@@ -101,7 +101,10 @@ struct Player {
 	X(OBJ_RING_DROPPED,               9) \
 	X(OBJ_MOVING_PLATFORM,           10) \
 	X(OBJ_LAYER_SWITCHER_VERTICAL,   11) \
-	X(OBJ_LAYER_SWITCHER_HORIZONTAL, 12)
+	X(OBJ_LAYER_SWITCHER_HORIZONTAL, 12) \
+	X(OBJ_SPRING_DIAGONAL,           13) \
+	X(OBJ_MOSQUI,                    14) \
+	X(OBJ_FLOWER,                    15)
 
 DEFINE_NAMED_ENUM_WITH_VALUES(ObjType, OBJ_TYPE_ENUM)
 
@@ -110,9 +113,9 @@ typedef u32 instance_id;
 enum {
 	FLAG_INSTANCE_DEAD = 1 << 0,
 
-	FLAG_LAYER_FLIP_GROUNDED = 1 << 16,
-
 	FLAG_MONITOR_ICON_GOT_REWARD = 1 << 16,
+
+	FLAG_MOSQUI_IS_DIVING = 1 << 16,
 };
 
 #define MONITOR_ICON_ENUM(X) \
@@ -169,7 +172,7 @@ struct Object {
 		struct {
 			MonitorIcon icon;
 			float timer; // for OBJ_MONITOR_ICON
-		} monitor; // OBJ_MONITOR, OBJ_MONITOR_ICON
+		} monitor; // OBJ_MONITOR and OBJ_MONITOR_ICON
 
 		struct {
 			SpringColor color;
@@ -177,7 +180,7 @@ struct Object {
 
 			bool animating;
 			float frame_index;
-		} spring; // OBJ_SPRING
+		} spring; // OBJ_SPRING and OBJ_SPRING_DIAGONAL
 
 		struct {
 			Direction direction;
@@ -199,7 +202,7 @@ struct Object {
 			vec2 init_pos;
 			vec2 prev_pos;
 
-			instance_id mount;
+			instance_id mounts[2];
 		} mplatform; // OBJ_MOVING_PLATFORM
 
 		struct {
@@ -210,6 +213,19 @@ struct Object {
 			int priority_2;
 			int current_side;
 		} layswitch; // OBJ_LAYER_SWITCHER_HORIZONTAL and OBJ_LAYER_SWITCHER_VERTICAL
+
+		struct {
+			float frame_index;
+			float timer;
+			float xspeed;
+			float yspeed;
+		} mosqui; // OBJ_MOSQUI
+
+		struct {
+			float frame_index;
+			float timer;
+			float yspeed;
+		} flower; // OBJ_FLOWER
 	};
 };
 
@@ -288,6 +304,8 @@ struct Game {
 	Tilemap tm;
 
 	float water_pos_y;
+
+	bump_array<Rectf> debug_rects;
 
 	float time_seconds;
 	float time_frames;
