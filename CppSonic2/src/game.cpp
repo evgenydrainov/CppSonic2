@@ -231,23 +231,38 @@ static bool player_is_on_a_wall(Player* p) {
 static void apply_slope_factor(Player* p, float delta) {
 	// Adjust Ground Speed based on current Ground Angle (Slope Factor).
 
-	const float PLAYER_SLOPE_FACTOR_NORMAL = 0.125f;
+	if (player_get_mode(p) == MODE_CEILING) return;
+
+	if (p->ground_speed == 0.0f) return;
+
+	// abort if moving down and slant is too shallow
+	//float a = angle_wrap(p->ground_angle);
+	//if ((signf(dsin(p->ground_angle)) == signf(p->ground_speed)) && (a < 22.5f || a > 337.5f)) return;
+
+	const float PLAYER_SLOPE_FACTOR_NORMAL = 0.125f * 0.75f;
 	const float PLAYER_SLOPE_FACTOR_ROLLUP = 0.078125f;
 	const float PLAYER_SLOPE_FACTOR_ROLLDOWN = 0.3125f;
 
-	if (player_get_mode(p) != MODE_CEILING && p->ground_speed != 0.0f) {
-		float factor = PLAYER_SLOPE_FACTOR_NORMAL;
+	float factor = PLAYER_SLOPE_FACTOR_NORMAL;
 
-		if (p->state == STATE_ROLL) {
-			if (signf(p->ground_speed) == signf(dsin(p->ground_angle))) {
-				factor = PLAYER_SLOPE_FACTOR_ROLLUP;
-			} else {
-				factor = PLAYER_SLOPE_FACTOR_ROLLDOWN;
-			}
+	if (p->state == STATE_ROLL) {
+		if (signf(p->ground_speed) == signf(dsin(p->ground_angle))) {
+			factor = PLAYER_SLOPE_FACTOR_ROLLUP;
+		} else {
+			factor = PLAYER_SLOPE_FACTOR_ROLLDOWN;
 		}
-
-		p->ground_speed -= factor * dsin(p->ground_angle) * delta;
 	}
+
+	factor *= dsin(p->ground_angle);
+
+	// help the player walk up slopes
+	if (signf(factor) == signf(p->ground_speed)) {
+		if (fabsf(factor) < 0.046875f) {
+			return;
+		}
+	}
+
+	p->ground_speed -= factor * delta;
 }
 
 static bool player_is_moving_mostly_right(Player* p) {
@@ -553,10 +568,12 @@ static SensorResult sensor_check_down(vec2 pos, int layer) {
 		tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
-		result.tile = tile;
-		result.found = true;
-		result.tile_x = tile_x;
-		result.tile_y = tile_y;
+		if (height != 0) {
+			result.tile = tile;
+			result.found = true;
+			result.tile_x = tile_x;
+			result.tile_y = tile_y;
+		}
 
 		// NOTE: this should be wrap(iy,16) instead of modulo if we care about negative numbers. Also change it in get_height.
 		result.dist = (32 - (iy % 16)) - (height + 1);
@@ -565,10 +582,12 @@ static SensorResult sensor_check_down(vec2 pos, int layer) {
 		tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
-		result.tile = tile;
-		result.found = true;
-		result.tile_x = tile_x;
-		result.tile_y = tile_y;
+		if (height != 0) {
+			result.tile = tile;
+			result.found = true;
+			result.tile_x = tile_x;
+			result.tile_y = tile_y;
+		}
 
 		result.dist = -(iy % 16) - (height + 1);
 	} else {
@@ -627,10 +646,12 @@ static SensorResult sensor_check_right(vec2 pos, int layer) {
 		tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
-		result.tile = tile;
-		result.found = true;
-		result.tile_x = tile_x;
-		result.tile_y = tile_y;
+		if (height != 0) {
+			result.tile = tile;
+			result.found = true;
+			result.tile_x = tile_x;
+			result.tile_y = tile_y;
+		}
 
 		result.dist = (32 - (ix % 16)) - (height + 1);
 	} else if (height == 16) {
@@ -638,10 +659,12 @@ static SensorResult sensor_check_right(vec2 pos, int layer) {
 		tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
-		result.tile = tile;
-		result.found = true;
-		result.tile_x = tile_x;
-		result.tile_y = tile_y;
+		if (height != 0) {
+			result.tile = tile;
+			result.found = true;
+			result.tile_x = tile_x;
+			result.tile_y = tile_y;
+		}
 
 		result.dist = -(ix % 16) - (height + 1);
 	} else {
@@ -700,10 +723,12 @@ static SensorResult sensor_check_up(vec2 pos, int layer) {
 		tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
-		result.tile = tile;
-		result.found = true;
-		result.tile_x = tile_x;
-		result.tile_y = tile_y;
+		if (height != 0) {
+			result.tile = tile;
+			result.found = true;
+			result.tile_x = tile_x;
+			result.tile_y = tile_y;
+		}
 
 		result.dist = 16 + (iy % 16) - (height);
 	} else if (height == 16) {
@@ -711,10 +736,12 @@ static SensorResult sensor_check_up(vec2 pos, int layer) {
 		tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
-		result.tile = tile;
-		result.found = true;
-		result.tile_x = tile_x;
-		result.tile_y = tile_y;
+		if (height != 0) {
+			result.tile = tile;
+			result.found = true;
+			result.tile_x = tile_x;
+			result.tile_y = tile_y;
+		}
 
 		result.dist = -16 + (iy % 16) - (height);
 	} else {
@@ -773,10 +800,12 @@ static SensorResult sensor_check_left(vec2 pos, int layer) {
 		tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
-		result.tile = tile;
-		result.found = true;
-		result.tile_x = tile_x;
-		result.tile_y = tile_y;
+		if (height != 0) {
+			result.tile = tile;
+			result.found = true;
+			result.tile_x = tile_x;
+			result.tile_y = tile_y;
+		}
 
 		result.dist = 16 + (ix % 16) - (height);
 	} else if (height == 16) {
@@ -784,10 +813,12 @@ static SensorResult sensor_check_left(vec2 pos, int layer) {
 		tile = get_tile_safe(game.tm, tile_x, tile_y, layer);
 		height = get_height(tile, ix, iy);
 
-		result.tile = tile;
-		result.found = true;
-		result.tile_x = tile_x;
-		result.tile_y = tile_y;
+		if (height != 0) {
+			result.tile = tile;
+			result.found = true;
+			result.tile_x = tile_x;
+			result.tile_y = tile_y;
+		}
 
 		result.dist = -16 + (ix % 16) - (height);
 	} else {
@@ -977,10 +1008,11 @@ static void ground_sensor_collision(Player* p) {
 
 	if (p->state == STATE_AIR) {
 		float a = angle_wrap(p->ground_angle);
-		if (a <= 22.0f /*23.0f*/ || a >= 339.0f) {
+#if 1
+		if (a < 22.5f || a > 337.5f) {
 			// flat
 			p->ground_speed = p->speed.x;
-		} else if (a <= 45.0f || a >= 316.0f) {
+		} else if (a < 45.0f || a > 315.0f) {
 			// slope
 			if (player_is_moving_mostly_right(p) || player_is_moving_mostly_left(p)) {
 				p->ground_speed = p->speed.x;
@@ -995,6 +1027,16 @@ static void ground_sensor_collision(Player* p) {
 				p->ground_speed = p->speed.y * -signf(dsin(p->ground_angle));
 			}
 		}
+#else
+		// calculate landing speed
+		if (fabsf(p->speed.x) <= fabsf(p->speed.y) && a >= 22.5f && a <= 337.5f) {
+			// scale speed to incline
+			p->ground_speed = -p->speed.y * signf(dsin(p->ground_angle));
+			if (a < 45.0f || a > 315.0f) p->ground_speed *= 0.5f;
+		} else {
+			p->ground_speed = p->speed.x;
+		}
+#endif
 
 		if (p->ground_speed != 0) {
 			p->facing = sign_int(p->ground_speed);
@@ -1093,15 +1135,29 @@ static bool player_try_slip(Player* p) {
 	// Check for slipping/falling when Ground Speed is too low on walls/ceilings.
 
 	float a = angle_wrap(p->ground_angle);
-	if (a >= 46.0f && a < 314.0f) {
+#if 1
+	if (a > 45.0f && a < 315.0f) {
 		if (fabsf(p->ground_speed) < 2.5f) {
 			p->state = STATE_AIR;
 			p->ground_speed = 0.0f;
-			p->control_lock = 30.0f;
+			p->control_lock = 32.0f;
 
 			return true;
 		}
 	}
+#else
+	// slide if moving too slow
+	if (fabsf(p->ground_speed) < 2.5f && a >= 45 && a <= 315) {
+		// if not at gravity angle, fall instead
+		if (a >= 90 && a <= 270) {
+			p->state = STATE_AIR;
+			p->ground_speed = 0.0f;
+		} else {
+			p->control_lock = 32.0f;
+		}
+		return true;
+	}
+#endif
 
 	return false;
 }
@@ -1292,7 +1348,7 @@ static bool player_reaction_spring(Player* p, Object* obj, Direction dir) {
 			p->ground_speed = -force;
 			p->speed.x = -force;
 		}
-		p->control_lock = 30;
+		p->control_lock = 32;
 	} else {
 		// TODO: bounce downward
 
@@ -1593,80 +1649,7 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 	for (int i = 0; i < object_count; i++) {
 		Object* it = &game.objects[i];
 
-		if (object_is_nonsolid(it->type)) {
-			if (player_collides_with_nonsolid_object(p, *it)) {
-				switch (it->type) {
-					case OBJ_RING:
-					case OBJ_RING_DROPPED: {
-						if (p->ignore_rings > 0) break;
-
-						game.player_rings++;
-
-						Particle p = {};
-						p.pos = it->pos;
-						p.sprite_index = spr_ring_disappear;
-
-						const Sprite& s = get_sprite(p.sprite_index);
-						p.lifespan = (1.0f / s.anim_spd) * s.frames.count;
-
-						add_particle(p);
-
-						play_sound(get_sound(snd_ring));
-
-						it->flags |= FLAG_INSTANCE_DEAD;
-						break;
-					}
-
-					case OBJ_MOSQUI: {
-						if (p->anim == anim_roll) {
-							// kill enemy
-							it->flags |= FLAG_INSTANCE_DEAD;
-
-							// bounce
-							if (player_is_moving_mostly_down(p)) {
-								float bounce_speed = 0;
-								if (p->input & INPUT_JUMP) {
-									bounce_speed = fabsf(p->speed.y);
-								}
-								if (bounce_speed < 4) bounce_speed = 4;
-
-								p->state   = STATE_AIR;
-								p->speed.y = -bounce_speed;
-							}
-
-							Particle p = {};
-							p.pos = it->pos;
-							p.sprite_index = spr_explosion;
-							p.lifespan = 30;
-
-							add_particle(p);
-
-							play_sound(get_sound(snd_destroy_monitor));
-
-							Object flower = {};
-							flower.id = game.next_id++;
-							flower.type = OBJ_FLOWER;
-							flower.pos = it->pos;
-							flower.flower.timer = 30;
-
-							array_add(&game.objects, flower);
-						} else {
-							// take hit
-							float side = signf(p->pos.x - it->pos.x);
-							if (side == 0) side = 1;
-							player_get_hit(p, side);
-						}
-						break;
-					}
-				}
-
-				if (it->flags & FLAG_INSTANCE_DEAD) {
-					array_remove(&game.objects, i);
-					object_count--;
-					continue;
-				}
-			}
-		} else if (it->type == OBJ_LAYER_SWITCHER_VERTICAL) {
+		if (it->type == OBJ_LAYER_SWITCHER_VERTICAL) {
 			if (p->pos.y > it->pos.y - it->layswitch.radius.y && p->pos.y < it->pos.y + it->layswitch.radius.y) {
 				if (it->layswitch.current_side == 0) {
 					if (p->pos.x >= it->pos.x) {
@@ -1686,11 +1669,92 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 			} else {
 				it->layswitch.current_side = 0;
 			}
-		} else if (it->type == OBJ_LAYER_SWITCHER_HORIZONTAL) {
+			continue;
+		}
+
+		if (it->type == OBJ_LAYER_SWITCHER_HORIZONTAL) {
 			// TODO
+			continue;
+		}
+
+		if (!object_is_nonsolid(it->type)) continue;
+
+		if (!player_collides_with_nonsolid_object(p, *it)) continue;
+
+		switch (it->type) {
+			case OBJ_RING:
+			case OBJ_RING_DROPPED: {
+				if (p->ignore_rings > 0) break;
+
+				game.player_rings++;
+
+				Particle p = {};
+				p.pos = it->pos;
+				p.sprite_index = spr_ring_disappear;
+
+				const Sprite& s = get_sprite(p.sprite_index);
+				p.lifespan = (1.0f / s.anim_spd) * s.frames.count;
+
+				add_particle(p);
+
+				play_sound(get_sound(snd_ring));
+
+				it->flags |= FLAG_INSTANCE_DEAD;
+				break;
+			}
+
+			case OBJ_MOSQUI: {
+				if (p->anim == anim_roll) {
+					// kill enemy
+					it->flags |= FLAG_INSTANCE_DEAD;
+
+					// bounce
+					if (player_is_moving_mostly_down(p)) {
+						float bounce_speed = 0;
+						if (p->input & INPUT_JUMP) {
+							bounce_speed = fabsf(p->speed.y);
+						}
+						if (bounce_speed < 4) bounce_speed = 4;
+
+						p->state   = STATE_AIR;
+						p->speed.y = -bounce_speed;
+					}
+
+					Particle p = {};
+					p.pos = it->pos;
+					p.sprite_index = spr_explosion;
+					p.lifespan = 30;
+
+					add_particle(p);
+
+					play_sound(get_sound(snd_destroy_monitor));
+
+					Object flower = {};
+					flower.id = game.next_id++;
+					flower.type = OBJ_FLOWER;
+					flower.pos = it->pos;
+					flower.flower.timer = 30;
+
+					array_add(&game.objects, flower);
+				} else {
+					// take hit
+					float side = signf(p->pos.x - it->pos.x);
+					if (side == 0) side = 1;
+					player_get_hit(p, side);
+				}
+				break;
+			}
+		}
+
+		if (it->flags & FLAG_INSTANCE_DEAD) {
+			array_remove(&game.objects, i);
+			object_count--;
+			continue;
 		}
 	}
 }
+
+constexpr int NUM_PHYSICS_STEPS = 4;
 
 static void player_state_ground(Player* p, float delta) {
 	int input_h = 0;
@@ -1745,13 +1809,14 @@ static void player_state_ground(Player* p, float delta) {
 		ground_sensor_collision(p);
 	};
 
-	constexpr int num_physics_steps = 4;
-	for (int i = 0; i < num_physics_steps; i++) {
-		physics_step(delta / (float)num_physics_steps);
+	for (int i = 0; i < NUM_PHYSICS_STEPS; i++) {
+		physics_step(delta / (float)NUM_PHYSICS_STEPS);
 	}
 
 	// collide with objects
 	player_collide_with_solid_objects(p);
+
+	player_collide_with_nonsolid_objects(p);
 
 	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
 	player_keep_in_bounds(p);
@@ -1962,13 +2027,14 @@ static void player_state_roll(Player* p, float delta) {
 		ground_sensor_collision(p);
 	};
 
-	constexpr int num_physics_steps = 4;
-	for (int i = 0; i < num_physics_steps; i++) {
-		physics_step(delta / (float)num_physics_steps);
+	for (int i = 0; i < NUM_PHYSICS_STEPS; i++) {
+		physics_step(delta / (float)NUM_PHYSICS_STEPS);
 	}
 
 	// collide with objects
 	player_collide_with_solid_objects(p);
+
+	player_collide_with_nonsolid_objects(p);
 
 	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
 	player_keep_in_bounds(p);
@@ -2043,13 +2109,14 @@ static void player_state_air(Player* p, float delta) {
 		ceiling_sensor_collision(p);
 	};
 
-	constexpr int num_physics_steps = 4;
-	for (int i = 0; i < num_physics_steps; i++) {
-		physics_step(delta / (float)num_physics_steps);
+	for (int i = 0; i < NUM_PHYSICS_STEPS; i++) {
+		physics_step(delta / (float)NUM_PHYSICS_STEPS);
 	}
 
 	// collide with objects
 	player_collide_with_solid_objects(p);
+
+	player_collide_with_nonsolid_objects(p);
 
 	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
 	player_keep_in_bounds(p);
@@ -2243,9 +2310,6 @@ static void player_update(Player* p, float delta) {
 	}
 
 	Approach(&p->ignore_rings, 0.0f, delta);
-
-	// collide with nonsolid objects
-	player_collide_with_nonsolid_objects(p);
 
 	auto anim_get_frame_count = [](anim_index anim) -> int {
 		const Sprite& s = anim_get_sprite(anim);

@@ -173,10 +173,14 @@ void Program::late_draw(float delta) {
 			string str = Sprintf(buf,
 								 "state: %s\n"
 								 "ground speed: %f\n"
-								 "ground angle: %f\n",
+								 "ground angle: %f\n"
+								 "xspeed: %f\n"
+								 "yspeed: %f\n",
 								 GetPlayerStateName(p->state),
 								 p->ground_speed,
-								 p->ground_angle);
+								 p->ground_angle,
+								 p->speed.x,
+								 p->speed.y);
 			pos = draw_text_shadow(get_font(fnt_consolas_bold), str, pos);
 		}
 	}

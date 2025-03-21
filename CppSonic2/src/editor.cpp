@@ -1087,6 +1087,8 @@ void free_action(Action* action) {
 }
 
 void TilesetEditor::update(float delta) {
+	static bool dont_update_selected_tile_index;
+
 	auto tileset_editor_window = [&]() {
 		ImGui::Begin("Tileset Editor##tileset_editor");
 		defer { ImGui::End(); };
@@ -1199,7 +1201,9 @@ void TilesetEditor::update(float delta) {
 
 					int tile_index = tile_pos.x + tile_pos.y * (editor.tileset_texture.width / 16);
 
-					selected_tile_index = tile_index;
+					if (!dont_update_selected_tile_index) {
+						selected_tile_index = tile_index;
+					}
 				}
 			}
 		}
@@ -1435,9 +1439,13 @@ void TilesetEditor::update(float delta) {
 
 		ImGui::Text("Tile ID: %d", selected_tile_index);
 
+		dont_update_selected_tile_index = false;
+
 		float angle = editor.ts.angles[selected_tile_index];
 		ImGui::InputFloat("Angle", &angle, 0, 0, nullptr, ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_CharsDecimal);
-		if (!ImGui::IsItemActive()) {
+		if (ImGui::IsItemActive()) {
+			dont_update_selected_tile_index = true;
+		} else {
 			if (editor.ts.angles[selected_tile_index] != angle) {
 				Action action = {};
 				action.type = ACTION_SET_TILE_ANGLE;
@@ -1457,7 +1465,9 @@ void TilesetEditor::update(float delta) {
 				char buf[16];
 				stb_snprintf(buf, sizeof(buf), "[%d]", i);
 				ImGui::InputInt(buf, &height, 0, 0, ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_CharsDecimal);
-				if (!ImGui::IsItemActive()) {
+				if (ImGui::IsItemActive()) {
+					dont_update_selected_tile_index = true;
+				} else {
 					if (heights[i] != height) {
 						Action action = {};
 						action.type = ACTION_SET_TILE_HEIGHT;
@@ -1483,7 +1493,9 @@ void TilesetEditor::update(float delta) {
 				char buf[16];
 				stb_snprintf(buf, sizeof(buf), "[%d]", i);
 				ImGui::InputInt(buf, &width, 0, 0, ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_CharsDecimal);
-				if (!ImGui::IsItemActive()) {
+				if (ImGui::IsItemActive()) {
+					dont_update_selected_tile_index = true;
+				} else {
 					if (widths[i] != width) {
 						Action action = {};
 						action.type = ACTION_SET_TILE_WIDTH;
@@ -1570,9 +1582,9 @@ void TilemapEditor::update(float delta) {
 
 					if (tilemap_editor.highlight_current_layer) {
 						if (visual_layer_index[i] > visual_layer_index[tilemap_editor.layer_index]) {
-							color.a = 0.2f;
+							color.a = 0.1f;
 						} else if (visual_layer_index[i] < visual_layer_index[tilemap_editor.layer_index]) {
-							color = get_color(80, 80, 80);
+							color = get_color(40, 40, 40);
 						}
 					}
 
@@ -1796,39 +1808,43 @@ void TilemapEditor::update(float delta) {
 			// handle ctrl+c and ctrl+x
 			if ((ImGui::IsKeyPressed(ImGuiKey_C, false) || ImGui::IsKeyPressed(ImGuiKey_X, false)) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
 				if (tilemap_selection.w > 0 && tilemap_selection.h > 0) {
-					Action cut_action = {};
-					cut_action.type = ACTION_SET_TILES;
+					if (layer_visible[layer_index]) {
+						Action cut_action = {};
+						cut_action.type = ACTION_SET_TILES;
 
-					// copy tiles to brush
-					brush.count = 0;
-					for (int tile_y = tilemap_selection.y; tile_y < tilemap_selection.y + tilemap_selection.h; tile_y++) {
-						for (int tile_x = tilemap_selection.x; tile_x < tilemap_selection.x + tilemap_selection.w; tile_x++) {
-							Tile tile = get_tile(editor.tm, tile_x, tile_y, layer_index);
-							array_add(&brush, tile);
+						// copy tiles to brush
+						brush.count = 0;
+						for (int tile_y = tilemap_selection.y; tile_y < tilemap_selection.y + tilemap_selection.h; tile_y++) {
+							for (int tile_x = tilemap_selection.x; tile_x < tilemap_selection.x + tilemap_selection.w; tile_x++) {
+								Tile tile = get_tile(editor.tm, tile_x, tile_y, layer_index);
+								array_add(&brush, tile);
 							
-							SetTile set = {};
-							set.tile_index = tile_x + tile_y * editor.tm.width;
-							set.layer_index = layer_index;
-							set.tile_from = tile;
-							set.tile_to = {};
-							array_add(&cut_action.set_tiles.sets, set);
+								SetTile set = {};
+								set.tile_index = tile_x + tile_y * editor.tm.width;
+								set.layer_index = layer_index;
+								set.tile_from = tile;
+								set.tile_to = {};
+								array_add(&cut_action.set_tiles.sets, set);
+							}
 						}
-					}
-					brush_w = tilemap_selection.w;
-					brush_h = tilemap_selection.h;
+						brush_w = tilemap_selection.w;
+						brush_h = tilemap_selection.h;
 
-					if (ImGui::IsKeyPressed(ImGuiKey_X, false)) {
-						editor.action_add_and_perform(cut_action);
+						if (ImGui::IsKeyPressed(ImGuiKey_X, false)) {
+							editor.action_add_and_perform(cut_action);
 
-						editor.notify(NOTIF_INFO, "Cut %d tiles.", brush_w * brush_h);
+							editor.notify(NOTIF_INFO, "Cut %d tiles.", brush_w * brush_h);
+						} else {
+							free_action(&cut_action);
+
+							editor.notify(NOTIF_INFO, "Copied %d tiles.", brush_w * brush_h);
+						}
+
+						tool = TOOL_BRUSH;
+						tilemap_selection = {};
 					} else {
-						free_action(&cut_action);
-
-						editor.notify(NOTIF_INFO, "Copied %d tiles.", brush_w * brush_h);
+						editor.notify(NOTIF_WARN, "Trying to cut/copy from invisible layer!");
 					}
-
-					tool = TOOL_BRUSH;
-					tilemap_selection = {};
 				}
 			}
 		}
