@@ -4,12 +4,37 @@
 
 #include "window_creation.h"
 
+#undef Remove
+
 #include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"
 
 #include "imgui/imgui_impl_sdl2.h"
 #include "imgui/imgui_impl_opengl3.h"
 
 #include "IconsFontAwesome5.h"
+
+// don't assert on failure
+static ImFont* AddFontFromFileTTF(ImFontAtlas* atlas, const char* filename, float size_pixels, const ImFontConfig* font_cfg_template, const ImWchar* glyph_ranges)
+{
+	IM_ASSERT(!atlas->Locked && "Cannot modify a locked ImFontAtlas between NewFrame() and EndFrame/Render()!");
+	size_t data_size = 0;
+	void* data = ImFileLoadToMemory(filename, "rb", &data_size, 0);
+	if (!data)
+	{
+		// IM_ASSERT_USER_ERROR(0, "Could not load font file!");
+		return NULL;
+	}
+	ImFontConfig font_cfg = font_cfg_template ? *font_cfg_template : ImFontConfig();
+	if (font_cfg.Name[0] == '\0')
+	{
+		// Store a short copy of filename into into the font name for convenience
+		const char* p;
+		for (p = filename + strlen(filename); p > filename && p[-1] != '/' && p[-1] != '\\'; p--) {}
+		ImFormatString(font_cfg.Name, IM_ARRAYSIZE(font_cfg.Name), "%s, %.0fpx", p, size_pixels);
+	}
+	return atlas->AddFontFromMemoryTTF(data, (int)data_size, size_pixels, &font_cfg, glyph_ranges);
+}
 
 void init_imgui() {
 	// Setup Dear ImGui context
@@ -34,10 +59,18 @@ void init_imgui() {
 	// Load Fonts
 	{
 #ifdef _WIN32
-		ImFont* font = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\segoeui.ttf", 18, nullptr, io.Fonts->GetGlyphRangesCyrillic());
+		ImFont* font = AddFontFromFileTTF(io.Fonts, "C:\\Windows\\Fonts\\segoeui.ttf", 18, nullptr, io.Fonts->GetGlyphRangesDefault());
 #else
-		ImFont* font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf", 18, nullptr, io.Fonts->GetGlyphRangesCyrillic());
+		ImFont* font = AddFontFromFileTTF(io.Fonts, "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf", 18, nullptr, io.Fonts->GetGlyphRangesDefault());
 #endif
+
+		if (!font) {
+			font = AddFontFromFileTTF(io.Fonts, "segoeui.ttf", 18, nullptr, io.Fonts->GetGlyphRangesDefault());
+		}
+
+		if (!font) {
+			font = io.Fonts->AddFontDefault();
+		}
 
 		float baseFontSize = 13.0f; // 13.0f is the size of the default font. Change to the font size you use.
 		float iconFontSize = baseFontSize; // * 2.0f / 3.0f; // FontAwesome fonts need to have their sizes reduced by 2.0f/3.0f in order to align correctly
@@ -48,7 +81,7 @@ void init_imgui() {
 		icons_config.MergeMode = true;
 		icons_config.PixelSnapH = true;
 		icons_config.GlyphMinAdvanceX = iconFontSize;
-		io.Fonts->AddFontFromFileTTF("fonts/" FONT_ICON_FILE_NAME_FAS, iconFontSize, &icons_config, icons_ranges);             // Merge into first font
+		AddFontFromFileTTF(io.Fonts, "fonts/" FONT_ICON_FILE_NAME_FAS, iconFontSize, &icons_config, icons_ranges); // Merge into first font
 
 		io.Fonts->Build();
 	}
