@@ -3600,13 +3600,13 @@ void Game::draw(float delta) {
 		// dpad
 		draw_sprite(get_sprite(spr_mobile_dpad), 0, dpad_pos, {1,1}, 0, color);
 
-		draw_sprite(get_sprite(spr_mobile_dpad_up),    (p->input & INPUT_UP)    > 0, dpad_pos + vec2{25,  0}, {1,1}, 0, color);
-		draw_sprite(get_sprite(spr_mobile_dpad_down),  (p->input & INPUT_DOWN)  > 0, dpad_pos + vec2{25, 37}, {1,1}, 0, color);
-		draw_sprite(get_sprite(spr_mobile_dpad_left),  (p->input & INPUT_LEFT)  > 0, dpad_pos + vec2{ 0, 24}, {1,1}, 0, color);
-		draw_sprite(get_sprite(spr_mobile_dpad_right), (p->input & INPUT_RIGHT) > 0, dpad_pos + vec2{37, 24}, {1,1}, 0, color);
+		draw_sprite(get_sprite(spr_mobile_dpad_up),    (player.input & INPUT_UP)    > 0, dpad_pos + vec2{25,  0}, {1,1}, 0, color);
+		draw_sprite(get_sprite(spr_mobile_dpad_down),  (player.input & INPUT_DOWN)  > 0, dpad_pos + vec2{25, 37}, {1,1}, 0, color);
+		draw_sprite(get_sprite(spr_mobile_dpad_left),  (player.input & INPUT_LEFT)  > 0, dpad_pos + vec2{ 0, 24}, {1,1}, 0, color);
+		draw_sprite(get_sprite(spr_mobile_dpad_right), (player.input & INPUT_RIGHT) > 0, dpad_pos + vec2{37, 24}, {1,1}, 0, color);
 
 		// action button
-		draw_sprite(get_sprite(spr_mobile_action_button), (p->input & INPUT_JUMP) > 0, action_pos, {1,1}, 0, color);
+		draw_sprite(get_sprite(spr_mobile_action_button), (player.input & INPUT_JUMP) > 0, action_pos, {1,1}, 0, color);
 
 		// pause button
 		draw_sprite(get_sprite(spr_mobile_pause_button), 0, {window.game_width - 68, 8});
