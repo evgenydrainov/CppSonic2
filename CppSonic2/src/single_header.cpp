@@ -18,6 +18,7 @@
 #define GLAD_GLES2_IMPLEMENTATION
 #include <glad/gl.h>
 #undef GLAD_GL_IMPLEMENTATION
+#undef GLAD_GLES2_IMPLEMENTATION
 
 
 #pragma warning(pop)

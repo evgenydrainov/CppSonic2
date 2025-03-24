@@ -139,15 +139,15 @@ void main()
 	vec2 sd1 = dg1 * 0.5;
 	vec2 sd2 = dg2 * 0.5;
 	
-	vec4 c  = texture2D(u_Texture, v_TexCoord);
-	vec4 i1 = texture2D(u_Texture, v_TexCoord - sd1);
-	vec4 i2 = texture2D(u_Texture, v_TexCoord - sd2);
-	vec4 i3 = texture2D(u_Texture, v_TexCoord + sd1);
-	vec4 i4 = texture2D(u_Texture, v_TexCoord + sd2);
-	vec4 o1 = texture2D(u_Texture, v_TexCoord - dg1);
-	vec4 o3 = texture2D(u_Texture, v_TexCoord + dg1);
-	vec4 o2 = texture2D(u_Texture, v_TexCoord - dg2);
-	vec4 o4 = texture2D(u_Texture, v_TexCoord + dg2);
+	vec4 c  = texture(u_Texture, v_TexCoord);
+	vec4 i1 = texture(u_Texture, v_TexCoord - sd1);
+	vec4 i2 = texture(u_Texture, v_TexCoord - sd2);
+	vec4 i3 = texture(u_Texture, v_TexCoord + sd1);
+	vec4 i4 = texture(u_Texture, v_TexCoord + sd2);
+	vec4 o1 = texture(u_Texture, v_TexCoord - dg1);
+	vec4 o3 = texture(u_Texture, v_TexCoord + dg1);
+	vec4 o2 = texture(u_Texture, v_TexCoord - dg2);
+	vec4 o4 = texture(u_Texture, v_TexCoord + dg2);
 	
 	float ko1 = dot(abs(o1 - c), vec4(1.0));
 	float ko2 = dot(abs(o2 - c), vec4(1.0));
