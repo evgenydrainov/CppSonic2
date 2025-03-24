@@ -335,12 +335,19 @@ void handle_event(const SDL_Event& ev) {
 					window.frame_advance_mode = false;
 					break;
 				}
+			}
+			break;
+		}
 
+		case SDL_KEYUP: {
+			SDL_Scancode scancode = ev.key.keysym.scancode;
+
+			switch (scancode) {
 #ifdef __ANDROID__
-				/*case SDL_SCANCODE_AC_BACK: {
-					SDL_StartTextInput();
+				case SDL_SCANCODE_AC_BACK: {
+					window.android_should_show_keyboard = true;
 					break;
-				}*/
+				}
 #endif
 			}
 			break;
@@ -459,6 +466,11 @@ void swap_buffers() {
 			// spinlock
 			while (get_time() < window.frame_end_time) {}
 		}
+	}
+
+	if (window.android_should_show_keyboard) {
+		SDL_StartTextInput();
+		window.android_should_show_keyboard = false;
 	}
 }
 

@@ -68,6 +68,8 @@ struct Window {
 	u64 perf_counter_when_started;
 	u64 perf_frequency;
 	double perf_frequency_double;
+
+	bool android_should_show_keyboard;
 };
 
 extern Window window;
