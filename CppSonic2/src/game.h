@@ -381,7 +381,10 @@ void draw_tilemap_layer(const Tilemap& tm,
 						int xto, int yto,
 						vec4 color);
 
-void draw_objects(array<Object> objects, float time_frames, bool show_editor_objects);
+void draw_objects(array<Object> objects,
+				  float time_frames,
+				  bool show_editor_objects,
+				  bool cull_objects);
 
 void free_tilemap(Tilemap* tm);
 void free_tileset(Tileset* ts);

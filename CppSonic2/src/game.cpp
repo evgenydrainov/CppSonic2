@@ -50,7 +50,58 @@ void Game::load_level(const char* path) {
 
 	// load tilemap data
 	stb_snprintf(buf, sizeof(buf), "%s/Tilemap.bin", path);
+
+#if !defined(__ANDROID__)
 	read_tilemap(&tm, buf);
+#else
+	{
+		// weird compiler bug on android
+
+		Tilemap* tm = &this->tm;
+		const char* fname = buf;
+
+		free_tilemap(tm);
+
+		size_t filesize;
+		u8* filedata = get_file(fname, &filesize);
+
+		SDL_RWops* f = SDL_RWFromConstMem(filedata, filesize);
+		defer { SDL_RWclose(f); };
+
+		char magic[4];
+		SDL_RWread(f, magic, sizeof magic, 1);
+
+		u32 version;
+		SDL_RWread(f, &version, sizeof version, 1);
+
+		int width;
+		SDL_RWread(f, &width, sizeof width, 1);
+
+		tm->width = width;
+
+		int height;
+		SDL_RWread(f, &height, sizeof height, 1);
+
+		tm->height = height;
+
+		tm->tiles_a = calloc_array<Tile>(width * height);
+		tm->tiles_b = calloc_array<Tile>(width * height);
+		tm->tiles_c = calloc_array<Tile>(width * height);
+		tm->tiles_d = calloc_array<Tile>(width * height);
+
+		SDL_RWread(f, tm->tiles_a.data, sizeof(tm->tiles_a[0]), tm->tiles_a.count);
+
+		SDL_RWread(f, tm->tiles_b.data, sizeof(tm->tiles_b[0]), tm->tiles_b.count);
+
+		if (version >= 2) {
+			SDL_RWread(f, tm->tiles_c.data, sizeof(tm->tiles_c[0]), tm->tiles_c.count);
+
+			if (version >= 3) {
+				SDL_RWread(f, tm->tiles_d.data, sizeof(tm->tiles_d[0]), tm->tiles_d.count);
+			}
+		}
+	}
+#endif
 
 	// load tileset data
 	stb_snprintf(buf, sizeof(buf), "%s/Tileset.bin", path);
@@ -2926,7 +2977,30 @@ void draw_tilemap_layer(const Tilemap& tm,
 	}
 }
 
-void draw_objects(array<Object> objects, float time_frames, bool show_editor_objects) {
+void draw_objects(array<Object> objects,
+				  float time_frames,
+				  bool show_editor_objects,
+				  bool cull_objects) {
+	auto out_of_bounds = [&](const Sprite& s, vec2 pos) -> bool {
+		if (!cull_objects) {
+			return false;
+		}
+
+		pos -= game.camera_pos;
+		pos.x -= s.xorigin;
+		pos.y -= s.yorigin;
+
+		float left   = pos.x;
+		float right  = pos.x + s.width;
+		float top    = pos.y;
+		float bottom = pos.y + s.height;
+
+		return (right < 0
+				|| left > window.game_width
+				|| bottom < 0
+				|| bottom > window.game_height);
+	};
+
 	For (it, objects) {
 		switch (it->type) {
 			case OBJ_PLAYER_INIT_POS: {
@@ -2958,6 +3032,7 @@ void draw_objects(array<Object> objects, float time_frames, bool show_editor_obj
 			case OBJ_RING: {
 				const Sprite& s = get_object_sprite(it->type);
 				int frame_index = (int)(time_frames * 0.1f) % s.frames.count;
+				if (out_of_bounds(s, it->pos)) break;
 				draw_sprite(s, frame_index, it->pos);
 				break;
 			}
@@ -2965,6 +3040,7 @@ void draw_objects(array<Object> objects, float time_frames, bool show_editor_obj
 			case OBJ_MONITOR: {
 				const Sprite& s = get_object_sprite(it->type);
 				int frame_index = (int)(time_frames * 0.25f) % s.frames.count;
+				if (out_of_bounds(s, it->pos)) break;
 				draw_sprite(s, frame_index, it->pos);
 
 				// draw monitor icon
@@ -2982,8 +3058,8 @@ void draw_objects(array<Object> objects, float time_frames, bool show_editor_obj
 			case OBJ_MONITOR_ICON: {
 				const Sprite& s = get_object_sprite(it->type);
 				int frame_index = it->monitor.icon;
-				vec2 pos = it->pos;
-				draw_sprite(s, frame_index, pos);
+				if (out_of_bounds(s, it->pos)) break;
+				draw_sprite(s, frame_index, it->pos);
 				break;
 			}
 
@@ -2999,6 +3075,7 @@ void draw_objects(array<Object> objects, float time_frames, bool show_editor_obj
 
 				float angle = it->spring.direction * 90 - 90;
 
+				if (out_of_bounds(get_sprite(sprite_index), it->pos)) break;
 				draw_sprite(get_sprite(sprite_index), frame_index, it->pos, {1, 1}, angle);
 				break;
 			}
@@ -3007,6 +3084,7 @@ void draw_objects(array<Object> objects, float time_frames, bool show_editor_obj
 				const Sprite& s = get_object_sprite(it->type);
 				float frame_index = 0;
 				float angle = it->spike.direction * 90 - 90;
+				if (out_of_bounds(s, it->pos)) break;
 				draw_sprite(s, frame_index, it->pos, {1, 1}, angle);
 				break;
 			}
@@ -3014,6 +3092,8 @@ void draw_objects(array<Object> objects, float time_frames, bool show_editor_obj
 			case OBJ_RING_DROPPED: {
 				const Sprite& s = get_object_sprite(it->type);
 				float frame_index = it->ring_dropped.frame_index;
+
+				if (out_of_bounds(s, it->pos)) break;
 
 				bool dont_draw = false;
 
@@ -3037,6 +3117,7 @@ void draw_objects(array<Object> objects, float time_frames, bool show_editor_obj
 
 				u32 sprite_index = sprite_indices[it->mplatform.sprite_index];
 
+				if (out_of_bounds(get_sprite(sprite_index), it->pos)) break;
 				draw_sprite(get_sprite(sprite_index), 0, it->pos);
 				break;
 			}
@@ -3079,6 +3160,7 @@ void draw_objects(array<Object> objects, float time_frames, bool show_editor_obj
 					scale.x = -signf(it->mosqui.xspeed);
 				}
 
+				if (out_of_bounds(get_sprite(sprite_index), it->pos)) break;
 				draw_sprite(get_sprite(sprite_index), frame_index, it->pos, scale);
 				break;
 			}
@@ -3086,12 +3168,14 @@ void draw_objects(array<Object> objects, float time_frames, bool show_editor_obj
 			case OBJ_FLOWER: {
 				u32 sprite_index = spr_flower;
 				float frame_index = it->flower.frame_index;
+				if (out_of_bounds(get_sprite(sprite_index), it->pos)) break;
 				draw_sprite(get_sprite(sprite_index), frame_index, it->pos);
 				break;
 			}
 
 			default: {
 				const Sprite& s = get_object_sprite(it->type);
+				if (out_of_bounds(s, it->pos)) break;
 				draw_sprite(s, 0, it->pos);
 				break;
 			}
@@ -3243,7 +3327,7 @@ void Game::draw(float delta) {
 	draw_tilemap_layer(tm, 0, tileset_texture, xfrom, yfrom, xto, yto, color_white);
 
 	// draw objects
-	draw_objects(objects, time_frames, false);
+	draw_objects(objects, time_frames, false, true);
 
 	// draw player
 	draw_player(&player);

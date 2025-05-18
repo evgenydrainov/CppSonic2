@@ -1731,7 +1731,7 @@ void TilemapEditor::update(float delta) {
 
 			// draw objects
 			if (tilemap_editor.show_objects) {
-				draw_objects(editor.objects, SDL_GetTicks() / (1000.0f / 60.0f), true);
+				draw_objects(editor.objects, SDL_GetTicks() / (1000.0f / 60.0f), true, false);
 
 				draw_editor_object_gizmos();
 			}
@@ -2199,7 +2199,7 @@ void ObjectsEditor::update(float delta) {
 			draw_tilemap_layer(editor.tm, 0, editor.tileset_texture, pos_from.x, pos_from.y, pos_to.x, pos_to.y, color_white);
 			draw_tilemap_layer(editor.tm, 2, editor.tileset_texture, pos_from.x, pos_from.y, pos_to.x, pos_to.y, color_white);
 
-			draw_objects(editor.objects, SDL_GetTicks() / (1000.0f / 60.0f), true);
+			draw_objects(editor.objects, SDL_GetTicks() / (1000.0f / 60.0f), true, false);
 
 			draw_editor_object_gizmos();
 
