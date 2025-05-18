@@ -47,6 +47,7 @@ target_sources(main PRIVATE
         ${SourceDir}/main_menu.cpp
         ${SourceDir}/program.cpp
         ${SourceDir}/title_screen.cpp
+        ${SourceDir}/util.cpp
         )
 
 target_link_libraries(main SDL2 SDL2_mixer)

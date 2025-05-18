@@ -37,6 +37,25 @@ bool Console::handle_event(const SDL_Event& ev) {
 			return handle_keydown_event(ev);
 		}
 
+		case SDL_KEYUP: {
+			SDL_Scancode scancode = ev.key.keysym.scancode;
+
+			switch (scancode) {
+#ifdef __ANDROID__
+				case SDL_SCANCODE_AC_BACK: {
+					if (is_open) {
+						is_open = false;
+					} else {
+						is_open = true;
+						SDL_StartTextInput();
+					}
+					return true;
+				}
+#endif
+			}
+			break;
+		}
+
 		case SDL_TEXTINPUT: {
 			char ch = ev.text.text[0];
 

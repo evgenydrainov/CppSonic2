@@ -2998,7 +2998,7 @@ void draw_objects(array<Object> objects,
 		return (right < 0
 				|| left > window.game_width
 				|| bottom < 0
-				|| bottom > window.game_height);
+				|| top > window.game_height);
 	};
 
 	For (it, objects) {
