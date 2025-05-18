@@ -628,7 +628,10 @@ void draw_quad(const Texture& t, Vertex vertices[4]) {
 void draw_texture(const Texture& t, Rect src,
 				  vec2 pos, vec2 scale,
 				  vec2 origin, float angle, vec4 color, glm::bvec2 flip) {
-	pos = floor(pos);
+
+	#ifdef RENDERER_DRAW_AT_FLOORED_POS
+		pos = floor(pos);
+	#endif
 
 	if (src.w == 0 && src.h == 0) {
 		src.w = t.width;

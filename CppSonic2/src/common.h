@@ -9,8 +9,6 @@
 #error You have to define _DEBUG or NDEBUG.
 #endif
 
-// #define PRETEND_MOBILE
-
 #include <SDL.h>
 #include <stb/stb_sprintf.h>
 #include <glm/glm.hpp>
@@ -21,6 +19,8 @@
 #include <stdint.h>
 #include <stdarg.h>   // for va_list
 #include <string.h>   // for memcpy
+
+#include "config.h"
 
 typedef uint8_t  u8;
 typedef uint16_t u16;
