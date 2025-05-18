@@ -36,7 +36,8 @@ struct Console {
 			  array<string> _commands);
 	void deinit();
 
-	void handle_event(const SDL_Event& ev);
+	bool handle_event(const SDL_Event& ev);
+	bool handle_keydown_event(const SDL_Event& ev);
 
 	void execute();
 

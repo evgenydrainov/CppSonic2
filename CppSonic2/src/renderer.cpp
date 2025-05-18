@@ -45,35 +45,24 @@ void main() {
 
 
 
-static char color_frag_shader_src[] =
-R"(layout(location = 0) out vec4 FragColor;
-
-in vec4 v_Color;
-in vec2 v_TexCoord;
-
-void main() {
-	FragColor = v_Color;
-}
-)";
-
-
-
 static char circle_frag_shader_src[] =
 R"(layout(location = 0) out vec4 FragColor;
 
 in vec4 v_Color;
 in vec2 v_TexCoord;
 
+uniform sampler2D u_Texture;
+
 void main() {
-	vec4 color = v_Color;
+	vec4 color = texture(u_Texture, v_TexCoord);
 
 	vec2 coord = v_TexCoord * 2.0 - 1.0;
 
 	if (coord.x * coord.x + coord.y * coord.y >= 1.0) {
-		color.a = 0.0;
+		discard;
 	}
 
-	FragColor = color;
+	FragColor = color * v_Color;
 }
 )";
 
@@ -168,9 +157,17 @@ void main()
 
 
 
+static int get_internal_format_from_gl_format(u32 gl_format) {
+	switch (gl_format) {
+		case GL_RGB:  return GL_RGB8;
+		case GL_RGBA: return GL_RGBA8;
+	}
+	Assert(!"format not supported");
+}
+
 Texture load_texture(u8* pixel_data, int width, int height,
 					 int filter, int wrap,
-					 bool alpha_channel) {
+					 u32 gl_format) {
 	Texture t = {};
 	t.width = width;
 	t.height = height;
@@ -183,10 +180,8 @@ Texture load_texture(u8* pixel_data, int width, int height,
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
 
-	int internal_format = alpha_channel ? GL_RGBA8 : GL_RGB8;
-	u32 format          = alpha_channel ? GL_RGBA  : GL_RGB;
-
-	glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, format, GL_UNSIGNED_BYTE, pixel_data);
+	int internal_format = get_internal_format_from_gl_format(gl_format);
+	glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, gl_format, GL_UNSIGNED_BYTE, pixel_data);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 	return t;
@@ -218,10 +213,10 @@ void free_texture(Texture* t) {
 
 Framebuffer load_framebuffer(int width, int height,
 							 int filter, int wrap,
-							 bool alpha_channel, bool depth) {
+							 u32 gl_format, bool depth_texture) {
 	Framebuffer f = {};
-	f.texture = load_texture(nullptr, width, height, filter, wrap, alpha_channel);
-	if (depth) {
+	f.texture = load_texture(nullptr, width, height, filter, wrap, gl_format);
+	if (depth_texture) {
 		f.depth = load_depth_texture(width, height);
 	}
 
@@ -230,7 +225,7 @@ Framebuffer load_framebuffer(int width, int height,
 	glBindFramebuffer(GL_FRAMEBUFFER, f.id);
 
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, f.texture.id, 0);
-	if (depth) {
+	if (depth_texture) {
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, f.depth.id, 0);
 	}
 
@@ -246,7 +241,12 @@ void free_framebuffer(Framebuffer* f) {
 	*f = {};
 }
 
-static void set_vertex_attribs() {
+void free_shader(Shader* s) {
+	if (s->id != 0) glDeleteProgram(s->id);
+	*s = {};
+}
+
+void set_vertex_attribs() {
 	// Position
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
 	glEnableVertexAttribArray(0);
@@ -305,14 +305,14 @@ void init_renderer() {
 
 		glBindVertexArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); // this one has to be after glBindVertexArray(0), unlike glBindBuffer(GL_ARRAY_BUFFER, 0)
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); // ebo must be unbound after vao
 
 		renderer.vertices = malloc_bump_array<Vertex>(BATCH_MAX_VERTICES);
 
 		u8 pixel_data[] = {255, 255, 255, 255};
-		renderer.texture_for_shapes = load_texture(pixel_data, 1, 1);
+		renderer.texture_for_shapes = load_texture(pixel_data, 1, 1, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_RGBA);
 
-		renderer.framebuffer = load_framebuffer(window.game_width, window.game_height, GL_LINEAR);
+		renderer.framebuffer = load_framebuffer(window.game_width, window.game_height, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_RGB, false);
 	}
 
 	// 
@@ -325,9 +325,6 @@ void init_renderer() {
 		u32 texture_frag_shader = compile_shader(GL_FRAGMENT_SHADER, texture_frag_shader_src, "texture_frag");
 		defer { glDeleteShader(texture_frag_shader); };
 
-		u32 color_frag_shader = compile_shader(GL_FRAGMENT_SHADER, color_frag_shader_src, "color_frag");
-		defer { glDeleteShader(color_frag_shader); };
-
 		u32 circle_frag_shader = compile_shader(GL_FRAGMENT_SHADER, circle_frag_shader_src, "circle_frag");
 		defer { glDeleteShader(circle_frag_shader); };
 
@@ -337,13 +334,12 @@ void init_renderer() {
 		u32 hq4x_frag_shader = compile_shader(GL_FRAGMENT_SHADER, hq4x_frag_shader_src, "hq4x_frag");
 		defer { glDeleteShader(hq4x_frag_shader); };
 
-		renderer.texture_shader        = link_program(texture_vert_shader, texture_frag_shader,        "texture_shader");
-		renderer.color_shader          = link_program(texture_vert_shader, color_frag_shader,          "color_shader");
-		renderer.circle_shader         = link_program(texture_vert_shader, circle_frag_shader,         "circle_shader");
-		renderer.sharp_bilinear_shader = link_program(texture_vert_shader, sharp_bilinear_frag_shader, "sharp_bilinear_shader");
-		renderer.hq4x_shader           = link_program(texture_vert_shader, hq4x_frag_shader,           "hq4x_shader");
+		renderer.texture_shader.id        = link_program(texture_vert_shader, texture_frag_shader,        "texture_shader");
+		renderer.circle_shader.id         = link_program(texture_vert_shader, circle_frag_shader,         "circle_shader");
+		renderer.sharp_bilinear_shader.id = link_program(texture_vert_shader, sharp_bilinear_frag_shader, "sharp_bilinear_shader");
+		renderer.hq4x_shader.id           = link_program(texture_vert_shader, hq4x_frag_shader,           "hq4x_shader");
 
-		renderer.current_shader = renderer.texture_shader;
+		renderer.current_shader = renderer.texture_shader.id;
 		glUseProgram(renderer.current_shader);
 	}
 }
@@ -351,8 +347,8 @@ void init_renderer() {
 void deinit_renderer() {
 	free(renderer.vertices.data);
 
-	glDeleteBuffers(1, &renderer.batch_vbo);
 	glDeleteBuffers(1, &renderer.batch_ebo);
+	glDeleteBuffers(1, &renderer.batch_vbo);
 	glDeleteVertexArrays(1, &renderer.batch_vao);
 
 	free_texture(&renderer.texture_for_shapes);
@@ -360,9 +356,9 @@ void deinit_renderer() {
 }
 
 void render_begin_frame(vec4 clear_color) {
-	renderer.draw_took_t = get_time();
-
 	Assert(renderer.vertices.count == 0);
+
+	renderer.draw_took_t = get_time();
 
 	renderer.draw_calls      = renderer.curr_draw_calls;
 	renderer.max_batch       = renderer.curr_max_batch;
@@ -373,38 +369,38 @@ void render_begin_frame(vec4 clear_color) {
 	renderer.curr_total_triangles = 0;
 
 	glBindFramebuffer(GL_FRAMEBUFFER, renderer.framebuffer.id);
+	glViewport(0, 0, renderer.framebuffer.texture.width, renderer.framebuffer.texture.height);
 
 	if (clear_color.a > 0) {
 		glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 
-	glViewport(0, 0, window.game_width, window.game_height);
+	// setup default matrices
+	renderer.proj_mat = get_ortho(0, renderer.framebuffer.texture.width, renderer.framebuffer.texture.height, 0);
+	renderer.view_mat = get_identity();
+	renderer.model_mat = get_identity();
 }
 
 void render_end_frame() {
-	if (renderer.vertices.count != 0) {
-		log_warn("Renderer was not flushed!");
-		break_batch();
-		Assert(false);
-	}
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	break_batch();
 
 	int backbuffer_width;
 	int backbuffer_height;
 	SDL_GL_GetDrawableSize(window.handle, &backbuffer_width, &backbuffer_height);
 
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glViewport(0, 0, backbuffer_width, backbuffer_height);
-	renderer.proj_mat = glm::ortho(0.0f, (float)backbuffer_width, (float)backbuffer_height, 0.0f);
-	renderer.view_mat = {1};
-	renderer.model_mat = {1};
 
 	glClearColor(0, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	renderer.proj_mat = get_ortho(0, backbuffer_width, backbuffer_height, 0);
+	renderer.view_mat = get_identity();
+	renderer.model_mat = get_identity();
+
 	{
-		u32 program = renderer.sharp_bilinear_shader;
+		u32 program = renderer.sharp_bilinear_shader.id;
 		set_shader(program);
 
 		float xscale = backbuffer_width  / (float)window.game_width;
@@ -463,6 +459,16 @@ static void setup_uniforms(u32 program) {
 		glUniformMatrix4fv(u_ModelView, 1, GL_FALSE, &model_view[0][0]);
 	}
 
+	int u_Model = glGetUniformLocation(program, "u_Model");
+	if (u_Model != -1) {
+		glUniformMatrix4fv(u_Model, 1, GL_FALSE, &renderer.model_mat[0][0]);
+	}
+
+	int u_View = glGetUniformLocation(program, "u_View");
+	if (u_View != -1) {
+		glUniformMatrix4fv(u_Model, 1, GL_FALSE, &renderer.view_mat[0][0]);
+	}
+
 	int u_Proj = glGetUniformLocation(program, "u_Proj");
 	if (u_Proj != -1) {
 		glUniformMatrix4fv(u_Proj, 1, GL_FALSE, &renderer.proj_mat[0][0]);
@@ -483,120 +489,44 @@ void break_batch() {
 	}
 
 	Assert(renderer.current_mode != MODE_NONE);
+	Assert(renderer.current_texture != 0);
 
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, renderer.batch_vbo);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, renderer.vertices.count * sizeof(Vertex), renderer.vertices.data);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-	}
+	// upload vertices to gpu
+	glBindBuffer(GL_ARRAY_BUFFER, renderer.batch_vbo);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, renderer.vertices.count * sizeof(Vertex), renderer.vertices.data);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	u32 program = (renderer.current_mode == MODE_CIRCLES) ? renderer.circle_shader.id : renderer.current_shader;
+
+	glUseProgram(program);
+	defer { glUseProgram(0); };
+
+	setup_uniforms(program);
+
+	glBindVertexArray(renderer.batch_vao);
+	defer { glBindVertexArray(0); };
 
 	switch (renderer.current_mode) {
-		case MODE_QUADS: {
-			Assert(renderer.current_texture != 0);
-
-			u32 program = renderer.current_shader;
-
-			glUseProgram(program);
-			defer { glUseProgram(0); };
-
-			setup_uniforms(program);
-
-			glBindVertexArray(renderer.batch_vao);
-			defer { glBindVertexArray(0); };
-
-			Assert(renderer.vertices.count % 4 == 0);
-
-			glDrawElements(GL_TRIANGLES, (GLsizei)renderer.vertices.count / 4 * 6, GL_UNSIGNED_INT, 0);
-
-			renderer.curr_draw_calls++;
-			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
-			renderer.curr_total_triangles += (GLsizei)renderer.vertices.count / 4 * 2;
-			break;
-		}
-
-		case MODE_TRIANGLES: {
-			u32 program = renderer.color_shader;
-
-			glUseProgram(program);
-			defer { glUseProgram(0); };
-
-			setup_uniforms(program);
-
-			glBindVertexArray(renderer.batch_vao);
-			defer { glBindVertexArray(0); };
-
-			Assert(renderer.vertices.count % 3 == 0);
-
-			glDrawArrays(GL_TRIANGLES, 0, (GLsizei)renderer.vertices.count);
-
-			renderer.curr_draw_calls++;
-			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
-			renderer.curr_total_triangles += (GLsizei)renderer.vertices.count / 3;
-			break;
-		}
-
-		case MODE_LINES: {
-			u32 program = renderer.color_shader;
-
-			glUseProgram(program);
-			defer { glUseProgram(0); };
-
-			setup_uniforms(program);
-
-			glBindVertexArray(renderer.batch_vao);
-			defer { glBindVertexArray(0); };
-
-			Assert(renderer.vertices.count % 2 == 0);
-
-			glDrawArrays(GL_LINES, 0, (GLsizei)renderer.vertices.count);
-
-			renderer.curr_draw_calls++;
-			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
-			break;
-		}
-
-		case MODE_POINTS: {
-			u32 program = renderer.color_shader;
-
-			glUseProgram(program);
-			defer { glUseProgram(0); };
-
-			setup_uniforms(program);
-
-			glBindVertexArray(renderer.batch_vao);
-			defer { glBindVertexArray(0); };
-
-			glDrawArrays(GL_POINTS, 0, (GLsizei)renderer.vertices.count);
-
-			renderer.curr_draw_calls++;
-			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
-			break;
-		}
-
-		case MODE_CIRCLES: {
-			u32 program = renderer.circle_shader;
-
-			glUseProgram(program);
-			defer { glUseProgram(0); };
-
-			mat4 MVP = (renderer.proj_mat * renderer.view_mat) * renderer.model_mat;
-
-			int u_MVP = glGetUniformLocation(program, "u_MVP");
-			glUniformMatrix4fv(u_MVP, 1, GL_FALSE, &MVP[0][0]);
-
-			glBindVertexArray(renderer.batch_vao);
-			defer { glBindVertexArray(0); };
-
-			Assert(renderer.vertices.count % 4 == 0);
-
-			glDrawElements(GL_TRIANGLES, (GLsizei)renderer.vertices.count / 4 * 6, GL_UNSIGNED_INT, 0);
-
-			renderer.curr_draw_calls++;
-			renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
-			renderer.curr_total_triangles += (GLsizei)renderer.vertices.count / 4 * 2;
-			break;
-		}
+		case MODE_QUADS:     Assert(renderer.vertices.count % 4 == 0); break;
+		case MODE_TRIANGLES: Assert(renderer.vertices.count % 3 == 0); break;
+		case MODE_LINES:     Assert(renderer.vertices.count % 2 == 0); break;
+		case MODE_POINTS:    Assert(renderer.vertices.count % 1 == 0); break;
+		case MODE_CIRCLES:   Assert(renderer.vertices.count % 4 == 0); break;
 	}
+
+	if (renderer.current_mode == MODE_QUADS || renderer.current_mode == MODE_CIRCLES) {
+		int num_indices = renderer.vertices.count / 4 * 6;
+		glDrawElements(GL_TRIANGLES, num_indices, GL_UNSIGNED_INT, 0);
+
+		renderer.curr_total_triangles += renderer.vertices.count / 4 * 2;
+	} else {
+		glDrawArrays(GL_TRIANGLES, 0, renderer.vertices.count);
+
+		renderer.curr_total_triangles += renderer.vertices.count / 3;
+	}
+
+	renderer.curr_draw_calls++;
+	renderer.curr_max_batch = max(renderer.curr_max_batch, renderer.vertices.count);
 
 	renderer.vertices.count = 0;
 	renderer.current_texture = 0;
@@ -604,7 +534,7 @@ void break_batch() {
 }
 
 void set_shader(u32 shader) {
-	if (!shader) {
+	if (shader == 0) {
 		log_error("Trying to set invalid shader.");
 		return;
 	}
@@ -619,7 +549,7 @@ void set_shader(u32 shader) {
 }
 
 void reset_shader() {
-	u32 shader = renderer.texture_shader;
+	u32 shader = renderer.texture_shader.id;
 
 	if (renderer.current_shader != shader) {
 		break_batch();
@@ -628,6 +558,22 @@ void reset_shader() {
 		// @Cleanup: to be able to set uniforms
 		glUseProgram(renderer.current_shader);
 	}
+}
+
+void set_render_target(const Framebuffer& f) {
+	break_batch();
+	glBindFramebuffer(GL_FRAMEBUFFER, f.id);
+	glViewport(0, 0, f.texture.width, f.texture.height);
+
+	renderer.proj_mat = get_ortho(0, f.texture.width, f.texture.height, 0);
+}
+
+void reset_render_target() {
+	break_batch();
+	glBindFramebuffer(GL_FRAMEBUFFER, renderer.framebuffer.id);
+	glViewport(0, 0, renderer.framebuffer.texture.width, renderer.framebuffer.texture.height);
+
+	renderer.proj_mat = get_ortho(0, renderer.framebuffer.texture.width, renderer.framebuffer.texture.height, 0);
 }
 
 void set_proj_mat(const mat4& proj_mat) {
@@ -656,157 +602,117 @@ void render_clear_color(vec4 color) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void draw_quad(const Texture& t, Vertex vertices[4]) {
+static void push_vertices(RenderMode mode, const Texture& t, array<Vertex> vertices) {
 	if (t.id == 0) {
 		log_error("Trying to draw invalid texture.");
 		return;
 	}
 
 	if (t.id != renderer.current_texture
-		|| renderer.current_mode != MODE_QUADS
-		|| renderer.vertices.count + VERTICES_PER_QUAD > BATCH_MAX_VERTICES)
+		|| renderer.current_mode != mode
+		|| renderer.vertices.count + vertices.count > BATCH_MAX_VERTICES)
 	{
 		break_batch();
 
 		renderer.current_texture = t.id;
-		renderer.current_mode = MODE_QUADS;
+		renderer.current_mode = mode;
 	}
 
-	{
-		array_add(&renderer.vertices, vertices[0]);
-		array_add(&renderer.vertices, vertices[1]);
-		array_add(&renderer.vertices, vertices[2]);
-		array_add(&renderer.vertices, vertices[3]);
-	}
+	For (it, vertices) array_add(&renderer.vertices, *it);
+}
+
+void draw_quad(const Texture& t, Vertex vertices[4]) {
+	push_vertices(MODE_QUADS, t, array<Vertex>{vertices, 4});
 }
 
 void draw_texture(const Texture& t, Rect src,
 				  vec2 pos, vec2 scale,
 				  vec2 origin, float angle, vec4 color, glm::bvec2 flip) {
-	if (t.id == 0) {
-		log_error("Trying to draw invalid texture.");
-		return;
-	}
+	pos = floor(pos);
 
 	if (src.w == 0 && src.h == 0) {
 		src.w = t.width;
 		src.h = t.height;
 	}
 
-	if (t.id != renderer.current_texture
-		|| renderer.current_mode != MODE_QUADS
-		|| renderer.vertices.count + VERTICES_PER_QUAD > BATCH_MAX_VERTICES)
-	{
-		break_batch();
+	float x1 = -origin.x;
+	float y1 = -origin.y;
+	float x2 = src.w - origin.x;
+	float y2 = src.h - origin.y;
 
-		renderer.current_texture = t.id;
-		renderer.current_mode = MODE_QUADS;
+	float u1 =  src.x          / (float)t.width;
+	float v1 =  src.y          / (float)t.height;
+	float u2 = (src.x + src.w) / (float)t.width;
+	float v2 = (src.y + src.h) / (float)t.height;
+
+	if (flip.x) {
+		float temp = u1;
+		u1 = u2;
+		u2 = temp;
 	}
 
-	{
-		float x1 = -origin.x;
-		float y1 = -origin.y;
-		float x2 = src.w - origin.x;
-		float y2 = src.h - origin.y;
-
-		float u1 =  src.x          / (float)t.width;
-		float v1 =  src.y          / (float)t.height;
-		float u2 = (src.x + src.w) / (float)t.width;
-		float v2 = (src.y + src.h) / (float)t.height;
-
-		if (flip.x) {
-			float temp = u1;
-			u1 = u2;
-			u2 = temp;
-		}
-
-		if (flip.y) {
-			float temp = v1;
-			v1 = v2;
-			v2 = temp;
-		}
-
-		Vertex vertices[] = {
-			{{x1, y1, 0.0f}, {}, color, {u1, v1}}, // LT
-			{{x2, y1, 0.0f}, {}, color, {u2, v1}}, // RT
-			{{x2, y2, 0.0f}, {}, color, {u2, v2}}, // RB
-			{{x1, y2, 0.0f}, {}, color, {u1, v2}}, // LB
-		};
-
-		// Has to be in this order (learned it the hard way)
-		mat4 model = glm::translate(mat4{1.0f}, {pos.x, pos.y, 0.0f});
-		model = glm::rotate(model, glm::radians(-angle), {0.0f, 0.0f, 1.0f});
-		model = glm::scale(model, {scale.x, scale.y, 1.0f});
-
-		vertices[0].pos = model * vec4{vertices[0].pos, 1.0f};
-		vertices[1].pos = model * vec4{vertices[1].pos, 1.0f};
-		vertices[2].pos = model * vec4{vertices[2].pos, 1.0f};
-		vertices[3].pos = model * vec4{vertices[3].pos, 1.0f};
-
-		array_add(&renderer.vertices, vertices[0]);
-		array_add(&renderer.vertices, vertices[1]);
-		array_add(&renderer.vertices, vertices[2]);
-		array_add(&renderer.vertices, vertices[3]);
+	if (flip.y) {
+		float temp = v1;
+		v1 = v2;
+		v2 = temp;
 	}
+
+	Vertex vertices[] = {
+		{{x1, y1, 0.0f}, {}, color, {u1, v1}}, // LT
+		{{x2, y1, 0.0f}, {}, color, {u2, v1}}, // RT
+		{{x2, y2, 0.0f}, {}, color, {u2, v2}}, // RB
+		{{x1, y2, 0.0f}, {}, color, {u1, v2}}, // LB
+	};
+
+	mat4 model = glm::translate(mat4{1.0f}, {pos.x, pos.y, 0.0f});
+	model = glm::rotate(model, glm::radians(-angle), {0.0f, 0.0f, 1.0f});
+	model = glm::scale(model, {scale.x, scale.y, 1.0f});
+
+	vertices[0].pos = model * vec4{vertices[0].pos, 1.0f};
+	vertices[1].pos = model * vec4{vertices[1].pos, 1.0f};
+	vertices[2].pos = model * vec4{vertices[2].pos, 1.0f};
+	vertices[3].pos = model * vec4{vertices[3].pos, 1.0f};
+
+	draw_quad(t, vertices);
 }
 
 void draw_texture_simple(const Texture& t, Rect src,
 						 vec2 pos, vec2 origin, vec4 color, glm::bvec2 flip) {
-	if (t.id == 0) {
-		log_error("Trying to draw invalid texture.");
-		return;
-	}
-
 	if (src.w == 0 && src.h == 0) {
 		src.w = t.width;
 		src.h = t.height;
 	}
 
-	if (t.id != renderer.current_texture
-		|| renderer.current_mode != MODE_QUADS
-		|| renderer.vertices.count + VERTICES_PER_QUAD > BATCH_MAX_VERTICES)
-	{
-		break_batch();
+	float x1 = pos.x - origin.x;
+	float y1 = pos.y - origin.y;
+	float x2 = pos.x + src.w - origin.x;
+	float y2 = pos.y + src.h - origin.y;
 
-		renderer.current_texture = t.id;
-		renderer.current_mode = MODE_QUADS;
+	float u1 =  src.x          / (float)t.width;
+	float v1 =  src.y          / (float)t.height;
+	float u2 = (src.x + src.w) / (float)t.width;
+	float v2 = (src.y + src.h) / (float)t.height;
+
+	if (flip.x) {
+		float temp = u1;
+		u1 = u2;
+		u2 = temp;
 	}
 
-	{
-		float x1 = pos.x - origin.x;
-		float y1 = pos.y - origin.y;
-		float x2 = pos.x + src.w - origin.x;
-		float y2 = pos.y + src.h - origin.y;
-
-		float u1 =  src.x          / (float)t.width;
-		float v1 =  src.y          / (float)t.height;
-		float u2 = (src.x + src.w) / (float)t.width;
-		float v2 = (src.y + src.h) / (float)t.height;
-
-		if (flip.x) {
-			float temp = u1;
-			u1 = u2;
-			u2 = temp;
-		}
-
-		if (flip.y) {
-			float temp = v1;
-			v1 = v2;
-			v2 = temp;
-		}
-
-		Vertex vertices[] = {
-			{{x1, y1, 0.0f}, {}, color, {u1, v1}}, // LT
-			{{x2, y1, 0.0f}, {}, color, {u2, v1}}, // RT
-			{{x2, y2, 0.0f}, {}, color, {u2, v2}}, // RB
-			{{x1, y2, 0.0f}, {}, color, {u1, v2}}, // LB
-		};
-
-		array_add(&renderer.vertices, vertices[0]);
-		array_add(&renderer.vertices, vertices[1]);
-		array_add(&renderer.vertices, vertices[2]);
-		array_add(&renderer.vertices, vertices[3]);
+	if (flip.y) {
+		float temp = v1;
+		v1 = v2;
+		v2 = temp;
 	}
+
+	Vertex vertices[] = {
+		{{x1, y1, 0.0f}, {}, color, {u1, v1}}, // LT
+		{{x2, y1, 0.0f}, {}, color, {u2, v1}}, // RT
+		{{x2, y2, 0.0f}, {}, color, {u2, v2}}, // RB
+		{{x1, y2, 0.0f}, {}, color, {u1, v2}}, // LB
+	};
+
+	draw_quad(t, vertices);
 }
 
 void draw_texture_centered(const Texture& t,
@@ -836,25 +742,13 @@ void draw_rectangle(Rectf rect, vec2 scale,
 }
 
 void draw_triangle(vec2 p1, vec2 p2, vec2 p3, vec4 color) {
-	if (renderer.current_mode != MODE_TRIANGLES
-		|| renderer.vertices.count + 3 > BATCH_MAX_VERTICES)
-	{
-		break_batch();
+	Vertex vertices[] = {
+		{{p1.x, p1.y, 0.0f}, {}, color, {}},
+		{{p2.x, p2.y, 0.0f}, {}, color, {}},
+		{{p3.x, p3.y, 0.0f}, {}, color, {}},
+	};
 
-		renderer.current_mode = MODE_TRIANGLES;
-	}
-
-	{
-		Vertex vertices[] = {
-			{{p1.x, p1.y, 0.0f}, {}, color, {}},
-			{{p2.x, p2.y, 0.0f}, {}, color, {}},
-			{{p3.x, p3.y, 0.0f}, {}, color, {}},
-		};
-
-		array_add(&renderer.vertices, vertices[0]);
-		array_add(&renderer.vertices, vertices[1]);
-		array_add(&renderer.vertices, vertices[2]);
-	}
+	push_vertices(MODE_TRIANGLES, renderer.texture_for_shapes, vertices);
 }
 
 void draw_circle(vec2 pos, float radius, vec4 color, int precision) {
@@ -867,88 +761,49 @@ void draw_circle(vec2 pos, float radius, vec4 color, int precision) {
 		draw_triangle(p1, p2, pos, color);
 	}
 #else
-	if (renderer.current_mode != MODE_CIRCLES
-		|| renderer.vertices.count + 4 > BATCH_MAX_VERTICES)
-	{
-		break_batch();
+	Vertex vertices[] = {
+		{{pos.x - radius, pos.y - radius, 0.0f}, {}, color, {0.0f, 0.0f}}, // LT
+		{{pos.x + radius, pos.y - radius, 0.0f}, {}, color, {1.0f, 0.0f}}, // RT
+		{{pos.x + radius, pos.y + radius, 0.0f}, {}, color, {1.0f, 1.0f}}, // RB
+		{{pos.x - radius, pos.y + radius, 0.0f}, {}, color, {0.0f, 1.0f}}, // LB
+	};
 
-		renderer.current_mode = MODE_CIRCLES;
-	}
-
-	{
-		Vertex vertices[] = {
-			{{pos.x - radius, pos.y - radius, 0.0f}, {}, color, {0.0f, 0.0f}}, // LT
-			{{pos.x + radius, pos.y - radius, 0.0f}, {}, color, {1.0f, 0.0f}}, // RT
-			{{pos.x + radius, pos.y + radius, 0.0f}, {}, color, {1.0f, 1.0f}}, // RB
-			{{pos.x - radius, pos.y + radius, 0.0f}, {}, color, {0.0f, 1.0f}}, // LB
-		};
-
-		array_add(&renderer.vertices, vertices[0]);
-		array_add(&renderer.vertices, vertices[1]);
-		array_add(&renderer.vertices, vertices[2]);
-		array_add(&renderer.vertices, vertices[3]);
-	}
+	push_vertices(MODE_CIRCLES, renderer.texture_for_shapes, vertices);
 #endif
 }
 
 void draw_line(vec2 p1, vec2 p2, vec4 color) {
-	if (renderer.current_mode != MODE_LINES
-		|| renderer.vertices.count + 2 > BATCH_MAX_VERTICES)
-	{
-		break_batch();
-
-		renderer.current_mode = MODE_LINES;
-	}
-
 	// opengl diamond rule
 	p1 += vec2{0.5f, 0.5f};
 	p2 += vec2{0.5f, 0.5f};
 
-	{
-		/* stolen from SDL2 */
-
-		/* bump a little in the direction we are moving in. */
-		float deltax = p2.x - p1.x;
-		float deltay = p2.y - p1.y;
-		float angle = atan2f(deltay, deltax);
-		p2.x += cosf(angle) * 0.50f;
-		p2.y += sinf(angle) * 0.50f;
-	}
+	/* stolen from SDL2 */
+	/* bump a little in the direction we are moving in. */
+	float deltax = p2.x - p1.x;
+	float deltay = p2.y - p1.y;
+	float angle = atan2f(deltay, deltax);
+	p2.x += cosf(angle) * 0.50f;
+	p2.y += sinf(angle) * 0.50f;
 
 	Vertex vertices[] = {
 		{{p1.x, p1.y, 0.0f}, {}, color, {}},
 		{{p2.x, p2.y, 0.0f}, {}, color, {}},
 	};
 
-	array_add(&renderer.vertices, vertices[0]);
-	array_add(&renderer.vertices, vertices[1]);
+	push_vertices(MODE_LINES, renderer.texture_for_shapes, vertices);
 }
 
 void draw_line_exact(vec2 p1, vec2 p2, vec4 color) {
-	if (renderer.current_mode != MODE_LINES
-		|| renderer.vertices.count + 2 > BATCH_MAX_VERTICES)
-	{
-		break_batch();
-
-		renderer.current_mode = MODE_LINES;
-	}
-
 	Vertex vertices[] = {
 		{{p1.x, p1.y, 0.0f}, {}, color, {}},
 		{{p2.x, p2.y, 0.0f}, {}, color, {}},
 	};
 
-	array_add(&renderer.vertices, vertices[0]);
-	array_add(&renderer.vertices, vertices[1]);
+	push_vertices(MODE_LINES, renderer.texture_for_shapes, vertices);
 }
 
 void draw_line_thick(vec2 p1, vec2 p2, float thickness, vec4 color) {
 	float dir = point_direction(p1, p2);
-
-	/*vec2 lt = p1 + lengthdir_v2(thickness * 0.5f, dir - 90);
-	vec2 rt = p1 + lengthdir_v2(thickness * 0.5f, dir + 90);
-	vec2 lb = p2 + lengthdir_v2(thickness * 0.5f, dir - 90);
-	vec2 rb = p2 + lengthdir_v2(thickness * 0.5f, dir + 90);*/
 
 	const float sqrt2_over_2 = 0.70710678118654752440084436210485f;
 
@@ -968,18 +823,14 @@ void draw_line_thick(vec2 p1, vec2 p2, float thickness, vec4 color) {
 }
 
 void draw_point(vec2 point, vec4 color) {
-	if (renderer.current_mode != MODE_POINTS
-		|| renderer.vertices.count + 1 > BATCH_MAX_VERTICES)
-	{
-		break_batch();
-
-		renderer.current_mode = MODE_POINTS;
-	}
-
 	// opengl diamond rule
 	point += vec2{0.5f, 0.5f};
 
-	array_add(&renderer.vertices, {{point.x, point.y, 0.0f}, {}, color, {}});
+	Vertex vertices[] = {
+		{{point.x, point.y, 0.0f}, {}, color, {}},
+	};
+
+	push_vertices(MODE_POINTS, renderer.texture_for_shapes, vertices);
 }
 
 void draw_rectangle_outline(Rectf rect, vec4 color) {

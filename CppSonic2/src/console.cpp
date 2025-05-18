@@ -31,164 +31,22 @@ void Console::deinit() {
 	free(cmd_hist.data);
 }
 
-void Console::handle_event(const SDL_Event& ev) {
-	auto handle_keydown_event = [&](const SDL_Event& ev) {
-		SDL_Scancode scancode = ev.key.keysym.scancode;
-
-		if (scancode == SDL_SCANCODE_GRAVE) {
-			is_open ^= true;
-			console_anim_y = is_open ? 0.0f : 1.0f;
-
-			if (is_open) {
-				cmd.count = 0;
-				scroll = 0;
-				caret = 0;
-				history_index = -1;
-			}
-			return;
-		}
-
-		if (!is_open) return;
-
-		if (scancode == SDL_SCANCODE_ESCAPE) {
-			is_open = false;
-			console_anim_y = is_open ? 0.0f : 1.0f;
-			return;
-		}
-
-		if (scancode == SDL_SCANCODE_BACKSPACE) {
-			if (caret > 0) {
-				array_remove(&cmd, caret - 1);
-				caret--;
-			}
-			return;
-		}
-
-		if (scancode == SDL_SCANCODE_DELETE) {
-			if (caret < cmd.count) {
-				array_remove(&cmd, caret);
-			}
-			return;
-		}
-
-		if (scancode == SDL_SCANCODE_RETURN) {
-			// ignore alt+enter
-			if (!(ev.key.keysym.mod & KMOD_ALT)) {
-				write(cmd);
-				write('\n');
-
-				execute();
-
-				bool dont_add_to_hist = false;
-				if (cmd_hist.count > 0 && cmd_hist[0] == cmd) {
-					dont_add_to_hist = true;
-				}
-
-				if (cmd.count == 0) {
-					dont_add_to_hist = true;
-				}
-
-				if (!dont_add_to_hist) {
-					if (cmd_hist.capacity == cmd_hist.count) {
-						size_t index = cmd_hist.count - 1;
-						free(cmd_hist[index].data);
-						array_remove(&cmd_hist, index);
-					}
-
-					string str = copy_string(cmd);
-					array_insert(&cmd_hist, 0, str);
-				}
-
-				cmd.count = 0;
-				caret = 0;
-				history_index = -1;
-			}
-			return;
-		}
-
-		if (scancode == SDL_SCANCODE_LEFT) {
-			caret--;
-			if (caret < 0) caret = 0;
-			return;
-		}
-
-		if (scancode == SDL_SCANCODE_RIGHT) {
-			caret++;
-			if (caret > cmd.count) caret = cmd.count;
-			return;
-		}
-
-		if (scancode == SDL_SCANCODE_UP) {
-			if (history_index + 1 < cmd_hist.count) {
-				history_index++;
-
-				string hist = cmd_hist[history_index];
-
-				Assert(hist.count <= cmd.capacity);
-				memcpy(cmd.data, hist.data, hist.count);
-				cmd.count = hist.count;
-
-				caret = cmd.count;
-			}
-			return;
-		}
-
-		if (scancode == SDL_SCANCODE_DOWN) {
-			if (history_index - 1 >= 0) {
-				history_index--;
-
-				string hist = cmd_hist[history_index];
-
-				Assert(hist.count <= cmd.capacity);
-				memcpy(cmd.data, hist.data, hist.count);
-				cmd.count = hist.count;
-
-				caret = cmd.count;
-			} else if (history_index == 0) {
-				history_index--;
-
-				cmd.count = 0;
-
-				caret = cmd.count;
-			}
-			return;
-		}
-
-		if (scancode == SDL_SCANCODE_TAB) {
-			string autocomplete = get_autocomplete(cmd);
-			if (autocomplete.count > 0) {
-				Assert(autocomplete.count <= cmd.capacity);
-				memcpy(cmd.data, autocomplete.data, autocomplete.count);
-				cmd.count = autocomplete.count;
-
-				caret = cmd.count;
-			}
-			return;
-		}
-
-		if (scancode == SDL_SCANCODE_HOME) {
-			caret = 0;
-			return;
-		}
-
-		if (scancode == SDL_SCANCODE_END) {
-			caret = cmd.count;
-			return;
-		}
-	};
-
+bool Console::handle_event(const SDL_Event& ev) {
 	switch (ev.type) {
 		case SDL_KEYDOWN: {
-			handle_keydown_event(ev);
-			break;
+			return handle_keydown_event(ev);
 		}
 
 		case SDL_TEXTINPUT: {
 			char ch = ev.text.text[0];
 
-			if (!is_open) break;
+			if (!is_open) {
+				return false;
+			}
 
-			if (ch == '`') break;
+			if (ch == '`' || ch == '~') {
+				return false;
+			}
 
 			if ((u8)ch >= 32 && (u8)ch <= 127) {
 				if (cmd.count < cmd.capacity) {
@@ -196,9 +54,167 @@ void Console::handle_event(const SDL_Event& ev) {
 					caret++;
 				}
 			}
-			break;
+			return true;
+		}
+
+		case SDL_MOUSEWHEEL: {
+			scroll += ev.wheel.y * 40;
+			return true;
 		}
 	}
+
+	return false;
+}
+
+bool Console::handle_keydown_event(const SDL_Event& ev) {
+	SDL_Scancode scancode = ev.key.keysym.scancode;
+
+	if (ev.key.keysym.mod & KMOD_ALT) {
+		return false;
+	}
+
+	if (scancode == SDL_SCANCODE_GRAVE) {
+		is_open ^= true;
+		console_anim_y = is_open ? 0.0f : 1.0f;
+
+		if (is_open) {
+			cmd.count = 0;
+			scroll = 0;
+			caret = 0;
+			history_index = -1;
+		}
+		return true;
+	}
+
+	if (!is_open) {
+		return false;
+	}
+
+	if (scancode == SDL_SCANCODE_ESCAPE) {
+		is_open = false;
+		console_anim_y = is_open ? 0.0f : 1.0f;
+		return true;
+	}
+
+	if (scancode == SDL_SCANCODE_BACKSPACE) {
+		if (caret > 0) {
+			array_remove(&cmd, caret - 1);
+			caret--;
+		}
+		return true;
+	}
+
+	if (scancode == SDL_SCANCODE_DELETE) {
+		if (caret < cmd.count) {
+			array_remove(&cmd, caret);
+		}
+		return true;
+	}
+
+	if (scancode == SDL_SCANCODE_RETURN) {
+		write(cmd);
+		write('\n');
+
+		execute();
+
+		bool dont_add_to_hist = false;
+		if (cmd_hist.count > 0 && cmd_hist[0] == cmd) {
+			dont_add_to_hist = true;
+		}
+
+		if (cmd.count == 0) {
+			dont_add_to_hist = true;
+		}
+
+		if (!dont_add_to_hist) {
+			if (cmd_hist.capacity == cmd_hist.count) {
+				size_t index = cmd_hist.count - 1;
+				free(cmd_hist[index].data);
+				array_remove(&cmd_hist, index);
+			}
+
+			string str = copy_string(cmd);
+			array_insert(&cmd_hist, 0, str);
+		}
+
+		cmd.count = 0;
+		caret = 0;
+		history_index = -1;
+		return true;
+	}
+
+	if (scancode == SDL_SCANCODE_LEFT) {
+		caret--;
+		if (caret < 0) caret = 0;
+		return true;
+	}
+
+	if (scancode == SDL_SCANCODE_RIGHT) {
+		caret++;
+		if (caret > cmd.count) caret = cmd.count;
+		return true;
+	}
+
+	if (scancode == SDL_SCANCODE_UP) {
+		if (history_index + 1 < cmd_hist.count) {
+			history_index++;
+
+			string hist = cmd_hist[history_index];
+
+			Assert(hist.count <= cmd.capacity);
+			memcpy(cmd.data, hist.data, hist.count);
+			cmd.count = hist.count;
+
+			caret = cmd.count;
+		}
+		return true;
+	}
+
+	if (scancode == SDL_SCANCODE_DOWN) {
+		if (history_index - 1 >= 0) {
+			history_index--;
+
+			string hist = cmd_hist[history_index];
+
+			Assert(hist.count <= cmd.capacity);
+			memcpy(cmd.data, hist.data, hist.count);
+			cmd.count = hist.count;
+
+			caret = cmd.count;
+		} else if (history_index == 0) {
+			history_index--;
+
+			cmd.count = 0;
+
+			caret = cmd.count;
+		}
+		return true;
+	}
+
+	if (scancode == SDL_SCANCODE_TAB) {
+		string autocomplete = get_autocomplete(cmd);
+		if (autocomplete.count > 0) {
+			Assert(autocomplete.count <= cmd.capacity);
+			memcpy(cmd.data, autocomplete.data, autocomplete.count);
+			cmd.count = autocomplete.count;
+
+			caret = cmd.count;
+		}
+		return true;
+	}
+
+	if (scancode == SDL_SCANCODE_HOME) {
+		caret = 0;
+		return true;
+	}
+
+	if (scancode == SDL_SCANCODE_END) {
+		caret = cmd.count;
+		return true;
+	}
+
+	// eat all keydown events
+	return true;
 }
 
 void Console::execute() {
@@ -259,12 +275,6 @@ void Console::draw(float delta) {
 	int backbuffer_height;
 	SDL_GL_GetDrawableSize(window.handle, &backbuffer_width, &backbuffer_height);
 
-	break_batch();
-	renderer.proj_mat = glm::ortho<float>(0, backbuffer_width, backbuffer_height, 0);
-	renderer.view_mat = {1};
-	renderer.model_mat = {1};
-	glViewport(0, 0, backbuffer_width, backbuffer_height);
-
 	float console_w = backbuffer_width;
 	float console_h = backbuffer_height * 0.40f * console_anim_y;
 
@@ -273,8 +283,8 @@ void Console::draw(float delta) {
 	vec2 pos = {0, console_h + scroll};
 
 	break_batch();
-	glScissor(0, backbuffer_height - console_h, console_w, console_h);
 	glEnable(GL_SCISSOR_TEST);
+	glScissor(0, backbuffer_height - console_h, console_w, console_h);
 
 	// draw history
 	draw_text(font, history, pos, HALIGN_LEFT, VALIGN_BOTTOM);

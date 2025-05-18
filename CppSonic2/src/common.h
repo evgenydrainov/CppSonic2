@@ -156,7 +156,11 @@ inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(SDL_LogPriority priority, SDL
 // For now, asserts will be enabled in release build.
 //
 #ifdef NDEBUG
-	#define Assert(expr) while (!(expr)) panic_and_abort("Assertion Failed: " #expr)
+	#ifdef ENABLE_ASSERTS_IN_RELEASE
+		#define Assert(expr) while (!(expr)) panic_and_abort("Assertion Failed: " #expr)
+	#else
+		#define Assert(expr)
+	#endif
 #else
 	#define Assert(expr) while (!(expr)) { try_to_exit_fullscreen_properly(); SDL_TriggerBreakpoint(); }
 #endif
@@ -555,7 +559,15 @@ inline mat4 get_ortho(float left, float right, float bottom, float top) {
 }
 
 inline mat4 get_translation(vec3 v) {
-	return glm::translate<float>(mat4{1}, v);
+	return glm::translate<float>(mat4{1.0f}, v);
+}
+
+inline mat4 get_rotation(float angle_radians, vec3 v) {
+	return glm::rotate<float>(mat4{1.0f}, angle_radians, v);
+}
+
+inline mat4 get_identity() {
+	return mat4{1.0f};
 }
 
 // 
@@ -587,9 +599,8 @@ inline void Approach(T* start, T end, T shift) { *start = approach(*start, end, 
 
 #define is_power_of_two(x) ((x) != 0 && ((x) & ((x) - 1)) == 0)
 
-template <size_t alignment>
-inline uintptr_t align_forward(uintptr_t ptr) {
-	static_assert(is_power_of_two(alignment));
+inline uintptr_t align_forward(uintptr_t ptr, size_t alignment) {
+	Assert(is_power_of_two(alignment));
 	return (ptr + (alignment - 1)) & ~(alignment - 1);
 }
 
@@ -614,9 +625,9 @@ inline void free_arena(Arena* a) {
 	*a = {};
 }
 
-inline u8* arena_push(Arena* a, size_t size) {
+inline u8* arena_push(Arena* a, size_t size, size_t alignment = Arena::DEFAULT_ALIGNMENT) {
 	uintptr_t curr_ptr = (uintptr_t)a->data + (uintptr_t)a->count;
-	uintptr_t offset = align_forward<Arena::DEFAULT_ALIGNMENT>(curr_ptr);
+	uintptr_t offset = align_forward(curr_ptr, alignment);
 	offset -= (uintptr_t)a->data;
 
 	Assert(offset + size <= a->capacity && "Arena out of memory.");

@@ -38,7 +38,11 @@ Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath) {
 
 			bool done;
 			int size = string_to_int(word, &done);
-			Assert(done);
+			if (!done) {
+				log_error("Couldn't parse size for font \"%s\"", fnt_filepath);
+				free_font(&f);
+				return {};
+			}
 
 			f.size = size;
 		}
@@ -56,7 +60,11 @@ Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath) {
 
 			bool done;
 			int line_height = string_to_int(word, &done);
-			Assert(done);
+			if (!done) {
+				log_error("Couldn't parse line height for font \"%s\"", fnt_filepath);
+				free_font(&f);
+				return {};
+			}
 
 			f.line_height = line_height;
 		}
@@ -68,12 +76,14 @@ Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath) {
 	f.glyphs = calloc_array<Glyph>(95);
 	f.should_free_glyphs = true;
 
-	for (int i = 0; i < 95; i++) {
+	while (starts_with(text, "char ")) {
 		line = eat_line(&text);
 
 		eat_whitespace(&line);
 		string word = eat_non_whitespace(&line);
 		Assert(word == "char");
+
+		int id = -1;
 
 		auto eat_value_int = [&](string prefix) -> int {
 			Assert(prefix.count >= 2);
@@ -81,22 +91,31 @@ Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath) {
 			eat_whitespace(&line);
 			string word = eat_non_whitespace(&line);
 
-			Assert(starts_with(word, prefix));
+			if (!starts_with(word, prefix)) {
+				string p = {prefix.data, prefix.count-1};
+				log_warn("Couldn't read value \"" Str_Fmt "\" for char %d in font %s", Str_Arg(p), id, fnt_filepath);
+				return 0;
+			}
 
 			advance(&word, prefix.count);
 
 			bool done;
 			int value = string_to_int(word, &done);
 			if (!done) {
-				prefix.count--;
-				log_warn("Couldn't parse value " Str_Fmt " for char %d in font %s", Str_Arg(prefix), i + 32, fnt_filepath);
+				string p = {prefix.data, prefix.count-1};
+				log_warn("Couldn't parse value \"" Str_Fmt "\" for char %d in font %s", Str_Arg(p), id, fnt_filepath);
+				return 0;
 			}
 
 			return value;
 		};
 
-		int id = eat_value_int("id=");
-		Assert(id == i + 32);
+		id = eat_value_int("id=");
+		int glyph_index = id - 32;
+
+		if (glyph_index < 0 || glyph_index >= f.glyphs.count) {
+			continue;
+		}
 
 		Glyph glyph = {};
 
@@ -108,7 +127,7 @@ Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath) {
 		glyph.yoffset  = eat_value_int("yoffset=");
 		glyph.xadvance = eat_value_int("xadvance=");
 
-		f.glyphs[i] = glyph;
+		f.glyphs[glyph_index] = glyph;
 	}
 
 	f.atlas = load_texture_from_file(png_filepath);
@@ -217,10 +236,12 @@ vec2 draw_text(const Font& font, string text, vec2 text_pos,
 			if (halign == HALIGN_CENTER) {
 				string str = text;
 				advance(&str, i + 1);
+
 				ch_x -= measure_text(font, str, true).x / 2.0f;
 			} else if (halign == HALIGN_RIGHT) {
 				string str = text;
 				advance(&str, i + 1);
+
 				ch_x -= measure_text(font, str, true).x;
 			}
 		} else {
@@ -249,7 +270,9 @@ vec2 draw_text(const Font& font, string text, vec2 text_pos,
 
 vec2 draw_text_shadow(const Font& font, string text, vec2 text_pos,
 					  HAlign halign, VAlign valign, vec4 color) {
-	draw_text(font, text, {text_pos.x + 1, text_pos.y + 1}, halign, valign, color_black);
+	vec4 shadow_color = {0, 0, 0, color.a};
+	draw_text(font, text, {text_pos.x + 1, text_pos.y + 1}, halign, valign, shadow_color);
+
 	vec2 result = draw_text(font, text, text_pos, halign, valign, color);
 	return result;
 }

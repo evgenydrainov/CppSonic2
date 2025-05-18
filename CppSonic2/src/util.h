@@ -1,58 +1,17 @@
 #pragma once
 
 #include "common.h"
+#include "renderer.h"
 
-inline u32 compile_shader(GLenum type, string source, const char* debug_name = nullptr) {
-	u32 shader = glCreateShader(type);
+u32 compile_shader(GLenum type, string source, const char* debug_name = nullptr);
 
-#if defined(__ANDROID__)
-	string version_string = "#version 320 es\n";
-#elif defined(__EMSCRIPTEN__)
-	string version_string = "#version 300 es\n";
-#else
-	string version_string = "#version 330 core\n";
-#endif
+u32 link_program(u32 vertex_shader, u32 fragment_shader, const char* debug_name = nullptr);
 
-	string precision_string = "#ifdef GL_ES\n"
-		"precision highp float;\n"
-		"#endif\n";
+u32 create_vertex_array_obj(array<Vertex> vertices,
+							array<u32> indices = {},
+							u32* out_vbo = nullptr, u32* out_ebo = nullptr);
 
-	const char* sources[] = {version_string.data, precision_string.data, source.data};
-	int lengths[] = {version_string.count, precision_string.count, source.count};
-	glShaderSource(shader, ArrayLength(sources), sources, lengths);
+Shader load_shader_from_file(const char* vert_fname, const char* frag_fname);
 
-	glCompileShader(shader);
-
-	int success;
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-	if (!success) {
-		char buf[512];
-		glGetShaderInfoLog(shader, sizeof(buf), NULL, buf);
-
-		if (debug_name) log_error("While compiling %s...", debug_name);
-		log_error("Shader Compile Error:\n%s", buf);
-	}
-
-	return shader;
-}
-
-inline u32 link_program(u32 vertex_shader, u32 fragment_shader, const char* debug_name = nullptr) {
-	u32 program = glCreateProgram();
-
-	glAttachShader(program, vertex_shader);
-	glAttachShader(program, fragment_shader);
-
-	glLinkProgram(program);
-
-	int success;
-	glGetProgramiv(program, GL_LINK_STATUS, &success);
-	if (!success) {
-		char buf[512];
-		glGetProgramInfoLog(program, sizeof(buf), NULL, buf);
-
-		if (debug_name) log_error("While linking %s...", debug_name);
-		log_error("Shader Link Error:\n%s", buf);
-	}
-
-	return program;
-}
+// result must be free()'d
+bump_array<Vertex> load_3d_model_from_obj_file(const char* fname);

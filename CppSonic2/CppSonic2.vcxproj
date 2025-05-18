@@ -221,6 +221,7 @@ copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.pdb" "$(TargetDi
     </ClCompile>
     <ClCompile Include="src\texture.cpp" />
     <ClCompile Include="src\title_screen.cpp" />
+    <ClCompile Include="src\util.cpp" />
     <ClCompile Include="src\window_creation.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -94,7 +94,7 @@ void deinit_window_and_opengl();
 void begin_frame();
 void swap_buffers();
 
-void handle_event(const SDL_Event& ev);
+bool handle_event(const SDL_Event& ev);
 
 bool is_key_held(SDL_Scancode key);
 bool is_key_pressed(SDL_Scancode key, bool repeat = false);

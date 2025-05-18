@@ -10,15 +10,12 @@ u8* decode_image_data(array<u8> buffer, int* out_width, int* out_height) {
 	if (starts_with(buffer, array<u8>{png_magic})) {
 		int width;
 		int height;
-		int num_channels;
-		u8* pixel_data = stbi_load_from_memory(buffer.data, (int)buffer.count, &width, &height, &num_channels, 4);
+		u8* pixel_data = stbi_load_from_memory(buffer.data, (int)buffer.count, &width, &height, nullptr, 4);
 
 		if (!pixel_data) {
 			log_error("Couldn't decode png image.");
 			return nullptr;
 		}
-
-		Assert(num_channels == 4);
 
 		*out_width = width;
 		*out_height = height;
@@ -52,13 +49,14 @@ Texture load_texture_from_memory(array<u8> buffer,
 	int width;
 	int height;
 	u8* pixel_data = decode_image_data(buffer, &width, &height);
+
 	if (!pixel_data) {
 		return create_texture_stub();
 	}
 
 	defer { free(pixel_data); };
 
-	return load_texture(pixel_data, width, height, filter, wrap);
+	return load_texture(pixel_data, width, height, filter, wrap, GL_RGBA);
 }
 
 Texture load_texture_from_file(const char* fname,
@@ -85,7 +83,7 @@ Texture create_texture_stub() {
 		0,   0,   0, 255,    255, 0, 255, 255,
 	};
 
-	return load_texture(pixel_data, width, height, GL_NEAREST, GL_REPEAT);
+	return load_texture(pixel_data, width, height, GL_NEAREST, GL_REPEAT, GL_RGBA);
 }
 
 SDL_Surface* load_surface_from_file(const char* fname) {
@@ -96,13 +94,17 @@ SDL_Surface* load_surface_from_file(const char* fname) {
 
 	int width;
 	int height;
-	// NOTE: pixel_data must be alive
 	u8* pixel_data = decode_image_data(buffer, &width, &height);
 	if (!pixel_data) {
 		return nullptr;
 	}
 
-	return SDL_CreateRGBSurfaceWithFormatFrom(pixel_data, width, height, 32, width * 4, SDL_PIXELFORMAT_ABGR8888);
+	u32 sdl_format = SDL_PIXELFORMAT_ABGR8888;
+	int bpp;
+	SDL_PixelFormatEnumToMasks(sdl_format, &bpp, nullptr, nullptr, nullptr, nullptr);
+
+	// NOTE: pixel_data must be alive
+	return SDL_CreateRGBSurfaceWithFormatFrom(pixel_data, width, height, bpp, width * (bpp / 8), sdl_format);
 }
 
 void free_surface(SDL_Surface** s) {

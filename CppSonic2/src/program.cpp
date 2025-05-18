@@ -139,8 +139,6 @@ void Program::late_draw(float delta) {
 	SDL_GL_GetDrawableSize(window.handle, &backbuffer_width, &backbuffer_height);
 
 	set_proj_mat(get_ortho(0, backbuffer_width, backbuffer_height, 0));
-	defer { set_proj_mat({1}); };
-
 	set_viewport(0, 0, backbuffer_width, backbuffer_height);
 
 	vec2 pos = {};

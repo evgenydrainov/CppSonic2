@@ -23,38 +23,55 @@
 static void do_one_frame() {
 	begin_frame();
 
-	SDL_Event ev;
-	while (SDL_PollEvent(&ev)) {
-		handle_event(ev);
+	// handle events
+	{
+		//input.clear();
 
-#ifdef DEVELOPER
-		console.handle_event(ev);
-#endif
+		SDL_Event ev;
+		while (SDL_PollEvent(&ev)) {
+			bool handled = false;
+
+			if (!handled) handled = handle_event(ev);
+
+			#ifdef DEVELOPER
+				if (!handled) handled = console.handle_event(ev);
+			#endif
+
+			//if (!handled) handled = input.handle_event(ev);
+		}
 	}
 
-	float delta = window.delta;
-
 	// update
-	program.update(delta);
+	{
+		//input.update(window.delta);
 
-#ifdef DEVELOPER
-	console.update(delta);
-#endif
+		program.update(window.delta);
 
-	vec4 clear_color = color_cornflower_blue;
-	render_begin_frame(clear_color);
+		#ifdef DEVELOPER
+			console.update(window.delta);
+		#endif
+	}
 
 	// draw
-	program.draw(delta);
+	{
+		vec4 clear_color = color_cornflower_blue;
+		render_begin_frame(clear_color);
 
-	render_end_frame();
+		program.draw(window.delta);
+
+		render_end_frame();
+	}
 
 	// late draw
-	program.late_draw(delta);
+	{
+		program.late_draw(window.delta);
 
-#ifdef DEVELOPER
-	console.draw(delta);
-#endif
+		#ifdef DEVELOPER
+			console.draw(window.delta);
+		#endif
+
+		break_batch();
+	}
 
 	swap_buffers();
 }

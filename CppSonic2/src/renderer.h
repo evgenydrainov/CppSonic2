@@ -42,8 +42,8 @@ struct Texture {
 };
 
 Texture load_texture(u8* pixel_data, int width, int height,
-					 int filter = GL_NEAREST, int wrap = GL_CLAMP_TO_EDGE,
-					 bool alpha_channel = true);
+					 int filter, int wrap,
+					 u32 gl_format);
 
 Texture load_depth_texture(int width, int height);
 
@@ -55,25 +55,28 @@ struct Framebuffer {
 	Texture depth;
 };
 
-// NOTE: alpha channel is off by default
 Framebuffer load_framebuffer(int width, int height,
-							 int filter = GL_NEAREST, int wrap = GL_CLAMP_TO_EDGE,
-							 bool alpha_channel = false, bool depth = true);
+							 int filter, int wrap,
+							 u32 gl_format, bool depth_texture);
 
 void free_framebuffer(Framebuffer* f);
+
+struct Shader {
+	u32 id;
+};
+
+void free_shader(Shader* s);
 
 struct Renderer {
 	u32 current_texture;
 	RenderMode current_mode;
+	u32 current_shader;
 	bump_array<Vertex> vertices;
 
-	u32 texture_shader;  // These shaders should be handled by an asset system maybe
-	u32 color_shader;
-	u32 circle_shader;
-	u32 sharp_bilinear_shader;
-	u32 hq4x_shader;
-
-	u32 current_shader;
+	Shader texture_shader;  // These shaders should be handled by an asset system maybe
+	Shader circle_shader;
+	Shader sharp_bilinear_shader;
+	Shader hq4x_shader;
 
 	u32 batch_vao;
 	u32 batch_vbo;
@@ -104,6 +107,8 @@ struct Renderer {
 
 extern Renderer renderer;
 
+void set_vertex_attribs();
+
 void init_renderer(); // assumes opengl is initialized
 void deinit_renderer();
 
@@ -114,6 +119,9 @@ void break_batch(); // makes the draw call
 
 void set_shader(u32 shader);
 void reset_shader();
+
+void set_render_target(const Framebuffer& f);
+void reset_render_target();
 
 void set_proj_mat (const mat4& proj_mat);
 void set_view_mat (const mat4& view_mat);
