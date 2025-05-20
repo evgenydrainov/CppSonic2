@@ -101,7 +101,8 @@ SDL_Surface* load_surface_from_file(const char* fname) {
 
 	u32 sdl_format = SDL_PIXELFORMAT_ABGR8888;
 	int bpp;
-	SDL_PixelFormatEnumToMasks(sdl_format, &bpp, nullptr, nullptr, nullptr, nullptr);
+	u32 rmask, gmask, bmask, amask;
+	SDL_PixelFormatEnumToMasks(sdl_format, &bpp, &rmask, &gmask, &bmask, &amask);
 
 	// NOTE: pixel_data must be alive
 	return SDL_CreateRGBSurfaceWithFormatFrom(pixel_data, width, height, bpp, width * (bpp / 8), sdl_format);

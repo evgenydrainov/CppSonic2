@@ -506,23 +506,51 @@ void break_batch() {
 	glBindVertexArray(renderer.batch_vao);
 	defer { glBindVertexArray(0); };
 
+	u32 gl_mode = 0;
+	bool use_index_buffer = false;
+
 	switch (renderer.current_mode) {
-		case MODE_QUADS:     Assert(renderer.vertices.count % 4 == 0); break;
-		case MODE_TRIANGLES: Assert(renderer.vertices.count % 3 == 0); break;
-		case MODE_LINES:     Assert(renderer.vertices.count % 2 == 0); break;
-		case MODE_POINTS:    Assert(renderer.vertices.count % 1 == 0); break;
-		case MODE_CIRCLES:   Assert(renderer.vertices.count % 4 == 0); break;
+		case MODE_QUADS: {
+			Assert(renderer.vertices.count % 4 == 0);
+			gl_mode = GL_TRIANGLES;
+			use_index_buffer = true;
+			renderer.curr_total_triangles += renderer.vertices.count / 4 * 2;
+			break;
+		}
+
+		case MODE_TRIANGLES: {
+			Assert(renderer.vertices.count % 3 == 0);
+			gl_mode = GL_TRIANGLES;
+			renderer.curr_total_triangles += renderer.vertices.count / 3;
+			break;
+		}
+
+		case MODE_LINES: {
+			Assert(renderer.vertices.count % 2 == 0);
+			gl_mode = GL_LINES;
+			break;
+		}
+
+		case MODE_POINTS: {
+			Assert(renderer.vertices.count % 1 == 0);
+			gl_mode = GL_POINTS;
+			break;
+		}
+
+		case MODE_CIRCLES: {
+			Assert(renderer.vertices.count % 4 == 0);
+			gl_mode = GL_TRIANGLES;
+			use_index_buffer = true;
+			renderer.curr_total_triangles += renderer.vertices.count / 4 * 2;
+			break;
+		}
 	}
 
-	if (renderer.current_mode == MODE_QUADS || renderer.current_mode == MODE_CIRCLES) {
+	if (use_index_buffer) {
 		int num_indices = renderer.vertices.count / 4 * 6;
-		glDrawElements(GL_TRIANGLES, num_indices, GL_UNSIGNED_INT, 0);
-
-		renderer.curr_total_triangles += renderer.vertices.count / 4 * 2;
+		glDrawElements(gl_mode, num_indices, GL_UNSIGNED_INT, NULL);
 	} else {
-		glDrawArrays(GL_TRIANGLES, 0, renderer.vertices.count);
-
-		renderer.curr_total_triangles += renderer.vertices.count / 3;
+		glDrawArrays(gl_mode, 0, renderer.vertices.count);
 	}
 
 	renderer.curr_draw_calls++;

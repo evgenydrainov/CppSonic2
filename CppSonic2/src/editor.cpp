@@ -623,7 +623,7 @@ void Editor::update(float delta) {
 
 	if (ImGui::IsKeyPressed(ImGuiKey_Y, true) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) try_redo();
 
-	if (ImGui::IsKeyPressed(ImGuiKey_H, true) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) show_undo_history_window ^= true;
+	if (ImGui::IsKeyPressed(ImGuiKey_H, true) && ImGui::IsKeyDown(ImGuiKey_LeftAlt)) show_undo_history_window ^= true;
 
 	if (ImGui::IsKeyPressed(ImGuiKey_F5, false)) try_run_game();
 
@@ -662,7 +662,7 @@ void Editor::update(float delta) {
 
 			ImGui::Separator();
 
-			if (ImGui::MenuItem("Undo History", "Ctrl+H")) show_undo_history_window ^= true;
+			if (ImGui::MenuItem("Undo History", "Alt+H")) show_undo_history_window ^= true;
 
 			ImGui::EndMenu();
 		}
@@ -973,6 +973,12 @@ void Editor::action_perform(const Action& action) {
 			break;
 		}
 
+		case ACTION_REMOVE_OBJECT: {
+			array_remove(&editor.objects, action.remove_object.index);
+			objects_editor.object_index = -1;
+			break;
+		}
+
 		default: {
 			Assert(!"action not implemented");
 			break;
@@ -1026,6 +1032,12 @@ void Editor::action_revert(const Action& action) {
 
 		case ACTION_ADD_OBJECT: {
 			array_remove(&objects, objects.count - 1);
+			objects_editor.object_index = -1;
+			break;
+		}
+
+		case ACTION_REMOVE_OBJECT: {
+			array_insert(&objects, action.remove_object.index, action.remove_object.o);
 			objects_editor.object_index = -1;
 			break;
 		}
@@ -1462,8 +1474,8 @@ void TilesetEditor::update(float delta) {
 			for (int i = 0; i < heights.count; i++) {
 				int height = heights[i];
 
-				char buf[16];
-				stb_snprintf(buf, sizeof(buf), "[%d]", i);
+				char buf[32];
+				stb_snprintf(buf, sizeof(buf), "[%d]##heights", i);
 				ImGui::InputInt(buf, &height, 0, 0, ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_CharsDecimal);
 				if (ImGui::IsItemActive()) {
 					dont_update_selected_tile_index = true;
@@ -1490,8 +1502,8 @@ void TilesetEditor::update(float delta) {
 			for (int i = 0; i < widths.count; i++) {
 				int width = widths[i];
 
-				char buf[16];
-				stb_snprintf(buf, sizeof(buf), "[%d]", i);
+				char buf[32];
+				stb_snprintf(buf, sizeof(buf), "[%d]##widths", i);
 				ImGui::InputInt(buf, &width, 0, 0, ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_CharsDecimal);
 				if (ImGui::IsItemActive()) {
 					dont_update_selected_tile_index = true;
@@ -1978,8 +1990,8 @@ void TilemapEditor::update(float delta) {
 		ImGui::SameLine();
 
 		ImGui::Checkbox("Highlight Current Layer", &highlight_current_layer);
-		//if (IsKeyPressedNoMod(ImGuiKey_H, true)) highlight_current_layer ^= true;
-		//ImGui::SetItemTooltip("Shortcut: H");
+		if (ImGui::IsKeyPressed(ImGuiKey_H, false) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) highlight_current_layer ^= true;
+		ImGui::SetItemTooltip("Shortcut: Ctrl+H");
 
 		ImGui::SameLine();
 		ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
@@ -2330,8 +2342,7 @@ void ObjectsEditor::update(float delta) {
 				action.type = ACTION_ADD_OBJECT;
 				action.add_object.o = o;
 
-				//editor.action_add_and_perform(action); TODO
-				editor.action_perform(action);
+				editor.action_add_and_perform(action);
 			}
 
 			ImGui::EndDragDropTarget();
@@ -2562,9 +2573,13 @@ void ObjectsEditor::update(float delta) {
 			}
 		}
 
-		if (ImGui::Button("Delete Object")) {
-			array_remove(&editor.objects, object_index);
-			object_index = -1;
+		if (ImGui::Button("Remove Object")) {
+			Action action = {};
+			action.type = ACTION_REMOVE_OBJECT;
+			action.remove_object.index = object_index;
+			action.remove_object.o = editor.objects[object_index];
+
+			editor.action_add_and_perform(action);
 			return;
 		}
 	};

@@ -36,7 +36,8 @@ struct Selection {
 	X(ACTION_SET_TILE_WIDTH) \
 	X(ACTION_SET_TILE_ANGLE) \
 	X(ACTION_SET_TILES) \
-	X(ACTION_ADD_OBJECT)
+	X(ACTION_ADD_OBJECT) \
+	X(ACTION_REMOVE_OBJECT)
 
 DEFINE_NAMED_ENUM(ActionType, ACTION_TYPE_ENUM)
 
@@ -85,6 +86,11 @@ struct Action {
 		struct {
 			Object o;
 		} add_object;
+
+		struct {
+			Object o;
+			int index;
+		} remove_object;
 	};
 };
 
