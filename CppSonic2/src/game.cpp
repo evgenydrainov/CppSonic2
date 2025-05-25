@@ -7,6 +7,7 @@
 #include "particle_system.h"
 #include "program.h"
 #include "texture.h"
+#include "input.h"
 
 Game game;
 
@@ -944,11 +945,11 @@ static bool player_roll_condition(Player* p) {
 	// if (p->control_lock > 0) return false;
 
 	int input_h = 0;
-	if (p->input & INPUT_RIGHT) input_h++;
-	if (p->input & INPUT_LEFT)  input_h--;
+	if (p->input & INPUT_MOVE_RIGHT) input_h++;
+	if (p->input & INPUT_MOVE_LEFT)  input_h--;
 
 	return (fabsf(p->ground_speed) >= 0.5f
-			&& (p->input & INPUT_DOWN)
+			&& (p->input & INPUT_MOVE_DOWN)
 			&& input_h == 0);
 }
 
@@ -1154,7 +1155,7 @@ static void push_sensor_collision(Player* p) {
 			p->ground_speed = 0.0f;
 			p->speed.x = 0.0f;
 
-			if (p->input & INPUT_RIGHT) {
+			if (p->input & INPUT_MOVE_RIGHT) {
 				p->pushing = true;
 				p->facing = 1;
 			}
@@ -1174,7 +1175,7 @@ static void push_sensor_collision(Player* p) {
 			p->ground_speed = 0.0f;
 			p->speed.x = 0.0f;
 
-			if (p->input & INPUT_LEFT) {
+			if (p->input & INPUT_MOVE_LEFT) {
 				p->pushing = true;
 				p->facing = -1;
 			}
@@ -1810,8 +1811,8 @@ constexpr int NUM_PHYSICS_STEPS = 4;
 static void player_state_ground(Player* p, float delta) {
 	int input_h = 0;
 	if (p->control_lock == 0) {
-		if (p->input & INPUT_RIGHT) input_h++;
-		if (p->input & INPUT_LEFT)  input_h--;
+		if (p->input & INPUT_MOVE_RIGHT) input_h++;
+		if (p->input & INPUT_MOVE_LEFT)  input_h--;
 	}
 
 	// Adjust Ground Speed based on current Ground Angle (Slope Factor).
@@ -1907,10 +1908,10 @@ static void player_state_ground(Player* p, float delta) {
 
 		if (!dont_update_anim) {
 			if (p->ground_speed == 0.0f) {
-				if (p->input & INPUT_DOWN) {
+				if (p->input & INPUT_MOVE_DOWN) {
 					p->next_anim = anim_crouch;
 					p->frame_duration = 1;
-				} else if (p->input & INPUT_UP) {
+				} else if (p->input & INPUT_MOVE_UP) {
 					p->next_anim = anim_look_up;
 					p->frame_duration = 1;
 				} else {
@@ -1973,7 +1974,7 @@ static void player_state_ground(Player* p, float delta) {
 	if (p->anim == anim_spindash) {
 		p->spinrev -= floorf(p->spinrev * 8) / 256 * delta;
 
-		if (!(p->input & INPUT_DOWN)) {
+		if (!(p->input & INPUT_MOVE_DOWN)) {
 			p->state = STATE_ROLL;
 			p->ground_speed = (8 + floorf(p->spinrev) / 2) * p->facing;
 			p->next_anim = anim_roll;
@@ -2001,7 +2002,7 @@ static void player_state_ground(Player* p, float delta) {
 		}
 		p->frame_duration = fmaxf(0, 8 - fabsf(speed));
 
-		if (!(p->input & INPUT_UP)) {
+		if (!(p->input & INPUT_MOVE_UP)) {
 			p->peelout = false;
 
 			if (p->spinrev >= 15) {
@@ -2048,8 +2049,8 @@ static void player_state_ground(Player* p, float delta) {
 static void player_state_roll(Player* p, float delta) {
 	int input_h = 0;
 	if (p->control_lock == 0) {
-		if (p->input & INPUT_RIGHT) input_h++;
-		if (p->input & INPUT_LEFT)  input_h--;
+		if (p->input & INPUT_MOVE_RIGHT) input_h++;
+		if (p->input & INPUT_MOVE_LEFT)  input_h--;
 	}
 
 	apply_slope_factor(p, delta);
@@ -2115,8 +2116,8 @@ static void player_state_roll(Player* p, float delta) {
 static void player_state_air(Player* p, float delta) {
 	int input_h = 0;
 	// control_lock is ignored
-	if (p->input & INPUT_RIGHT) input_h++;
-	if (p->input & INPUT_LEFT)  input_h--;
+	if (p->input & INPUT_MOVE_RIGHT) input_h++;
+	if (p->input & INPUT_MOVE_LEFT)  input_h--;
 
 	// Check for jump button release (variable jump velocity).
 	if (p->jumped && !(p->input & INPUT_JUMP)) {
@@ -2235,53 +2236,53 @@ static void player_update(Player* p, float delta) {
 		// Keyboard
 
 		if (is_key_held(SDL_SCANCODE_RIGHT)) {
-			p->input |= INPUT_RIGHT;
+			p->input |= INPUT_MOVE_RIGHT;
 		}
 
 		if (is_key_held(SDL_SCANCODE_UP)) {
-			p->input |= INPUT_UP;
+			p->input |= INPUT_MOVE_UP;
 		}
 
 		if (is_key_held(SDL_SCANCODE_LEFT)) {
-			p->input |= INPUT_LEFT;
+			p->input |= INPUT_MOVE_LEFT;
 		}
 
 		if (is_key_held(SDL_SCANCODE_DOWN)) {
-			p->input |= INPUT_DOWN;
+			p->input |= INPUT_MOVE_DOWN;
 		}
 
 		if (is_key_held(SDL_SCANCODE_Z)) {
-			p->input |= INPUT_Z;
+			p->input |= INPUT_A;
 		}
 
 		if (is_key_held(SDL_SCANCODE_X)) {
-			p->input |= INPUT_X;
+			p->input |= INPUT_B;
 		}
 
 		// Controller
 
 		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) {
-			p->input |= INPUT_RIGHT;
+			p->input |= INPUT_MOVE_RIGHT;
 		}
 
 		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_DPAD_UP)) {
-			p->input |= INPUT_UP;
+			p->input |= INPUT_MOVE_UP;
 		}
 
 		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_DPAD_LEFT)) {
-			p->input |= INPUT_LEFT;
+			p->input |= INPUT_MOVE_LEFT;
 		}
 
 		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_DPAD_DOWN)) {
-			p->input |= INPUT_DOWN;
+			p->input |= INPUT_MOVE_DOWN;
 		}
 
 		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_A)) {
-			p->input |= INPUT_Z;
+			p->input |= INPUT_A;
 		}
 
 		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_B)) {
-			p->input |= INPUT_X;
+			p->input |= INPUT_B;
 		}
 
 		// Controller Axis
@@ -2290,29 +2291,29 @@ static void player_update(Player* p, float delta) {
 
 			float leftx = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTX);
 			if (leftx < -deadzone) {
-				p->input |= INPUT_LEFT;
+				p->input |= INPUT_MOVE_LEFT;
 			}
 			if (leftx > deadzone) {
-				p->input |= INPUT_RIGHT;
+				p->input |= INPUT_MOVE_RIGHT;
 			}
 
 			float lefty = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTY);
 			if (lefty < -deadzone) {
-				p->input |= INPUT_UP;
+				p->input |= INPUT_MOVE_UP;
 			}
 			if (lefty > deadzone) {
-				p->input |= INPUT_DOWN;
+				p->input |= INPUT_MOVE_DOWN;
 			}
 		}
 
 		// Touch
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
-		if (game.mobile_input_up)    p->input |= INPUT_UP;
-		if (game.mobile_input_down)  p->input |= INPUT_DOWN;
-		if (game.mobile_input_left)  p->input |= INPUT_LEFT;
-		if (game.mobile_input_right) p->input |= INPUT_RIGHT;
+		if (game.mobile_input_up)    p->input |= INPUT_MOVE_UP;
+		if (game.mobile_input_down)  p->input |= INPUT_MOVE_DOWN;
+		if (game.mobile_input_left)  p->input |= INPUT_MOVE_LEFT;
+		if (game.mobile_input_right) p->input |= INPUT_MOVE_RIGHT;
 
-		if (game.mobile_input_action) p->input |= INPUT_Z;
+		if (game.mobile_input_action) p->input |= INPUT_A;
 #endif
 
 		p->input_press   = p->input & (~prev);
@@ -2342,10 +2343,10 @@ static void player_update(Player* p, float delta) {
 			p->ground_speed = 0;
 			p->ground_angle = 0;
 
-			if (p->input & INPUT_UP)    { p->speed.y -= spd; }
-			if (p->input & INPUT_DOWN)  { p->speed.y += spd; }
-			if (p->input & INPUT_LEFT)  { p->speed.x -= spd; }
-			if (p->input & INPUT_RIGHT) { p->speed.x += spd; }
+			if (p->input & INPUT_MOVE_UP)    { p->speed.y -= spd; }
+			if (p->input & INPUT_MOVE_DOWN)  { p->speed.y += spd; }
+			if (p->input & INPUT_MOVE_LEFT)  { p->speed.x -= spd; }
+			if (p->input & INPUT_MOVE_RIGHT) { p->speed.x += spd; }
 
 			p->pos += p->speed * delta;
 			break;
@@ -3684,10 +3685,10 @@ void Game::draw(float delta) {
 		// dpad
 		draw_sprite(get_sprite(spr_mobile_dpad), 0, dpad_pos, {1,1}, 0, color);
 
-		draw_sprite(get_sprite(spr_mobile_dpad_up),    (player.input & INPUT_UP)    > 0, dpad_pos + vec2{25,  0}, {1,1}, 0, color);
-		draw_sprite(get_sprite(spr_mobile_dpad_down),  (player.input & INPUT_DOWN)  > 0, dpad_pos + vec2{25, 37}, {1,1}, 0, color);
-		draw_sprite(get_sprite(spr_mobile_dpad_left),  (player.input & INPUT_LEFT)  > 0, dpad_pos + vec2{ 0, 24}, {1,1}, 0, color);
-		draw_sprite(get_sprite(spr_mobile_dpad_right), (player.input & INPUT_RIGHT) > 0, dpad_pos + vec2{37, 24}, {1,1}, 0, color);
+		draw_sprite(get_sprite(spr_mobile_dpad_up),    (player.input & INPUT_MOVE_UP)    > 0, dpad_pos + vec2{25,  0}, {1,1}, 0, color);
+		draw_sprite(get_sprite(spr_mobile_dpad_down),  (player.input & INPUT_MOVE_DOWN)  > 0, dpad_pos + vec2{25, 37}, {1,1}, 0, color);
+		draw_sprite(get_sprite(spr_mobile_dpad_left),  (player.input & INPUT_MOVE_LEFT)  > 0, dpad_pos + vec2{ 0, 24}, {1,1}, 0, color);
+		draw_sprite(get_sprite(spr_mobile_dpad_right), (player.input & INPUT_MOVE_RIGHT) > 0, dpad_pos + vec2{37, 24}, {1,1}, 0, color);
 
 		// action button
 		draw_sprite(get_sprite(spr_mobile_action_button), (player.input & INPUT_JUMP) > 0, action_pos, {1,1}, 0, color);

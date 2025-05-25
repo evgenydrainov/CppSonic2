@@ -3,7 +3,9 @@
 #include "renderer.h"
 #include "console.h"
 
-#include <SDL_system.h>
+#ifdef __ANDROID__
+#include <SDL_system.h> // for SDL_GetAndroidSDKVersion
+#endif
 
 Window window;
 

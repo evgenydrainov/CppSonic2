@@ -3,6 +3,7 @@
 #include "renderer.h"
 #include "package.h"
 #include "assets.h"
+#include "input.h"
 #include "program.h"
 
 #ifdef EDITOR
@@ -25,7 +26,7 @@ static void do_one_frame() {
 
 	// handle events
 	{
-		//input.clear();
+		input.clear();
 
 		SDL_Event ev;
 		while (SDL_PollEvent(&ev)) {
@@ -37,13 +38,13 @@ static void do_one_frame() {
 				if (!handled) handled = console.handle_event(ev);
 			#endif
 
-			//if (!handled) handled = input.handle_event(ev);
+			if (!handled) handled = input.handle_event(ev);
 		}
 	}
 
 	// update
 	{
-		//input.update(window.delta);
+		input.update(window.delta);
 
 		program.update(window.delta);
 
@@ -81,11 +82,14 @@ static int game_main(int argc, char* argv[]) {
 	init_window_and_opengl("Sonic VHS", 424, 240, 2, true, true);
 	defer { deinit_window_and_opengl(); };
 
-	init_mixer();
-	defer { deinit_mixer(); };
-
 	init_package();
 	defer { deinit_package(); };
+
+	input.init();
+	defer { input.deinit(); };
+
+	init_mixer();
+	defer { deinit_mixer(); };
 
 	load_global_assets();
 	load_assets_for_game();

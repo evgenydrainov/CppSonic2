@@ -39,17 +39,6 @@ enum anim_index {
 	NUM_ANIMS,
 };
 
-enum {
-	INPUT_RIGHT = 1 << 0,
-	INPUT_UP    = 1 << 1,
-	INPUT_LEFT  = 1 << 2,
-	INPUT_DOWN  = 1 << 3,
-	INPUT_Z     = 1 << 4,
-	INPUT_X     = 1 << 5,
-
-	INPUT_JUMP = INPUT_Z | INPUT_X,
-};
-
 struct Player {
 	vec2 pos;
 	vec2 speed;

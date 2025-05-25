@@ -50,6 +50,8 @@ set(SOURCES
 	src/main_menu.cpp
 	src/program.cpp
 	src/title_screen.cpp
+	src/input.cpp
+	src/input_bindings.cpp
 	src/imgui/imgui_single_file.cpp
 	src/nfd/nfd_zenity.cpp
 	src/nfd/nfd_common.cpp)

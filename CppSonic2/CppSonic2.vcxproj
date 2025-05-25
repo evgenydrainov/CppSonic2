@@ -197,6 +197,8 @@ copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.pdb" "$(TargetDi
   <ItemGroup>
     <ClCompile Include="src\assets.cpp" />
     <ClCompile Include="src\console.cpp" />
+    <ClCompile Include="src\input.cpp" />
+    <ClCompile Include="src\input_bindings.cpp" />
     <ClCompile Include="src\main_menu.cpp" />
     <ClCompile Include="src\particle_system.cpp" />
     <ClCompile Include="src\program.cpp" />
@@ -229,6 +231,8 @@ copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.pdb" "$(TargetDi
     <ClInclude Include="src\assets.h" />
     <ClInclude Include="src\config.h" />
     <ClInclude Include="src\console.h" />
+    <ClInclude Include="src\input.h" />
+    <ClInclude Include="src\input_bindings.h" />
     <ClInclude Include="src\main_menu.h" />
     <ClInclude Include="src\particle_system.h" />
     <ClInclude Include="src\program.h" />
