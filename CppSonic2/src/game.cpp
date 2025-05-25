@@ -2394,7 +2394,7 @@ static void player_update(Player* p, float delta) {
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
 		if (is_mouse_button_pressed(SDL_BUTTON_LEFT)) {
-			vec2 mouse = {window.mouse_x_world, window.mouse_y_world};
+			vec2 mouse = input.mouse_world_pos;
 			Rectf rect = {16, 8, 95, 43};
 			if (point_in_rect(mouse, rect)) {
 				pressed = true;
@@ -2747,18 +2747,6 @@ void Game::update(float delta) {
 		update_particles(delta);
 	}
 
-	{
-		int mouse_x;
-		int mouse_y;
-		SDL_GetMouseState(&mouse_x, &mouse_y);
-
-		vec2 mouse_pos_rel;
-		mouse_pos_rel.x = ((mouse_x - renderer.game_texture_rect.x) / (float)renderer.game_texture_rect.w) * (float)window.game_width;
-		mouse_pos_rel.y = ((mouse_y - renderer.game_texture_rect.y) / (float)renderer.game_texture_rect.h) * (float)window.game_height;
-
-		mouse_world_pos = floor(mouse_pos_rel + camera_pos);
-	}
-
 	// update titlecard
 	switch (titlecard_state) {
 		case TITLECARD_IN: {
@@ -2879,7 +2867,7 @@ void Game::update(float delta) {
 					pos.x = window.game_width - 128 + 44;
 					pos.y = 40;
 
-					vec2 mouse = {window.mouse_x_world, window.mouse_y_world};
+					vec2 mouse = input.mouse_world_pos;
 
 					for (int i = 0; i < PAUSE_MENU_NUM_ITEMS; i++) {
 						float off = 12;
@@ -3510,7 +3498,7 @@ void Game::draw(float delta) {
 #ifdef DEVELOPER
 	if (collision_test) {
 		SensorResult res;
-		vec2 pos = mouse_world_pos;
+		vec2 pos = floor(input.mouse_world_pos + camera_pos);
 
 		res = sensor_check_up(pos, player.layer);
 		draw_line(pos, pos + vec2{0, -res.dist}, color_blue);
@@ -3691,7 +3679,7 @@ void Game::draw(float delta) {
 		draw_sprite(get_sprite(spr_mobile_dpad_right), (player.input & INPUT_MOVE_RIGHT) > 0, dpad_pos + vec2{37, 24}, {1,1}, 0, color);
 
 		// action button
-		draw_sprite(get_sprite(spr_mobile_action_button), (player.input & INPUT_JUMP) > 0, action_pos, {1,1}, 0, color);
+		draw_sprite(get_sprite(spr_mobile_action_button), (player.input & INPUT_A) > 0, action_pos, {1,1}, 0, color);
 
 		// pause button
 		draw_sprite(get_sprite(spr_mobile_pause_button), 0, {window.game_width - 68, 8});

@@ -343,8 +343,6 @@ struct Game {
 	bool mobile_input_pause;
 #endif
 
-	vec2 mouse_world_pos;
-
 	bool collision_test;
 	bool show_height;
 	bool show_width;

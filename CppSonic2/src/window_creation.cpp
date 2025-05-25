@@ -1,8 +1,5 @@
 #include "window_creation.h"
 
-#include "renderer.h"
-#include "console.h"
-
 #ifdef __ANDROID__
 #include <SDL_system.h> // for SDL_GetAndroidSDKVersion
 #endif
@@ -217,12 +214,14 @@ void init_window_and_opengl(const char* title,
 	}
 
 	{
-		window.vsync = prefer_vsync;
+		bool should_enable_vsync = prefer_vsync;
 
 		char* USE_VSYNC = SDL_getenv("USE_VSYNC"); // @Leak
 		if (USE_VSYNC) {
-			window.vsync = (SDL_atoi(USE_VSYNC) != 0);
+			should_enable_vsync = (SDL_atoi(USE_VSYNC) != 0);
 		}
+
+		SDL_GL_SetSwapInterval(should_enable_vsync ? 1 : 0);
 
 		window.prefer_borderless_fullscreen = prefer_borderless_fullscreen;
 
@@ -258,8 +257,6 @@ void init_window_and_opengl(const char* title,
 		log_info("Detected DPI scale from SDL_GetDisplayDPI: %f %f %f", ddpi/96.0f, hdpi/96.0f, vdpi/96.0f);
 	}
 
-	SDL_GL_SetSwapInterval(window.vsync ? 1 : 0);
-
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
@@ -276,7 +273,7 @@ void deinit_window_and_opengl() {
 	SDL_Quit();
 }
 
-bool handle_event(const SDL_Event& ev) {
+bool window_handle_event(const SDL_Event& ev) {
 	switch (ev.type) {
 		case SDL_QUIT: {
 			window.should_quit = true;
@@ -328,52 +325,6 @@ bool handle_event(const SDL_Event& ev) {
 					return true;
 				}
 			}
-
-			if (scancode >= 0 && scancode < window.NUM_KEYS) {
-				if (!(ev.key.keysym.mod & KMOD_ALT)) {
-					if (ev.key.repeat) {
-						window.key_repeat[scancode / 32] |= 1 << (scancode % 32);
-					} else {
-						window.key_pressed[scancode / 32] |= 1 << (scancode % 32);
-					}
-				}
-			}
-			break;
-		}
-
-		case SDL_CONTROLLERDEVICEADDED: {
-			if (!window.controller) {
-				window.controller = SDL_GameControllerOpen(ev.cdevice.which);
-
-				log_info("Opened controller %s.", SDL_GameControllerName(window.controller));
-			}
-			break;
-		}
-
-		case SDL_CONTROLLERDEVICEREMOVED: {
-			if (window.controller) {
-				SDL_Joystick* joystick = SDL_GameControllerGetJoystick(window.controller);
-				if (SDL_JoystickInstanceID(joystick) == ev.cdevice.which) {
-					log_info("Closing controller %s...", SDL_GameControllerName(window.controller));
-
-					SDL_GameControllerClose(window.controller);
-					window.controller = nullptr;
-				}
-			}
-			break;
-		}
-
-		case SDL_CONTROLLERBUTTONDOWN: {
-			if (window.controller) {
-				SDL_Joystick* joystick = SDL_GameControllerGetJoystick(window.controller);
-				if (SDL_JoystickInstanceID(joystick) == ev.cbutton.which) {
-					SDL_GameControllerButton button = (SDL_GameControllerButton) ev.cbutton.button;
-
-					if (button >= 0 && button < window.NUM_CONTROLLER_BUTTONS) {
-						window.controller_button_pressed[button / 32] |= 1 << (button % 32);
-					}
-				}
-			}
 			break;
 		}
 	}
@@ -409,10 +360,6 @@ void begin_frame() {
 
 	window.fps = (float)(1.0 / (time - prev_time));
 
-	memset(window.key_pressed,               0, sizeof(window.key_pressed));
-	memset(window.key_repeat,                0, sizeof(window.key_repeat));
-	memset(window.controller_button_pressed, 0, sizeof(window.controller_button_pressed));
-
 	window.avg_fps_sum += window.fps;
 	window.avg_fps_num_samples += 1;
 
@@ -425,19 +372,6 @@ void begin_frame() {
 		window.avg_fps_last_time_updated = time;
 	}
 
-	// handle mouse
-	{
-		u32 prev = window.mouse_state;
-		window.mouse_state = SDL_GetMouseState(&window.mouse_x, &window.mouse_y);
-
-		window.mouse_state_press   = window.mouse_state & (~prev);
-		window.mouse_state_release = (~window.mouse_state) & prev;
-
-		auto rect = renderer.game_texture_rect;
-		window.mouse_x_world = (window.mouse_x - rect.x) / (float)rect.w * (float)window.game_width;
-		window.mouse_y_world = (window.mouse_y - rect.y) / (float)rect.h * (float)window.game_height;
-	}
-
 	window.should_skip_frame = window.frame_advance_mode;
 }
 
@@ -446,7 +380,7 @@ void swap_buffers() {
 
 	SDL_GL_SwapWindow(window.handle);
 
-	if (!window.vsync) {
+	if (!is_vsync_enabled()) {
 		double time_left = window.frame_end_time - get_time();
 
 		if (time_left > 0.0) {
@@ -457,110 +391,6 @@ void swap_buffers() {
 			while (get_time() < window.frame_end_time) {}
 		}
 	}
-}
-
-
-static bool is_input_disabled() {
-#ifdef DEVELOPER
-	return console.is_open || console.was_open_last_frame;
-#else
-	return false;
-#endif
-}
-
-bool is_key_pressed(SDL_Scancode key, bool repeat) {
-	if (!(key >= 0 && key < window.NUM_KEYS)) {
-		return false;
-	}
-
-	if (is_input_disabled()) {
-		return false;
-	}
-
-	bool result = (window.key_pressed[key / 32] & (1 << (key % 32))) != 0;
-	if (repeat) {
-		result |= (window.key_repeat[key / 32] & (1 << (key % 32))) != 0;
-	}
-	return result;
-}
-
-bool is_key_held(SDL_Scancode key) {
-	if (!(key >= 0 && key < SDL_NUM_SCANCODES)) {
-		return false;
-	}
-
-	if (is_input_disabled()) {
-		return false;
-	}
-
-	const u8* state = SDL_GetKeyboardState(nullptr);
-
-	// ignore alt+f4 and alt+enter
-	if (key == SDL_SCANCODE_RETURN || key == SDL_SCANCODE_F4) {
-		if (state[SDL_SCANCODE_LALT] || state[SDL_SCANCODE_RALT]) {
-			return false;
-		}
-	}
-
-	return (state[key] != 0);
-}
-
-bool is_controller_button_held(SDL_GameControllerButton button) {
-	if (is_input_disabled()) {
-		return false;
-	}
-
-	if (window.controller) {
-		return SDL_GameControllerGetButton(window.controller, button);
-	}
-	return false;
-}
-
-bool is_controller_button_pressed(SDL_GameControllerButton button) {
-	if (!(button >= 0 && button < window.NUM_CONTROLLER_BUTTONS)) {
-		return false;
-	}
-
-	if (is_input_disabled()) {
-		return false;
-	}
-
-	return (window.controller_button_pressed[button / 32] & (1 << (button % 32))) != 0;
-}
-
-float controller_get_axis(SDL_GameControllerAxis axis) {
-	if (is_input_disabled()) {
-		return 0;
-	}
-
-	if (window.controller) {
-		return SDL_GameControllerGetAxis(window.controller, axis) / 32768.0f;
-	}
-	return 0;
-}
-
-bool is_mouse_button_held(u32 button) {
-	if (is_input_disabled()) {
-		return false;
-	}
-
-	return (window.mouse_state & SDL_BUTTON(button)) != 0;
-}
-
-bool is_mouse_button_pressed(u32 button) {
-	if (is_input_disabled()) {
-		return false;
-	}
-
-	return (window.mouse_state_press & SDL_BUTTON(button)) != 0;
-}
-
-bool is_mouse_button_released(u32 button) {
-	if (is_input_disabled()) {
-		return false;
-	}
-
-	return (window.mouse_state_release & SDL_BUTTON(button)) != 0;
 }
 
 SDL_Window* get_window_handle() {
@@ -589,6 +419,11 @@ void set_fullscreen(bool fullscreen) {
 bool is_fullscreen() {
 	u32 flags = SDL_GetWindowFlags(window.handle);
 	return (flags & SDL_WINDOW_FULLSCREEN) != 0;
+}
+
+bool is_vsync_enabled() {
+	int interval = SDL_GL_GetSwapInterval();
+	return interval != 0;
 }
 
 double get_time() {

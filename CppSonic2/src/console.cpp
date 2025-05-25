@@ -60,11 +60,11 @@ bool Console::handle_event(const SDL_Event& ev) {
 			char ch = ev.text.text[0];
 
 			if (!is_open) {
-				return false;
+				break;
 			}
 
 			if (ch == '`' || ch == '~') {
-				return false;
+				break;
 			}
 
 			if ((u8)ch >= 32 && (u8)ch <= 127) {

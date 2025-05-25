@@ -3,15 +3,11 @@
 #include "common.h"
 
 /*
-* A module that handles OS window, input, GL context, game main loop.
+* A module that handles OS window, GL context, game main loop.
 */
 
 struct Window {
-	static constexpr int NUM_KEYS = SDL_SCANCODE_UP + 1;
-
-	static constexpr int NUM_CONTROLLER_BUTTONS = SDL_CONTROLLER_BUTTON_MAX;
-
-	/*   modify these   */
+	/*   public   */
 
 	bool should_quit;  // Set this to true when game should terminate.
 	double target_fps = 60; // Used if vsync is off. See "init_window_and_opengl".
@@ -20,14 +16,6 @@ struct Window {
 
 	SDL_Window* handle;
 	SDL_GLContext gl_context;
-	SDL_GameController* controller;
-
-	int mouse_x;
-	int mouse_y;
-	float mouse_x_world;
-	float mouse_y_world;
-
-	bool vsync;
 
 	int game_width;
 	int game_height;
@@ -42,16 +30,7 @@ struct Window {
 	bool frame_advance_mode;
 	bool should_skip_frame;
 	
-	/*   don't touch   */
-
-	u32 key_pressed[(NUM_KEYS + 31) / 32];
-	u32 key_repeat [(NUM_KEYS + 31) / 32];
-
-	u32 controller_button_pressed[(NUM_CONTROLLER_BUTTONS + 31) / 32];
-
-	u32 mouse_state;
-	u32 mouse_state_press;
-	u32 mouse_state_release;
+	/*   private   */
 
 	double prev_time;
 	double frame_end_time;
@@ -92,18 +71,7 @@ void deinit_window_and_opengl();
 void begin_frame();
 void swap_buffers();
 
-bool handle_event(const SDL_Event& ev);
-
-bool is_key_held(SDL_Scancode key);
-bool is_key_pressed(SDL_Scancode key, bool repeat = false);
-
-bool is_controller_button_held(SDL_GameControllerButton button);
-bool is_controller_button_pressed(SDL_GameControllerButton button);
-float controller_get_axis(SDL_GameControllerAxis axis);
-
-bool is_mouse_button_held(u32 button);
-bool is_mouse_button_pressed(u32 button);
-bool is_mouse_button_released(u32 button);
+bool window_handle_event(const SDL_Event& ev);
 
 SDL_Window* get_window_handle(); // for common.h
 
@@ -112,6 +80,7 @@ SDL_Window* get_window_handle(); // for common.h
 void set_fullscreen(bool fullscreen);
 
 bool is_fullscreen();
+bool is_vsync_enabled();
 
 double get_time();
 

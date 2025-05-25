@@ -3,9 +3,10 @@
 #include "window_creation.h"
 #include "renderer.h"
 #include "assets.h"
+#include "console.h"
+#include "input.h"
 #include "game.h"
 #include "title_screen.h"
-#include "console.h"
 
 Program program;
 

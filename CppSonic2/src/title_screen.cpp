@@ -4,6 +4,7 @@
 #include "renderer.h"
 #include "font.h"
 #include "assets.h"
+#include "input.h"
 #include "program.h"
 
 #include "util.h"

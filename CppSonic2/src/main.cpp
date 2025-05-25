@@ -32,7 +32,7 @@ static void do_one_frame() {
 		while (SDL_PollEvent(&ev)) {
 			bool handled = false;
 
-			if (!handled) handled = handle_event(ev);
+			if (!handled) handled = window_handle_event(ev);
 
 			#ifdef DEVELOPER
 				if (!handled) handled = console.handle_event(ev);
@@ -44,7 +44,7 @@ static void do_one_frame() {
 
 	// update
 	{
-		input.update(window.delta);
+		input.update(window.delta, renderer.game_texture_rect, window.game_width, window.game_height);
 
 		program.update(window.delta);
 
@@ -144,15 +144,16 @@ static int editor_main(int argc, char* argv[]) {
 
 		SDL_Event ev;
 		while (SDL_PollEvent(&ev)) {
-			handle_event(ev);
-			imgui_handle_event(ev);
-		}
+			bool handled = false;
 
-		float delta = window.delta;
+			if (!handled) handled = window_handle_event(ev);
+
+			if (!handled) handled = imgui_handle_event(ev);
+		}
 
 		// update
 		imgui_begin_frame();
-		editor.update(delta);
+		editor.update(window.delta);
 
 		// render
 		vec4 clear_color = color_black;
