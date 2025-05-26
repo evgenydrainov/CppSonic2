@@ -1706,12 +1706,12 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 				if (it->layswitch.current_side == 0) {
 					if (p->pos.x >= it->pos.x) {
 						p->layer = it->layswitch.layer_2;
-						//p->priority = it->layswitch.priority_2;
+						p->priority = it->layswitch.priority_2;
 					}
 				} else { // current_side == 1
 					if (p->pos.x < it->pos.x) {
 						p->layer = it->layswitch.layer_1;
-						//p->priority = it->layswitch.priority_1;
+						p->priority = it->layswitch.priority_1;
 					}
 				}
 			}
@@ -3312,14 +3312,15 @@ void Game::draw(float delta) {
 	// draw layer D
 	draw_tilemap_layer(tm, 3, tileset_texture, xfrom, yfrom, xto, yto, color_white);
 
+	if (player.priority == 0) draw_player(&player);
+
 	// draw layer A
 	draw_tilemap_layer(tm, 0, tileset_texture, xfrom, yfrom, xto, yto, color_white);
 
 	// draw objects
 	draw_objects(objects, time_frames, false, true);
 
-	// draw player
-	draw_player(&player);
+	if (player.priority == 1) draw_player(&player);
 
 	// draw layer C
 	draw_tilemap_layer(tm, 2, tileset_texture, xfrom, yfrom, xto, yto, color_white);
@@ -4492,6 +4493,8 @@ vec2 get_object_size(const Object& o) {
 
 		case OBJ_SPRING: {
 			vec2 size = {32, 16};
+			if (o.flags & FLAG_SPRING_SMALL_HITBOX) size.x = 24;
+
 			if (o.spring.direction == DIR_LEFT || o.spring.direction == DIR_RIGHT) {
 				float temp = size.x;
 				size.x = size.y;

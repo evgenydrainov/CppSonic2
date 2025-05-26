@@ -48,7 +48,8 @@ struct Player {
 
 	PlayerState state;
 
-	int layer;
+	int layer; // collision layer
+	int priority = 1; // visual priority (high by default)
 
 	anim_index anim      = anim_idle;
 	anim_index next_anim = anim_idle;
@@ -105,6 +106,8 @@ enum {
 	FLAG_MONITOR_ICON_GOT_REWARD = 1 << 16,
 
 	FLAG_MOSQUI_IS_DIVING = 1 << 16,
+
+	FLAG_SPRING_SMALL_HITBOX = 1 << 16,
 };
 
 #define MONITOR_ICON_ENUM(X) \

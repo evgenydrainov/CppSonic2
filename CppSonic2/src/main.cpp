@@ -146,9 +146,9 @@ static int editor_main(int argc, char* argv[]) {
 		while (SDL_PollEvent(&ev)) {
 			bool handled = false;
 
-			if (!handled) handled = window_handle_event(ev);
+			/*if (!handled) handled = */window_handle_event(ev);
 
-			if (!handled) handled = imgui_handle_event(ev);
+			/*if (!handled) handled = */imgui_handle_event(ev);
 		}
 
 		// update

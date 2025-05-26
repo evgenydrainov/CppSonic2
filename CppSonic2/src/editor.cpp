@@ -2322,11 +2322,15 @@ void ObjectsEditor::update(float delta) {
 
 					case OBJ_LAYER_SWITCHER_VERTICAL: {
 						o.layswitch.radius.y = 128;
+						o.layswitch.priority_1 = 1;
+						o.layswitch.priority_2 = 1;
 						break;
 					}
 
 					case OBJ_LAYER_SWITCHER_HORIZONTAL: {
 						o.layswitch.radius.x = 128;
+						o.layswitch.priority_1 = 1;
+						o.layswitch.priority_2 = 1;
 						break;
 					}
 
@@ -2367,14 +2371,18 @@ void ObjectsEditor::update(float delta) {
 				} else {
 					if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
 						int new_object_index = -1;
+						float closest_dist = INFINITY;
 						for (int i = 0; i < editor.objects.count; i++) {
 							const Object& o = editor.objects[i];
 							vec2 size = get_object_size(o);
 							vec2 mouse_pos = view_get_pos(tilemap_view, ImGui::GetMousePos());
 
 							if (point_in_rect(mouse_pos, {o.pos.x - size.x/2, o.pos.y - size.y/2, size.x, size.y})) {
-								new_object_index = i;
-								break;
+								float dist = point_distance(mouse_pos, o.pos);
+								if (dist < closest_dist) {
+									closest_dist = dist;
+									new_object_index = i;
+								}
 							}
 						}
 
@@ -2494,6 +2502,8 @@ void ObjectsEditor::update(float delta) {
 									GetDirectionName,
 									&o->spring.direction,
 									NUM_DIRS);
+
+				ImGui::CheckboxFlags("Small Hitbox", &o->flags, FLAG_SPRING_SMALL_HITBOX);
 				break;
 			}
 

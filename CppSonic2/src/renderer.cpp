@@ -1,6 +1,5 @@
 #include "renderer.h"
 
-#include "package.h"
 #include "window_creation.h"
 #include "util.h"
 
