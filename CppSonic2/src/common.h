@@ -666,7 +666,7 @@ struct bump_array {
 		return data[i];
 	}
 
-	T operator[](size_t i) const {
+	const T& operator[](size_t i) const {
 		Assert(i >= 0    && "Index out of bounds."); // For when I switch to signed sizes.
 		Assert(i < count && "Index out of bounds.");
 		return data[i];
@@ -761,7 +761,7 @@ struct dynamic_array {
 		return data[i];
 	}
 
-	T operator[](size_t i) const {
+	const T& operator[](size_t i) const {
 		Assert(i >= 0    && "Index out of bounds.");
 		Assert(i < count && "Index out of bounds.");
 		return data[i];
@@ -875,7 +875,7 @@ struct array {
 		return data[i];
 	}
 
-	T operator[](size_t i) const {
+	const T& operator[](size_t i) const {
 		Assert(i >= 0);
 		Assert(i < count);
 		return data[i];
@@ -950,7 +950,7 @@ struct string {
 		return data[i];
 	}
 
-	char operator[](size_t i) const {
+	const char& operator[](size_t i) const {
 		Assert(i >= 0);
 		Assert(i < count);
 		return data[i];
