@@ -1010,6 +1010,18 @@ static void ground_sensor_collision(Player* p) {
 		return;
 	}
 
+	float angle = get_tile_angle(game.ts, res.tile.index);
+
+	// stick only to angled tiles while on a wall
+	if (p->ground_angle == 90 || p->ground_angle == 270) {
+		if (angle == -1) {
+			if (res.dist > 0) {
+				p->state = STATE_AIR;
+				return;
+			}
+		}
+	}
+
 	//if (res.dist < -14) {
 	//	return;
 	//}
@@ -1021,7 +1033,6 @@ static void ground_sensor_collision(Player* p) {
 		case MODE_LEFT_WALL:  p->pos.x -= res.dist; break;
 	}
 
-	float angle = get_tile_angle(game.ts, res.tile.index);
 	if (angle == -1.0f) { // flagged
 		// float a = angle_wrap(p->ground_angle);
 		// if (a <= 45.0f) {
