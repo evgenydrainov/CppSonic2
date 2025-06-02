@@ -3,7 +3,7 @@
 #include "common.h"
 
 struct Input {
-	static constexpr int NUM_KEYBOARD_KEYS = SDL_SCANCODE_UP + 1;
+	static constexpr int NUM_KEYBOARD_KEYS = SDL_SCANCODE_RGUI + 1;
 	static constexpr int NUM_CONTROLLER_BUTTONS = SDL_CONTROLLER_BUTTON_MAX;
 
 	SDL_GameController* controller;

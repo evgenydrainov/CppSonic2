@@ -2187,7 +2187,7 @@ static void player_state_air(Player* p, float delta) {
 	// Rotate Ground Angle back to 0.
 	p->ground_angle -= clamp(angle_difference(p->ground_angle, 0.0f), -2.8125f * delta, 2.8125f * delta);
 
-	if (p->speed.x != 0) {
+	if (fabsf(p->speed.x) > 0.01f) {
 		p->facing = sign_int(p->speed.x);
 	}
 
@@ -2349,6 +2349,14 @@ static void player_update(Player* p, float delta) {
 
 		case STATE_DEBUG: {
 			float spd = 8;
+
+			if (is_key_held(SDL_SCANCODE_LSHIFT)) {
+				spd /= 2.0f;
+			}
+
+			if (is_key_held(SDL_SCANCODE_LCTRL)) {
+				spd *= 2.0f;
+			}
 
 			p->speed = {};
 			p->ground_speed = 0;
@@ -2593,7 +2601,7 @@ void Game::update(float delta) {
 				Clamp(&camera_pos.x, cam_target_x - window.game_width  / 2, cam_target_x + window.game_width  / 2);
 				Clamp(&camera_pos.y, cam_target_y - window.game_height / 2, cam_target_y + window.game_height / 2);
 
-				camera_pos = floor(camera_pos);
+				camera_pos = floor(camera_pos); // TODO
 
 				Clamp(&camera_pos.x, 0.0f, (float) (tm.width  * 16 - window.game_width));
 				Clamp(&camera_pos.y, 0.0f, (float) (tm.height * 16 - window.game_height));
@@ -3183,7 +3191,7 @@ void draw_objects(array<Object> objects,
 	}
 }
 
-static void draw_player(Player* p) {
+static void player_draw(Player* p) {
 	int frame_index = p->frame_index;
 
 	if (/*p->anim == anim_roll*/0 || p->anim == anim_spindash) {
@@ -3323,7 +3331,7 @@ void Game::draw(float delta) {
 	// draw layer D
 	draw_tilemap_layer(tm, 3, tileset_texture, xfrom, yfrom, xto, yto, color_white);
 
-	if (player.priority == 0) draw_player(&player);
+	if (player.priority == 0) player_draw(&player);
 
 	// draw layer A
 	draw_tilemap_layer(tm, 0, tileset_texture, xfrom, yfrom, xto, yto, color_white);
@@ -3331,7 +3339,7 @@ void Game::draw(float delta) {
 	// draw objects
 	draw_objects(objects, time_frames, false, true);
 
-	if (player.priority == 1) draw_player(&player);
+	if (player.priority == 1) player_draw(&player);
 
 	// draw layer C
 	draw_tilemap_layer(tm, 2, tileset_texture, xfrom, yfrom, xto, yto, color_white);
