@@ -37,7 +37,8 @@ struct Selection {
 	X(ACTION_SET_TILE_ANGLE) \
 	X(ACTION_SET_TILES) \
 	X(ACTION_ADD_OBJECT) \
-	X(ACTION_REMOVE_OBJECT)
+	X(ACTION_REMOVE_OBJECT) \
+	X(ACTION_SET_OBJECT_FIELD)
 
 DEFINE_NAMED_ENUM(ActionType, ACTION_TYPE_ENUM)
 
@@ -91,6 +92,14 @@ struct Action {
 			Object o;
 			int index;
 		} remove_object;
+
+		struct {
+			int index;
+			u32 field_offset;
+			u32 field_size;
+			u8 data_from[8];
+			u8 data_to[8];
+		} set_object_field;
 	};
 };
 

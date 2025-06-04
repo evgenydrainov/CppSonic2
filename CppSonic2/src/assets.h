@@ -88,6 +88,7 @@ enum {
 	spr_layer_switcher_vertical,
 	spr_layer_switcher_layer_letter,
 	spr_layer_switcher_priority_letter,
+	spr_layer_switcher_grounded_flag_letter,
 
 	spr_title_medal,
 	spr_title_sonic,

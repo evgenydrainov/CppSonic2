@@ -77,7 +77,7 @@ struct Player {
 	u32 input_release;
 };
 
-// has to be forward compatible
+// serialized
 #define OBJ_TYPE_ENUM(X) \
 	X(OBJ_PLAYER_INIT_POS,            0) \
 	X(OBJ_LAYER_SET_DEPRECATED,       1) \
@@ -107,9 +107,14 @@ enum {
 
 	FLAG_MOSQUI_IS_DIVING = 1 << 16,
 
+	// serialized
 	FLAG_SPRING_SMALL_HITBOX = 1 << 16,
+
+	// serialized
+	FLAG_LAYER_SWITCHER_GROUND_ONLY = 1 << 16,
 };
 
+// serialized
 #define MONITOR_ICON_ENUM(X) \
 	X(MONITOR_ICON_ROBOTNIK) \
 	X(MONITOR_ICON_SUPER_RING) \
@@ -126,6 +131,7 @@ enum {
 
 DEFINE_NAMED_ENUM(MonitorIcon, MONITOR_ICON_ENUM)
 
+// serialized
 #define SPRING_COLOR_ENUM(X) \
 	X(SPRING_COLOR_YELLOW) \
 	X(SPRING_COLOR_RED) \
@@ -134,6 +140,7 @@ DEFINE_NAMED_ENUM(MonitorIcon, MONITOR_ICON_ENUM)
 
 DEFINE_NAMED_ENUM(SpringColor, SPRING_COLOR_ENUM)
 
+// serialized
 #define DIRECTION_ENUM(X) \
 	X(DIR_RIGHT) \
 	X(DIR_UP) \
@@ -283,6 +290,7 @@ struct Game {
 	instance_id next_id = 1;
 
 	vec2 camera_pos;
+	vec2 camera_pos_real;
 	float camera_lock;
 
 	Tileset ts;

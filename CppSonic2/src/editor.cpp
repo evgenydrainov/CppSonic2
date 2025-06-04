@@ -392,14 +392,32 @@ static void AddArrow(ImDrawList* draw_list,
 }
 
 template <typename T>
-static void combo_menu_for_enum(const char* label,
-								const char* (*GetEnumName)(T t),
-								T* obj_member,
-								T num_enums) {
+static void undoable_combo_menu_for_enum(const char* label,
+										 const char* (*GetEnumName)(T t),
+										 int object_index,
+										 u32 field_offset,
+										 T num_enums) {
+	static_assert(sizeof(T) == 4);
+
+	T* obj_member = (T*) ((u8*)&editor.objects[object_index] + field_offset);
+
 	if (ImGui::BeginCombo(label, GetEnumName(*obj_member))) {
 		for (int i = 0; i < num_enums; i++) {
 			if (ImGui::Selectable(GetEnumName((T) i), i == *obj_member)) {
-				*obj_member = (T) i;
+				T data_to = (T) i;
+
+				Action action = {};
+				action.type = ACTION_SET_OBJECT_FIELD;
+				action.set_object_field.index = object_index;
+				action.set_object_field.field_offset = field_offset;
+				action.set_object_field.field_size = sizeof(T);
+
+				static_assert(sizeof(T) <= sizeof(action.set_object_field.data_from));
+
+				memcpy(action.set_object_field.data_from, obj_member, sizeof(T));
+				memcpy(action.set_object_field.data_to, &data_to, sizeof(T));
+
+				editor.action_add_and_perform(action);
 			}
 
 			if (i == *obj_member) {
@@ -979,6 +997,12 @@ void Editor::action_perform(const Action& action) {
 			break;
 		}
 
+		case ACTION_SET_OBJECT_FIELD: {
+			u8* obj_member = (u8*)&editor.objects[action.set_object_field.index] + action.set_object_field.field_offset;
+			memcpy(obj_member, action.set_object_field.data_to, action.set_object_field.field_size);
+			break;
+		}
+
 		default: {
 			Assert(!"action not implemented");
 			break;
@@ -1039,6 +1063,12 @@ void Editor::action_revert(const Action& action) {
 		case ACTION_REMOVE_OBJECT: {
 			array_insert(&objects, action.remove_object.index, action.remove_object.o);
 			objects_editor.object_index = -1;
+			break;
+		}
+
+		case ACTION_SET_OBJECT_FIELD: {
+			u8* obj_member = (u8*)&editor.objects[action.set_object_field.index] + action.set_object_field.field_offset;
+			memcpy(obj_member, action.set_object_field.data_from, action.set_object_field.field_size);
 			break;
 		}
 
@@ -2484,34 +2514,38 @@ void ObjectsEditor::update(float delta) {
 
 		switch (o->type) {
 			case OBJ_MONITOR: {
-				combo_menu_for_enum("Monitor Icon",
-									GetMonitorIconName,
-									&o->monitor.icon,
-									NUM_MONITOR_ICONS);
+				undoable_combo_menu_for_enum("Monitor Icon",
+											 GetMonitorIconName,
+											 object_index,
+											 offsetof(Object, monitor.icon),
+											 NUM_MONITOR_ICONS);
 				break;
 			}
 
 			case OBJ_SPRING:
 			case OBJ_SPRING_DIAGONAL: {
-				combo_menu_for_enum("Spring Color",
-									GetSpringColorName,
-									&o->spring.color,
-									NUM_SPING_COLORS);
+				undoable_combo_menu_for_enum("Spring Color",
+											 GetSpringColorName,
+											 object_index,
+											 offsetof(Object, spring.color),
+											 NUM_SPING_COLORS);
 
-				combo_menu_for_enum("Direction",
-									GetDirectionName,
-									&o->spring.direction,
-									NUM_DIRS);
+				undoable_combo_menu_for_enum("Direction",
+											 GetDirectionName,
+											 object_index,
+											 offsetof(Object, spring.direction),
+											 NUM_DIRS);
 
 				ImGui::CheckboxFlags("Small Hitbox", &o->flags, FLAG_SPRING_SMALL_HITBOX);
 				break;
 			}
 
 			case OBJ_SPIKE: {
-				combo_menu_for_enum("Direction",
-									GetDirectionName,
-									&o->spike.direction,
-									NUM_DIRS);
+				undoable_combo_menu_for_enum("Direction",
+											 GetDirectionName,
+											 object_index,
+											 offsetof(Object, spike.direction),
+											 NUM_DIRS);
 				break;
 			}
 
@@ -2556,6 +2590,8 @@ void ObjectsEditor::update(float delta) {
 						ImGui::EndCombo();
 					}
 				}
+
+				ImGui::CheckboxFlags("Ground Only", &o->flags, FLAG_LAYER_SWITCHER_GROUND_ONLY);
 				break;
 			}
 

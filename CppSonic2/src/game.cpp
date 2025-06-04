@@ -184,41 +184,6 @@ void Game::load_level(const char* path) {
 	gen_widthmap_texture (&widthmap,  ts, tileset_texture);
 }
 
-void Game::init(int argc, char* argv[]) {
-	init_particles();
-
-	{
-		char* path = to_c_string(program.level_filepath);
-		defer { free(path); };
-
-		load_level(path);
-	}
-
-	// Set camera pos after loading the level.
-	camera_pos.x = player.pos.x - window.game_width  / 2;
-	camera_pos.y = player.pos.y - window.game_height / 2;
-
-	// show_player_hitbox = true;
-
-	debug_rects = malloc_bump_array<Rectf>(100);
-
-	play_music("music/EEZ_Act1.mp3");
-}
-
-void Game::deinit() {
-	free(objects.data);
-
-	free_tileset(&ts);
-	free_texture(&tileset_texture);
-
-	free_texture(&heightmap);
-	free_texture(&widthmap);
-
-	free_tilemap(&tm);
-
-	deinit_particles();
-}
-
 constexpr float PLAYER_ACC = 0.046875f;
 constexpr float PLAYER_DEC = 0.5f;
 constexpr float PLAYER_FRICTION = 0.046875f;
@@ -1713,16 +1678,26 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 		Object* it = &game.objects[i];
 
 		if (it->type == OBJ_LAYER_SWITCHER_VERTICAL) {
-			if (p->pos.y > it->pos.y - it->layswitch.radius.y && p->pos.y < it->pos.y + it->layswitch.radius.y) {
-				if (it->layswitch.current_side == 0) {
-					if (p->pos.x >= it->pos.x) {
-						p->layer = it->layswitch.layer_2;
-						p->priority = it->layswitch.priority_2;
-					}
-				} else { // current_side == 1
-					if (p->pos.x < it->pos.x) {
-						p->layer = it->layswitch.layer_1;
-						p->priority = it->layswitch.priority_1;
+			bool skip = false;
+
+			if (it->flags & FLAG_LAYER_SWITCHER_GROUND_ONLY) {
+				if (!player_is_grounded(p)) {
+					skip = true;
+				}
+			}
+
+			if (!skip) {
+				if (p->pos.y > it->pos.y - it->layswitch.radius.y && p->pos.y < it->pos.y + it->layswitch.radius.y) {
+					if (it->layswitch.current_side == 0) {
+						if (p->pos.x >= it->pos.x) {
+							p->layer = it->layswitch.layer_2;
+							p->priority = it->layswitch.priority_2;
+						}
+					} else { // current_side == 1
+						if (p->pos.x < it->pos.x) {
+							p->layer = it->layswitch.layer_1;
+							p->priority = it->layswitch.priority_1;
+						}
 					}
 				}
 			}
@@ -2433,6 +2408,44 @@ static void player_update(Player* p, float delta) {
 #endif
 }
 
+void Game::init(int argc, char* argv[]) {
+	init_particles();
+
+	{
+		char* path = to_c_string(program.level_filepath);
+		defer { free(path); };
+
+		load_level(path);
+	}
+
+	// Set camera pos after loading the level.
+	camera_pos_real.x = player.pos.x - window.game_width  / 2;
+	camera_pos_real.y = player.pos.y - window.game_height / 2;
+
+	player.prev_mode = player_get_mode(&player);
+	player.prev_radius = player_get_radius(&player);
+
+	// show_player_hitbox = true;
+
+	debug_rects = malloc_bump_array<Rectf>(100);
+
+	play_music("music/EEZ_Act1.mp3");
+}
+
+void Game::deinit() {
+	free(objects.data);
+
+	free_tileset(&ts);
+	free_texture(&tileset_texture);
+
+	free_texture(&heightmap);
+	free_texture(&widthmap);
+
+	free_tilemap(&tm);
+
+	deinit_particles();
+}
+
 void Game::update(float delta) {
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
 	{
@@ -2564,51 +2577,6 @@ void Game::update(float delta) {
 		player_update(&player, delta);
 
 		player_time += delta;
-
-		// update camera
-		{
-			Player* p = &player;
-			vec2 radius = p->prev_radius;
-
-			if (camera_lock == 0.0f) {
-				float cam_target_x = p->pos.x - window.game_width / 2;
-				float cam_target_y = p->pos.y + radius.y - 19 - window.game_height / 2;
-
-				if (camera_pos.x < cam_target_x - 8) {
-					Approach(&camera_pos.x, cam_target_x - 8, 16 * delta);
-				}
-				if (camera_pos.x > cam_target_x + 8) {
-					Approach(&camera_pos.x, cam_target_x + 8, 16 * delta);
-				}
-
-				if (player_is_grounded(p)) {
-					float camera_speed = 16;
-
-					if (fabsf(p->ground_speed) < 8) {
-						camera_speed = 6;
-					}
-
-					Approach(&camera_pos.y, cam_target_y, camera_speed * delta);
-				} else {
-					if (camera_pos.y < cam_target_y - 32) {
-						Approach(&camera_pos.y, cam_target_y - 32, 16 * delta);
-					}
-					if (camera_pos.y > cam_target_y + 32) {
-						Approach(&camera_pos.y, cam_target_y + 32, 16 * delta);
-					}
-				}
-
-				Clamp(&camera_pos.x, cam_target_x - window.game_width  / 2, cam_target_x + window.game_width  / 2);
-				Clamp(&camera_pos.y, cam_target_y - window.game_height / 2, cam_target_y + window.game_height / 2);
-
-				camera_pos = floor(camera_pos); // TODO
-
-				Clamp(&camera_pos.x, 0.0f, (float) (tm.width  * 16 - window.game_width));
-				Clamp(&camera_pos.y, 0.0f, (float) (tm.height * 16 - window.game_height));
-			}
-
-			camera_lock = fmaxf(camera_lock - delta, 0);
-		}
 
 		// update objects
 		For (it, objects) {
@@ -2764,6 +2732,51 @@ void Game::update(float delta) {
 		}
 
 		update_particles(delta);
+	}
+
+	// update camera
+	{
+		Player* p = &player;
+		vec2 radius = p->prev_radius;
+
+		if (camera_lock == 0.0f) {
+			float cam_target_x = p->pos.x - window.game_width / 2;
+			float cam_target_y = p->pos.y + radius.y - 19 - window.game_height / 2;
+
+			if (camera_pos_real.x < cam_target_x - 8) {
+				Approach(&camera_pos_real.x, cam_target_x - 8, 16 * delta);
+			}
+			if (camera_pos_real.x > cam_target_x + 8) {
+				Approach(&camera_pos_real.x, cam_target_x + 8, 16 * delta);
+			}
+
+			if (player_is_grounded(p)) {
+				float camera_speed = 16;
+
+				if (fabsf(p->ground_speed) < 8) {
+					camera_speed = 6;
+				}
+
+				Approach(&camera_pos_real.y, cam_target_y, camera_speed * delta);
+			} else {
+				if (camera_pos_real.y < cam_target_y - 32) {
+					Approach(&camera_pos_real.y, cam_target_y - 32, 16 * delta);
+				}
+				if (camera_pos_real.y > cam_target_y + 32) {
+					Approach(&camera_pos_real.y, cam_target_y + 32, 16 * delta);
+				}
+			}
+
+			Clamp(&camera_pos_real.x, cam_target_x - window.game_width  / 2, cam_target_x + window.game_width  / 2);
+			Clamp(&camera_pos_real.y, cam_target_y - window.game_height / 2, cam_target_y + window.game_height / 2);
+
+			Clamp(&camera_pos_real.x, 0.0f, (float) (tm.width  * 16 - window.game_width));
+			Clamp(&camera_pos_real.y, 0.0f, (float) (tm.height * 16 - window.game_height));
+
+			camera_pos = floor(camera_pos_real);
+		}
+
+		camera_lock = fmaxf(camera_lock - delta, 0);
 	}
 
 	// update titlecard
@@ -3156,6 +3169,10 @@ void draw_objects(array<Object> objects,
 
 				draw_sprite(get_sprite(spr_layer_switcher_priority_letter), it->layswitch.priority_1, it->pos + vec2{-6, 2});
 				draw_sprite(get_sprite(spr_layer_switcher_priority_letter), it->layswitch.priority_2, it->pos + vec2{ 2, 2});
+
+				if (it->flags & FLAG_LAYER_SWITCHER_GROUND_ONLY) {
+					draw_sprite(get_sprite(spr_layer_switcher_grounded_flag_letter), 0, it->pos + vec2{-6, 12});
+				}
 				break;
 			}
 
