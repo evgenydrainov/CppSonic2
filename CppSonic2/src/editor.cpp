@@ -392,40 +392,222 @@ static void AddArrow(ImDrawList* draw_list,
 }
 
 template <typename T>
-static void undoable_combo_menu_for_enum(const char* label,
-										 const char* (*GetEnumName)(T t),
-										 int object_index,
-										 u32 field_offset,
-										 T num_enums) {
+static void UndoableComboEnum(const char* label,
+							  const char* (*GetEnumName)(T t),
+							  int object_index,
+							  u32 field_offset,
+							  T num_enums) {
 	static_assert(sizeof(T) == 4);
 
-	T* obj_member = (T*) ((u8*)&editor.objects[object_index] + field_offset);
+	T* field_ptr = (T*) ((u8*)&editor.objects[object_index] + field_offset);
 
-	if (ImGui::BeginCombo(label, GetEnumName(*obj_member))) {
+	if (ImGui::BeginCombo(label, GetEnumName(*field_ptr))) {
 		for (int i = 0; i < num_enums; i++) {
-			if (ImGui::Selectable(GetEnumName((T) i), i == *obj_member)) {
-				T data_to = (T) i;
+			if (ImGui::Selectable(GetEnumName((T) i), i == *field_ptr)) {
+				if (i != *field_ptr) {
+					T data_to = (T) i;
 
-				Action action = {};
-				action.type = ACTION_SET_OBJECT_FIELD;
-				action.set_object_field.index = object_index;
-				action.set_object_field.field_offset = field_offset;
-				action.set_object_field.field_size = sizeof(T);
+					Action action = {};
+					action.type = ACTION_SET_OBJECT_FIELD;
+					action.set_object_field.index = object_index;
+					action.set_object_field.field_offset = field_offset;
+					action.set_object_field.field_size = sizeof(T);
 
-				static_assert(sizeof(T) <= sizeof(action.set_object_field.data_from));
+					static_assert(sizeof(T) <= sizeof(action.set_object_field.data_from));
 
-				memcpy(action.set_object_field.data_from, obj_member, sizeof(T));
-				memcpy(action.set_object_field.data_to, &data_to, sizeof(T));
+					memcpy(action.set_object_field.data_from, field_ptr, sizeof(T));
+					memcpy(action.set_object_field.data_to, &data_to, sizeof(T));
 
-				editor.action_add_and_perform(action);
+					editor.action_add_and_perform(action);
+				}
 			}
 
-			if (i == *obj_member) {
+			if (i == *field_ptr) {
 				ImGui::SetItemDefaultFocus();
 			}
 		}
 
 		ImGui::EndCombo();
+	}
+}
+
+static void UndoableCombo(const char* label,
+						  int object_index,
+						  u32 field_offset,
+						  const char** values,
+						  int num_values) {
+	int* field_ptr = (int*) ((u8*)&editor.objects[object_index] + field_offset);
+
+	if (ImGui::BeginCombo(label, values[*field_ptr])) {
+		for (int i = 0; i < num_values; i++) {
+			if (ImGui::Selectable(values[i], i == *field_ptr)) {
+				if (i != *field_ptr) {
+					int data_to = (int) i;
+
+					Action action = {};
+					action.type = ACTION_SET_OBJECT_FIELD;
+					action.set_object_field.index = object_index;
+					action.set_object_field.field_offset = field_offset;
+					action.set_object_field.field_size = sizeof(int);
+
+					static_assert(sizeof(int) <= sizeof(action.set_object_field.data_from));
+
+					memcpy(action.set_object_field.data_from, field_ptr, sizeof(int));
+					memcpy(action.set_object_field.data_to, &data_to, sizeof(int));
+
+					editor.action_add_and_perform(action);
+				}
+			}
+
+			if (i == *field_ptr) {
+				ImGui::SetItemDefaultFocus();
+			}
+		}
+
+		ImGui::EndCombo();
+	}
+}
+
+// TODO: dragging doesn't work
+static void UndoableDragFloat2(const char* label,
+							   int object_index,
+							   u32 field_offset,
+							   float v_speed = 1,
+							   float v_min = 0,
+							   float v_max = 0,
+							   const char* format = "%.3f") {
+	vec2* field_ptr = (vec2*) ((u8*)&editor.objects[object_index] + field_offset);
+	vec2 copy = *field_ptr;
+
+	ImGui::DragFloat2(label, &copy[0], v_speed, v_min, v_max, format);
+
+	if (!ImGui::IsItemActive()) {
+		if (*field_ptr != copy) {
+			Action action = {};
+			action.type = ACTION_SET_OBJECT_FIELD;
+			action.set_object_field.index = object_index;
+			action.set_object_field.field_offset = field_offset;
+			action.set_object_field.field_size = sizeof(vec2);
+
+			static_assert(sizeof(vec2) <= sizeof(action.set_object_field.data_from));
+
+			memcpy(action.set_object_field.data_from, field_ptr, sizeof(vec2));
+			memcpy(action.set_object_field.data_to, &copy, sizeof(vec2));
+
+			editor.action_add_and_perform(action);
+		}
+	}
+}
+
+// TODO: dragging doesn't work
+static void UndoableDragFloat(const char* label,
+							  int object_index,
+							  u32 field_offset,
+							  float v_speed = 1,
+							  float v_min = 0,
+							  float v_max = 0,
+							  const char* format = "%.3f") {
+	float* field_ptr = (float*) ((u8*)&editor.objects[object_index] + field_offset);
+	float copy = *field_ptr;
+
+	ImGui::DragFloat(label, &copy, v_speed, v_min, v_max, format);
+
+	if (!ImGui::IsItemActive()) {
+		if (*field_ptr != copy) {
+			Action action = {};
+			action.type = ACTION_SET_OBJECT_FIELD;
+			action.set_object_field.index = object_index;
+			action.set_object_field.field_offset = field_offset;
+			action.set_object_field.field_size = sizeof(float);
+
+			static_assert(sizeof(float) <= sizeof(action.set_object_field.data_from));
+
+			memcpy(action.set_object_field.data_from, field_ptr, sizeof(float));
+			memcpy(action.set_object_field.data_to, &copy, sizeof(float));
+
+			editor.action_add_and_perform(action);
+		}
+	}
+}
+
+static void UndoableInputFloat2(const char* label,
+								int object_index,
+								u32 field_offset,
+								const char* format = "%.3f") {
+	vec2* field_ptr = (vec2*) ((u8*)&editor.objects[object_index] + field_offset);
+	vec2 copy = *field_ptr;
+
+	ImGui::InputFloat2(label, &copy[0], format);
+
+	if (!ImGui::IsItemActive()) {
+		if (*field_ptr != copy) {
+			Action action = {};
+			action.type = ACTION_SET_OBJECT_FIELD;
+			action.set_object_field.index = object_index;
+			action.set_object_field.field_offset = field_offset;
+			action.set_object_field.field_size = sizeof(vec2);
+
+			static_assert(sizeof(vec2) <= sizeof(action.set_object_field.data_from));
+
+			memcpy(action.set_object_field.data_from, field_ptr, sizeof(vec2));
+			memcpy(action.set_object_field.data_to, &copy, sizeof(vec2));
+
+			editor.action_add_and_perform(action);
+		}
+	}
+}
+
+static void UndoableInputFloat(const char* label,
+							   int object_index,
+							   u32 field_offset) {
+	float* field_ptr = (float*) ((u8*)&editor.objects[object_index] + field_offset);
+	float copy = *field_ptr;
+
+	ImGui::InputFloat(label, &copy);
+
+	if (!ImGui::IsItemActive()) {
+		if (*field_ptr != copy) {
+			Action action = {};
+			action.type = ACTION_SET_OBJECT_FIELD;
+			action.set_object_field.index = object_index;
+			action.set_object_field.field_offset = field_offset;
+			action.set_object_field.field_size = sizeof(float);
+
+			static_assert(sizeof(float) <= sizeof(action.set_object_field.data_from));
+
+			memcpy(action.set_object_field.data_from, field_ptr, sizeof(float));
+			memcpy(action.set_object_field.data_to, &copy, sizeof(float));
+
+			editor.action_add_and_perform(action);
+		}
+	}
+}
+
+// TODO: type safety? what if we pass a field offset to a field of another type (not u32)?
+static void UndoableCheckboxFlags(const char* label,
+								  int object_index,
+								  u32 field_offset,
+								  u32 flags_value) {
+	u32* field_ptr = (u32*) ((u8*)&editor.objects[object_index] + field_offset);
+	u32 copy = *field_ptr;
+
+	ImGui::CheckboxFlags(label, &copy, flags_value);
+
+	if (!ImGui::IsItemActive()) {
+		if (*field_ptr != copy) {
+			Action action = {};
+			action.type = ACTION_SET_OBJECT_FIELD;
+			action.set_object_field.index = object_index;
+			action.set_object_field.field_offset = field_offset;
+			action.set_object_field.field_size = sizeof(u32);
+
+			static_assert(sizeof(u32) <= sizeof(action.set_object_field.data_from));
+
+			memcpy(action.set_object_field.data_from, field_ptr, sizeof(u32));
+			memcpy(action.set_object_field.data_to, &copy, sizeof(u32));
+
+			editor.action_add_and_perform(action);
+		}
 	}
 }
 
@@ -693,15 +875,15 @@ void Editor::update(float delta) {
 
 		if (state == STATE_TILEMAP_EDITOR) {
 			if (ImGui::BeginMenu("Tilemap##2")) {
-				if (ImGui::MenuItem("Load Layer from Binary File...")) try_load_layer_from_binary_file();
+				// if (ImGui::MenuItem("Load Layer from Binary File...")) try_load_layer_from_binary_file();
 
-				if (ImGui::MenuItem("Clear Layer")) try_clear_layer();
+				// if (ImGui::MenuItem("Clear Layer")) try_clear_layer();
 
 				ImGui::EndMenu();
 			}
 		} else if (state == STATE_OBJECTS_EDITOR) {
 			if (ImGui::BeginMenu("Objects##2")) {
-				if (ImGui::MenuItem("Delete All")) try_delete_all_objects();
+				// if (ImGui::MenuItem("Delete All")) try_delete_all_objects();
 
 				ImGui::EndMenu();
 			}
@@ -2277,46 +2459,91 @@ void ObjectsEditor::update(float delta) {
 		u32 pan_and_zoom_flags = 0;
 
 		// move object with arrow keys
-		if (object_index != -1) {
-			Object& obj = editor.objects[object_index];
+		{
+			static vec2 pos = {-9999, -9999};
+			static bool modified = false;
 
-			if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
-				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
-					obj.pos.y = ceilf_to(obj.pos.y, 16);
-					obj.pos.y -= 16;
-				} else {
-					obj.pos.y -= 1;
+			if (object_index != -1) {
+				Object& obj = editor.objects[object_index];
+
+				if (ImGui::GetActiveID() == 0 && ImGui::IsWindowFocused()) {
+					if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) {
+						modified = true;
+						if (pos.x == -9999) pos = obj.pos;
+
+						if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+							obj.pos.y = ceilf_to(obj.pos.y, 16);
+							obj.pos.y -= 16;
+						} else {
+							obj.pos.y -= 1;
+						}
+					}
+
+					if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
+						modified = true;
+						if (pos.x == -9999) pos = obj.pos;
+
+						if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+							obj.pos.y = floorf_to(obj.pos.y, 16);
+							obj.pos.y += 16;
+						} else {
+							obj.pos.y += 1;
+						}
+					}
+
+					if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
+						modified = true;
+						if (pos.x == -9999) pos = obj.pos;
+
+						if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+							obj.pos.x = ceilf_to(obj.pos.x, 16);
+							obj.pos.x -= 16;
+						} else {
+							obj.pos.x -= 1;
+						}
+					}
+
+					if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
+						modified = true;
+						if (pos.x == -9999) pos = obj.pos;
+
+						if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+							obj.pos.x = floorf_to(obj.pos.x, 16);
+							obj.pos.x += 16;
+						} else {
+							obj.pos.x += 1;
+						}
+					}
+
+					pan_and_zoom_flags |= DONT_MOVE_VIEW_WITH_ARROW_KEYS;
+				}
+
+				if (!ImGui::IsKeyDown(ImGuiKey_UpArrow)
+					&& !ImGui::IsKeyDown(ImGuiKey_DownArrow)
+					&& !ImGui::IsKeyDown(ImGuiKey_LeftArrow)
+					&& !ImGui::IsKeyDown(ImGuiKey_RightArrow))
+				{
+					if (modified) {
+						if (pos != obj.pos) {
+							Action action = {};
+							action.type = ACTION_SET_OBJECT_FIELD;
+							action.set_object_field.index = object_index;
+							action.set_object_field.field_offset = offsetof(Object, pos);
+							action.set_object_field.field_size = sizeof(vec2);
+
+							static_assert(sizeof(vec2) <= sizeof(action.set_object_field.data_from));
+
+							memcpy(action.set_object_field.data_from, &pos, sizeof(vec2));
+							memcpy(action.set_object_field.data_to, &obj.pos, sizeof(vec2));
+
+							editor.action_add_and_perform(action);
+						}
+
+						modified = false;
+						pos = {-9999, -9999};
+					}
 				}
 			}
-
-			if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) {
-				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
-					obj.pos.y = floorf_to(obj.pos.y, 16);
-					obj.pos.y += 16;
-				} else {
-					obj.pos.y += 1;
-				}
-			}
-
-			if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
-				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
-					obj.pos.x = ceilf_to(obj.pos.x, 16);
-					obj.pos.x -= 16;
-				} else {
-					obj.pos.x -= 1;
-				}
-			}
-
-			if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
-				if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
-					obj.pos.x = floorf_to(obj.pos.x, 16);
-					obj.pos.x += 16;
-				} else {
-					obj.pos.x += 1;
-				}
-			}
-
-			pan_and_zoom_flags |= DONT_MOVE_VIEW_WITH_ARROW_KEYS;
 		}
 
 		pan_and_zoom(tilemap_view,
@@ -2386,6 +2613,7 @@ void ObjectsEditor::update(float delta) {
 		{
 			static bool dragging;
 			static vec2 drag_offset;
+			static vec2 pos;
 
 			if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
 				if (dragging) {
@@ -2419,6 +2647,7 @@ void ObjectsEditor::update(float delta) {
 						if (object_index == new_object_index && object_index != -1) {
 							dragging = true;
 							drag_offset = editor.objects[object_index].pos - view_get_pos(tilemap_view, ImGui::GetMousePos());
+							pos = editor.objects[object_index].pos;
 						}
 
 						object_index = new_object_index;
@@ -2426,7 +2655,28 @@ void ObjectsEditor::update(float delta) {
 				}
 			} else {
 				if (dragging) {
+					Assert(object_index != -1);
+
+					Object& obj = editor.objects[object_index];
+
+					if (pos != obj.pos) {
+						Action action = {};
+						action.type = ACTION_SET_OBJECT_FIELD;
+						action.set_object_field.index = object_index;
+						action.set_object_field.field_offset = offsetof(Object, pos);
+						action.set_object_field.field_size = sizeof(vec2);
+
+						static_assert(sizeof(vec2) <= sizeof(action.set_object_field.data_from));
+
+						memcpy(action.set_object_field.data_from, &pos, sizeof(vec2));
+						memcpy(action.set_object_field.data_to, &obj.pos, sizeof(vec2));
+
+						editor.action_add_and_perform(action);
+					}
+
 					dragging = false;
+					drag_offset = {};
+					pos = {};
 				}
 			}
 		}
@@ -2510,111 +2760,81 @@ void ObjectsEditor::update(float delta) {
 
 		ImGui::Text("ID: %d", object_index);
 
-		ImGui::DragFloat2("Position", &o->pos[0], 1, 0, 0, "%.0f");
+		UndoableDragFloat2("Position", object_index, offsetof(Object, pos), 1, 0, 0, "%.0f");
 
 		switch (o->type) {
 			case OBJ_MONITOR: {
-				undoable_combo_menu_for_enum("Monitor Icon",
-											 GetMonitorIconName,
-											 object_index,
-											 offsetof(Object, monitor.icon),
-											 NUM_MONITOR_ICONS);
+				UndoableComboEnum("Monitor Icon",
+								  GetMonitorIconName,
+								  object_index,
+								  offsetof(Object, monitor.icon),
+								  NUM_MONITOR_ICONS);
 				break;
 			}
 
 			case OBJ_SPRING:
 			case OBJ_SPRING_DIAGONAL: {
-				undoable_combo_menu_for_enum("Spring Color",
-											 GetSpringColorName,
-											 object_index,
-											 offsetof(Object, spring.color),
-											 NUM_SPING_COLORS);
+				UndoableComboEnum("Spring Color",
+								  GetSpringColorName,
+								  object_index,
+								  offsetof(Object, spring.color),
+								  NUM_SPING_COLORS);
 
-				undoable_combo_menu_for_enum("Direction",
-											 GetDirectionName,
-											 object_index,
-											 offsetof(Object, spring.direction),
-											 NUM_DIRS);
+				UndoableComboEnum("Direction",
+								  GetDirectionName,
+								  object_index,
+								  offsetof(Object, spring.direction),
+								  NUM_DIRS);
 
-				ImGui::CheckboxFlags("Small Hitbox", &o->flags, FLAG_SPRING_SMALL_HITBOX);
+				UndoableCheckboxFlags("Small Hitbox", object_index, offsetof(Object, flags), FLAG_SPRING_SMALL_HITBOX);
 				break;
 			}
 
 			case OBJ_SPIKE: {
-				undoable_combo_menu_for_enum("Direction",
-											 GetDirectionName,
-											 object_index,
-											 offsetof(Object, spike.direction),
-											 NUM_DIRS);
+				UndoableComboEnum("Direction",
+								  GetDirectionName,
+								  object_index,
+								  offsetof(Object, spike.direction),
+								  NUM_DIRS);
 				break;
 			}
 
 			case OBJ_LAYER_SWITCHER_VERTICAL:
 			case OBJ_LAYER_SWITCHER_HORIZONTAL: {
 				if (o->type == OBJ_LAYER_SWITCHER_VERTICAL) {
-					ImGui::DragFloat("Height Radius", &o->layswitch.radius.y);
+					UndoableDragFloat("Height Radius", object_index, offsetof(Object, layswitch.radius.y));
 				} else {
-					ImGui::DragFloat("Width Radius", &o->layswitch.radius.x);
+					UndoableDragFloat("Width Radius", object_index, offsetof(Object, layswitch.radius.x));
 				}
 
 				{
 					const char* values[] = {"A", "B"};
-					if (ImGui::BeginCombo("Layer 1", values[o->layswitch.layer_1])) {
-						if (ImGui::Selectable(values[0], o->layswitch.layer_1 == 0)) o->layswitch.layer_1 = 0;
-						if (ImGui::Selectable(values[1], o->layswitch.layer_1 == 1)) o->layswitch.layer_1 = 1;
-
-						ImGui::EndCombo();
-					}
-
-					if (ImGui::BeginCombo("Layer 2", values[o->layswitch.layer_2])) {
-						if (ImGui::Selectable(values[0], o->layswitch.layer_2 == 0)) o->layswitch.layer_2 = 0;
-						if (ImGui::Selectable(values[1], o->layswitch.layer_2 == 1)) o->layswitch.layer_2 = 1;
-
-						ImGui::EndCombo();
-					}
+					UndoableCombo("Layer 1", object_index, offsetof(Object, layswitch.layer_1), values, ArrayLength(values));
+					UndoableCombo("Layer 2", object_index, offsetof(Object, layswitch.layer_2), values, ArrayLength(values));
 				}
 
 				{
 					const char* values[] = {"Low", "High"};
-					if (ImGui::BeginCombo("Priority 1", values[o->layswitch.priority_1])) {
-						if (ImGui::Selectable(values[0], o->layswitch.priority_1 == 0)) o->layswitch.priority_1 = 0;
-						if (ImGui::Selectable(values[1], o->layswitch.priority_1 == 1)) o->layswitch.priority_1 = 1;
-
-						ImGui::EndCombo();
-					}
-
-					if (ImGui::BeginCombo("Priority 2", values[o->layswitch.priority_2])) {
-						if (ImGui::Selectable(values[0], o->layswitch.priority_2 == 0)) o->layswitch.priority_2 = 0;
-						if (ImGui::Selectable(values[1], o->layswitch.priority_2 == 1)) o->layswitch.priority_2 = 1;
-
-						ImGui::EndCombo();
-					}
+					UndoableCombo("Priority 1", object_index, offsetof(Object, layswitch.priority_1), values, ArrayLength(values));
+					UndoableCombo("Priority 2", object_index, offsetof(Object, layswitch.priority_2), values, ArrayLength(values));
 				}
 
-				ImGui::CheckboxFlags("Ground Only", &o->flags, FLAG_LAYER_SWITCHER_GROUND_ONLY);
+				UndoableCheckboxFlags("Ground Only", object_index, offsetof(Object, flags), FLAG_LAYER_SWITCHER_GROUND_ONLY);
 				break;
 			}
 
 			case OBJ_MOVING_PLATFORM: {
 				{
+					// TODO: this code used to set default radius when you changed the sprite index
+					// o->mplatform.radius = {32, 6};
+					// o->mplatform.radius = {64, 14};
 					const char* values[] = {"spr_EEZ_platform1", "spr_EEZ_platform2"};
-					if (ImGui::BeginCombo("Sprite Index", values[o->mplatform.sprite_index])) {
-						if (ImGui::Selectable(values[0], o->mplatform.sprite_index == 0)) {
-							o->mplatform.sprite_index = 0;
-							o->mplatform.radius = {32, 6};
-						}
-						if (ImGui::Selectable(values[1], o->mplatform.sprite_index == 1)) {
-							o->mplatform.sprite_index = 1;
-							o->mplatform.radius = {64, 14};
-						}
-
-						ImGui::EndCombo();
-					}
+					UndoableCombo("Sprite Index", object_index, offsetof(Object, mplatform.sprite_index), values, ArrayLength(values));
 				}
 
-				ImGui::DragFloat2("Radius", &o->mplatform.radius[0]);
-				ImGui::DragFloat2("Offset", &o->mplatform.offset[0]);
-				ImGui::InputFloat("Time Multiplier", &o->mplatform.time_multiplier);
+				UndoableDragFloat2("Radius", object_index, offsetof(Object, mplatform.radius));
+				UndoableDragFloat2("Offset", object_index, offsetof(Object, mplatform.offset));
+				UndoableInputFloat("Time Multiplier", object_index, offsetof(Object, mplatform.time_multiplier));
 				break;
 			}
 		}
