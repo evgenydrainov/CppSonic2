@@ -3285,10 +3285,10 @@ void Game::draw(float delta) {
 
 	// draw background
 	{
-		auto draw_part = [&](float bg_height, float bg_pos_y, const Texture& t, Rect src, float parallax, float time_mul) {
+		auto draw_part = [&](float bg_height, float bg_pos_y, const Texture& t, Rect src, float parallax, float time_mul) -> void {
 			vec2 pos;
 			pos.x = camera_pos.x * parallax + time_seconds * time_mul;
-			pos.y = lerp(0.0f, tm.height * 16.0f - bg_height, camera_pos.y / (tm.height * 16.0f - window.game_height));
+			pos.y = lerp(0.0f, this->tm.height * 16.0f - bg_height, camera_pos.y / (this->tm.height * 16.0f - window.game_height));
 
 			pos.y += src.y;
 			pos.y += bg_pos_y;
