@@ -1,3 +1,7 @@
+#pragma once
+
+#include "common.h"
+
 // Has to match `g_InputBindings`.
 enum InputKey : u32 {
 	INPUT_MOVE_RIGHT    = 1 << 0,
@@ -18,9 +22,7 @@ enum InputKey : u32 {
 	INPUT_UI_CONFIRM    = 1 << 11,
 	INPUT_UI_CANCEL     = 1 << 12,
 
-	INPUT_JUMP          = INPUT_A | INPUT_B,
-
 	NUM_INPUTS          = 13,
-};
 
-extern InputBinding g_InputBindings[NUM_INPUTS];
+	INPUT_JUMP          = INPUT_A | INPUT_B,
+};

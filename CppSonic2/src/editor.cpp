@@ -689,7 +689,7 @@ void Editor::try_open_level(const char* path) {
 		return;
 	}
 
-	objects = malloc_bump_array<Object>(MAX_OBJECTS);
+	objects = allocate_bump_array<Object>(get_libc_allocator(), MAX_OBJECTS);
 
 	if (!read_objects(&objects, (current_level_dir / "Objects.bin").u8string().c_str())) {
 		log_error("Couldn't load level: couldn't read objects.");
@@ -700,7 +700,7 @@ void Editor::try_open_level(const char* path) {
 	gen_heightmap_texture(&heightmap, ts, tileset_texture);
 	gen_widthmap_texture(&widthmap, ts, tileset_texture);
 
-	actions = malloc_bump_array<Action>(10'000);
+	actions = allocate_bump_array<Action>(get_libc_allocator(), 10'000);
 	action_index = -1;
 	saved_action_index = -1;
 
@@ -848,7 +848,7 @@ void Editor::update(float delta) {
 				ImGui::MenuItem("Undo", "Ctrl+Z", false, false);
 			} else {
 				char buf[256];
-				stb_snprintf(buf, sizeof(buf), "Undo %s", GetActionTypeName(actions[action_index].type));
+				stbsp_snprintf(buf, sizeof(buf), "Undo %s", GetActionTypeName(actions[action_index].type));
 				if (ImGui::MenuItem(buf, "Ctrl+Z")) try_undo();
 			}
 
@@ -856,7 +856,7 @@ void Editor::update(float delta) {
 				ImGui::MenuItem("Redo", "Ctrl+Y", false, false);
 			} else {
 				char buf[256];
-				stb_snprintf(buf, sizeof(buf), "Redo %s", GetActionTypeName(actions[action_index + 1].type));
+				stbsp_snprintf(buf, sizeof(buf), "Redo %s", GetActionTypeName(actions[action_index + 1].type));
 				if (ImGui::MenuItem(buf, "Ctrl+Y")) try_redo();
 			}
 
@@ -1013,7 +1013,7 @@ void Editor::update(float delta) {
 			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, it->alpha);
 
 			char buf[128];
-			stb_snprintf(buf, sizeof(buf), "notif%d", i++);
+			stbsp_snprintf(buf, sizeof(buf), "notif%d", i++);
 
 			ImGui::Begin(buf, nullptr, window_flags);
 
@@ -1289,7 +1289,7 @@ void Editor::notify(NotificationType type, const char* fmt, ...) {
 
 	va_list va;
 	va_start(va, fmt);
-	stb_vsnprintf(notif.buf, sizeof(notif.buf), fmt, va);
+	stbsp_vsnprintf(notif.buf, sizeof(notif.buf), fmt, va);
 	va_end(va);
 
 	array_insert(&notifications, 0, notif);
@@ -1687,7 +1687,7 @@ void TilesetEditor::update(float delta) {
 				int height = heights[i];
 
 				char buf[32];
-				stb_snprintf(buf, sizeof(buf), "[%d]##heights", i);
+				stbsp_snprintf(buf, sizeof(buf), "[%d]##heights", i);
 				ImGui::InputInt(buf, &height, 0, 0, ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_CharsDecimal);
 				if (ImGui::IsItemActive()) {
 					dont_update_selected_tile_index = true;
@@ -1715,7 +1715,7 @@ void TilesetEditor::update(float delta) {
 				int width = widths[i];
 
 				char buf[32];
-				stb_snprintf(buf, sizeof(buf), "[%d]##widths", i);
+				stbsp_snprintf(buf, sizeof(buf), "[%d]##widths", i);
 				ImGui::InputInt(buf, &width, 0, 0, ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_CharsDecimal);
 				if (ImGui::IsItemActive()) {
 					dont_update_selected_tile_index = true;
@@ -2734,7 +2734,7 @@ void ObjectsEditor::update(float delta) {
 
 		for (int i = 0; i < editor.objects.count; i++) {
 			char buf[64];
-			stb_snprintf(buf, sizeof(buf), "%d: %s", i, GetObjTypeName(editor.objects[i].type));
+			stbsp_snprintf(buf, sizeof(buf), "%d: %s", i, GetObjTypeName(editor.objects[i].type));
 
 			if (ImGui::Selectable(buf, i == object_index)) {
 				object_index = i;
@@ -2868,7 +2868,7 @@ void Editor::update_window_caption() {
 	}
 
 	char buf[512];
-	stb_snprintf(buf, sizeof(buf), "%sEditor - (%s)", prefix, current_level_dir.u8string().c_str());
+	stbsp_snprintf(buf, sizeof(buf), "%sEditor - (%s)", prefix, current_level_dir.u8string().c_str());
 	SDL_SetWindowTitle(get_window_handle(), buf);
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.h"
+#include "input_bindings.h"
 
 struct Input {
 	static constexpr int NUM_KEYBOARD_KEYS = SDL_SCANCODE_RGUI + 1;
@@ -45,7 +46,7 @@ struct InputBinding {
 
 extern Input input;
 
-#include "input_bindings.h"
+extern InputBinding g_InputBindings[NUM_INPUTS];
 
 bool is_input_held(InputKey key);
 bool is_input_pressed(InputKey key, bool repeat = false);

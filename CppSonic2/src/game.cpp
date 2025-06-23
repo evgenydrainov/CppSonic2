@@ -35,7 +35,7 @@ void Game::load_level(const char* path) {
 
 	// load tileset texture
 	char buf[512];
-	stb_snprintf(buf, sizeof(buf), "%s/Tileset.png", path);
+	stbsp_snprintf(buf, sizeof(buf), "%s/Tileset.png", path);
 
 	tileset_texture = load_texture_from_file(buf);
 	if (tileset_texture.id == 0) {
@@ -50,16 +50,16 @@ void Game::load_level(const char* path) {
 	tileset_height = tileset_texture.height / 16;
 
 	// load tilemap data
-	stb_snprintf(buf, sizeof(buf), "%s/Tilemap.bin", path);
+	stbsp_snprintf(buf, sizeof(buf), "%s/Tilemap.bin", path);
 	read_tilemap(&tm, buf);
 
 	// load tileset data
-	stb_snprintf(buf, sizeof(buf), "%s/Tileset.bin", path);
+	stbsp_snprintf(buf, sizeof(buf), "%s/Tileset.bin", path);
 	read_tileset(&ts, buf);
 
 	// load object data
-	objects = malloc_bump_array<Object>(MAX_OBJECTS);
-	stb_snprintf(buf, sizeof(buf), "%s/Objects.bin", path);
+	objects = allocate_bump_array<Object>(get_libc_allocator(), MAX_OBJECTS);
+	stbsp_snprintf(buf, sizeof(buf), "%s/Objects.bin", path);
 	read_objects(&objects, buf);
 
 	// search for player init pos
@@ -2312,6 +2312,7 @@ static void player_update(Player* p, float delta) {
 	};
 
 	// animate player
+#if 0
 	if (p->anim != p->next_anim) {
 		p->anim = p->next_anim;
 		p->frame_timer = p->frame_duration;
@@ -2326,6 +2327,21 @@ static void player_update(Player* p, float delta) {
 			p->frame_timer += p->frame_duration;
 		}
 	}
+#else
+	if (p->anim != p->next_anim) {
+		p->anim = p->next_anim;
+		p->frame_timer = 0;
+		p->frame_index = 0;
+	} else {
+		p->frame_timer += delta;
+		while (p->frame_timer >= p->frame_duration + 1) {
+			p->frame_index++;
+			if (p->frame_index >= anim_get_frame_count(p->anim)) p->frame_index = 0;
+
+			p->frame_timer -= p->frame_duration + 1;
+		}
+	}
+#endif
 
 #ifdef DEVELOPER
 	{
@@ -2376,12 +2392,14 @@ void Game::init(int argc, char* argv[]) {
 
 	// show_player_hitbox = true;
 
-	debug_rects = malloc_bump_array<Rectf>(100);
+	debug_rects = allocate_bump_array<Rectf>(get_libc_allocator(), 100);
 
 	play_music("music/EEZ_Act1.mp3");
 }
 
 void Game::deinit() {
+	free(debug_rects.data);
+
 	free(objects.data);
 
 	free_tileset(&ts);
@@ -3188,17 +3206,17 @@ static void player_draw(Player* p) {
 	}
 
 	if (!dont_draw) {
-		set_shader(get_shader(shd_palette));
+		set_shader(get_shader(shd_palette).id);
 
-		glUniform1i(glGetUniformLocation(get_shader(shd_palette), "u_Palette"), 1);
+		glUniform1i(glGetUniformLocation(get_shader(shd_palette).id, "u_Palette"), 1);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, get_texture(tex_sonic_palette).id);
 
 		int palette_index = 1;
 
-		glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteIndex"),  palette_index);
-		glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteWidth"),  get_texture(tex_sonic_palette).width);
-		glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteHeight"), get_texture(tex_sonic_palette).height);
+		glUniform1f(glGetUniformLocation(get_shader(shd_palette).id, "u_PaletteIndex"),  palette_index);
+		glUniform1f(glGetUniformLocation(get_shader(shd_palette).id, "u_PaletteWidth"),  get_texture(tex_sonic_palette).width);
+		glUniform1f(glGetUniformLocation(get_shader(shd_palette).id, "u_PaletteHeight"), get_texture(tex_sonic_palette).height);
 
 		draw_sprite(s, frame_index, floor(p->pos), {p->facing, 1}, angle);
 
@@ -3261,14 +3279,14 @@ void Game::draw(float delta) {
 
 		float bg_height = 512;
 
-		set_shader(get_shader(shd_sine));
+		set_shader(get_shader(shd_sine).id);
 
 		{
-			glUniform1f(glGetUniformLocation(get_shader(shd_sine), "u_Time"), time_seconds);
+			glUniform1f(glGetUniformLocation(get_shader(shd_sine).id, "u_Time"), time_seconds);
 		}
 		{
 			float water_pos_y_on_screen = water_pos_y - camera_pos.y;
-			glUniform1f(glGetUniformLocation(get_shader(shd_sine), "u_WaterPosY"), water_pos_y_on_screen);
+			glUniform1f(glGetUniformLocation(get_shader(shd_sine).id, "u_WaterPosY"), water_pos_y_on_screen);
 		}
 
 		const float time_mul = -10;
@@ -3583,55 +3601,56 @@ void Game::draw(float delta) {
 
 		// draw score and time
 		{
-			char buf[32];
-			string str;
-
 			vec2 pos = {112, 8};
 			if (player.state == STATE_DEBUG) {
 				pos.x += 8;
 			}
 
-			if (player.state == STATE_DEBUG) {
-				str = Sprintf(buf, "%8d", (int)player.pos.x);
-			} else {
-				str = Sprintf(buf, "%d", player_score);
+			{
+				string str;
+				if (player.state == STATE_DEBUG) {
+					str = tprintf("%8d", (int)player.pos.x);
+				} else {
+					str = tprintf("%d", player_score);
+				}
+
+				draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
 			}
-			draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
+
 			pos.y += 16;
 
 			int min = (int)(player_time / 3600.0f);
 			int sec = (int)(player_time / 60.0f) % 60;
 			int ms  = (int)(player_time / 60.0f * 100.0f) % 100; // not actually milliseconds
 
-			if (player.state == STATE_DEBUG) {
-				str = Sprintf(buf, "%8d", (int)player.pos.y);
-			} else {
-				str = Sprintf(buf, "%d'%02d\"%02d", min, sec, ms);
+			{
+				string str;
+				if (player.state == STATE_DEBUG) {
+					str = tprintf("%8d", (int)player.pos.y);
+				} else {
+					str = tprintf("%d'%02d\"%02d", min, sec, ms);
+				}
+
+				draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
 			}
-			draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
 		}
 
 		// draw rings amount
 		{
-			char buf[32];
-			string str;
-
 			vec2 pos;
 			pos.x = 112 - 24;
 			pos.y = 8 + 16*2;
 
-			str = Sprintf(buf, "%d", player_rings);
+			string str = tprintf("%d", player_rings);
 			draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
 		}
 
 		// draw lives icon
 		{
-			vec2 pos;
-
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
-			pos = {window.game_width - 48, 8};
+			vec2 pos = {window.game_width - 48, 8};
 #else
-			pos = {16, window.game_height - 24};
+			vec2 pos = {16, window.game_height - 24};
 #endif
 
 			draw_sprite(get_sprite(spr_hud_lives), 0, pos);
@@ -3639,8 +3658,7 @@ void Game::draw(float delta) {
 			pos.x += 25;
 			pos.y += 5;
 
-			char buf[32];
-			string str = Sprintf(buf, "%d", player_lives);
+			string str = tprintf("%d", player_lives);
 			draw_text(get_font(fnt_hud), str, pos);
 		}
 	}

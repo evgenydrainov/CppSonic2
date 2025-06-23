@@ -156,4 +156,4 @@ const Texture& get_texture(u32 texture_index);
 const Sprite&  get_sprite (u32 sprite_index);
 const Font&    get_font   (u32 font_index);
 Mix_Chunk*     get_sound  (u32 sound_index);
-u32            get_shader (u32 shader_index);
+const Shader&  get_shader (u32 shader_index);

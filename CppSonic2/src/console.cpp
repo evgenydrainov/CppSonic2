@@ -7,18 +7,17 @@
 
 Console console;
 
-void Console::init(ConsoleCallbackFn _callback, void* _callback_userdata,
-				   Font _font,
+void Console::init(ConsoleCallbackFn _callback,
+				   void* _callback_userdata,
 				   array<string> _commands) {
 	callback          = _callback;
 	callback_userdata = _callback_userdata;
-	font              = _font;
 	commands          = _commands;
 	
-	cmd     = malloc_bump_array<char>(64);
-	history = malloc_bump_array<char>(1024);
+	cmd     = allocate_bump_array<char>(get_libc_allocator(), 64);
+	history = allocate_bump_array<char>(get_libc_allocator(), 1024);
 
-	cmd_hist = malloc_bump_array<string>(CMD_HIST);
+	cmd_hist = allocate_bump_array<string>(get_libc_allocator(), CMD_HIST);
 }
 
 void Console::deinit() {
@@ -285,7 +284,7 @@ void Console::update(float delta) {
 	Lerp_delta(&console_anim_y, target, 0.4f, delta);
 }
 
-void Console::draw(float delta) {
+void Console::draw(const Font& font, float delta) {
 	if (console_anim_y < 0.01f) {
 		return;
 	}
@@ -339,8 +338,6 @@ void Console::draw(float delta) {
 
 	break_batch();
 	glDisable(GL_SCISSOR_TEST);
-
-	was_open_last_frame = is_open;
 }
 
 #endif

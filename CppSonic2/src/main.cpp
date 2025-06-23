@@ -5,6 +5,7 @@
 #include "assets.h"
 #include "input.h"
 #include "program.h"
+#include "tests.h"
 
 #ifdef EDITOR
 #include "imgui_glue.h"
@@ -22,6 +23,8 @@
 
 
 static void do_one_frame() {
+	get_temp_arena()->count = 0;
+
 	begin_frame();
 
 	// handle events
@@ -68,7 +71,7 @@ static void do_one_frame() {
 		program.late_draw(window.delta);
 
 		#ifdef DEVELOPER
-			console.draw(window.delta);
+			console.draw(get_font(fnt_consolas_bold), window.delta);
 		#endif
 
 		break_batch();
@@ -76,7 +79,6 @@ static void do_one_frame() {
 
 	swap_buffers();
 }
-
 
 static int game_main(int argc, char* argv[]) {
 	init_window_and_opengl("Sonic VHS", 424, 240, 2, true, true);
@@ -102,7 +104,7 @@ static int game_main(int argc, char* argv[]) {
 	defer { program.deinit(); };
 
 #ifdef DEVELOPER
-	console.init(console_callback, nullptr, get_font(fnt_consolas_bold), g_ConsoleCommands);
+	console.init(console_callback, nullptr, g_ConsoleCommands);
 	defer { console.deinit(); };
 #endif
 
@@ -140,6 +142,8 @@ static int editor_main(int argc, char* argv[]) {
 	defer { editor.deinit(); };
 
 	while (!window.should_quit) {
+		get_temp_arena()->count = 0;
+
 		begin_frame();
 
 		SDL_Event ev;
@@ -177,7 +181,20 @@ enum Lauch_Mode {
 	LAUNCH_EDITOR,
 };
 
+static Arena temp_arena;
+
+Arena* get_temp_arena() {
+	return &temp_arena;
+}
+
 int main(int argc, char* argv[]) {
+	temp_arena = allocate_arena(get_libc_allocator(), Megabytes(1));
+	defer { free(temp_arena.data); };
+
+#if defined(_DEBUG) && defined(_WIN32)
+	run_tests();
+#endif
+
 	Lauch_Mode launch_mode = LAUNCH_GAME;
 
 	if (argc >= 2) {

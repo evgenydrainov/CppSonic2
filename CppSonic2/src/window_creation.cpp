@@ -404,8 +404,6 @@ void set_fullscreen(bool fullscreen) {
 		SDL_GetDesktopDisplayMode(display, &mode);
 		SDL_SetWindowDisplayMode(window.handle, &mode);
 
-		// NOTE: on an old AMD driver, when you enabled fullscreen, the refresh rate of your monitor would change.
-
 		if (window.prefer_borderless_fullscreen) {
 			SDL_SetWindowFullscreen(window.handle, SDL_WINDOW_FULLSCREEN_DESKTOP);
 		} else {

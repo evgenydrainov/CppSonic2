@@ -9,7 +9,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_PNG
 #define STBI_NO_STDIO
-// TODO: STBI_ASSERT
 #include <stb/stb_image.h>
 #undef STB_IMAGE_IMPLEMENTATION
 

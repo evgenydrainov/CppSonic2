@@ -515,7 +515,7 @@ void Editor::import_s1_level(const char* level_data_path,
 	startpos[0] = SDL_Swap16(startpos[0]);
 	startpos[1] = SDL_Swap16(startpos[1]);
 
-	objects = malloc_bump_array<Object>(MAX_OBJECTS);
+	objects = allocate_bump_array<Object>(get_libc_allocator(), MAX_OBJECTS);
 
 	{
 		Object o = {};
@@ -856,7 +856,7 @@ void Editor::update(float delta) {
 
 		log_info("Read tilemap %d x %d.", tm.width, tm.height);
 
-		objects = malloc_bump_array<Object>(MAX_OBJECTS);
+		objects = allocate_bump_array<Object>(get_libc_allocator(), MAX_OBJECTS);
 		read_objects(&objects, (current_level_dir / "Objects.bin").u8string().c_str());
 
 		gen_heightmap_texture(&heightmap, ts, tileset_texture);
@@ -895,7 +895,7 @@ void Editor::update(float delta) {
 #else
 		// @Utf8
 		char buf[512];
-		stb_snprintf(buf, sizeof buf, "%s --game %s", process_name, current_level_dir.string().c_str());
+		stbsp_snprintf(buf, sizeof buf, "%s --game %s", process_name, current_level_dir.string().c_str());
 		system(buf);
 #endif
 
@@ -1393,7 +1393,7 @@ void Editor::update(float delta) {
 
 					for (int i = 0; i < 16; i++) {
 						char buf[16];
-						stb_snprintf(buf, sizeof(buf), "%d##h", i);
+						stbsp_snprintf(buf, sizeof(buf), "%d##h", i);
 
 						if (ImGui::DragScalar(buf, ImGuiDataType_U8, &heights[i])) {
 							gen_heightmap_texture(&heightmap, ts, tileset_texture);
@@ -1406,7 +1406,7 @@ void Editor::update(float delta) {
 
 					for (int i = 0; i < 16; i++) {
 						char buf[16];
-						stb_snprintf(buf, sizeof(buf), "%d##w", i);
+						stbsp_snprintf(buf, sizeof(buf), "%d##w", i);
 
 						if (ImGui::DragScalar(buf, ImGuiDataType_U8, &widths[i])) {
 							gen_widthmap_texture(&widthmap, ts, tileset_texture);
@@ -1682,7 +1682,7 @@ void Editor::update(float delta) {
 							if (show_tile_indices) {
 								if (tile.index != 0) {
 									char buf[10];
-									stb_snprintf(buf, sizeof buf, "%u", tile.index);
+									stbsp_snprintf(buf, sizeof buf, "%u", tile.index);
 									ImVec2 p = tilemap_pos + ImVec2(x * 16, y * 16) * tilemap_view.zoom;
 
 									//ImGui::SetWindowFontScale(tilemap_view.zoom);
@@ -2111,7 +2111,7 @@ void Editor::update(float delta) {
 
 				for (int i = 0; i < objects.count; i++) {
 					char buf[32];
-					stb_snprintf(buf, sizeof buf, "%d: %s", i, GetObjTypeName(objects[i].type));
+					stbsp_snprintf(buf, sizeof buf, "%d: %s", i, GetObjTypeName(objects[i].type));
 
 					if (ImGui::Selectable(buf, i == selected_object)) {
 						selected_object = i;
@@ -2332,7 +2332,7 @@ void Editor::update(float delta) {
 				tm.tiles_b = calloc_array<Tile>(tm.width * tm.height);
 				tm.tiles_c = calloc_array<Tile>(tm.width * tm.height);
 
-				objects = malloc_bump_array<Object>(MAX_OBJECTS);
+				objects = allocate_bump_array<Object>(get_libc_allocator(), MAX_OBJECTS);
 
 				std::filesystem::copy_file(std::filesystem::u8path(cnl_tileset),
 										   current_level_dir / "Tileset.png");
@@ -2382,7 +2382,7 @@ void Editor::update_window_caption() {
 		SDL_SetWindowTitle(get_window_handle(), "Editor");
 	} else {
 		char buf[512];
-		stb_snprintf(buf, sizeof(buf), "Editor - (%s)", current_level_dir.u8string().c_str());
+		stbsp_snprintf(buf, sizeof(buf), "Editor - (%s)", current_level_dir.u8string().c_str());
 		SDL_SetWindowTitle(get_window_handle(), buf);
 	}
 }

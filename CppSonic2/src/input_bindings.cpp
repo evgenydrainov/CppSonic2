@@ -1,5 +1,7 @@
 #include "input.h"
 
+static_assert(NUM_INPUTS == 13);
+
 InputBinding g_InputBindings[NUM_INPUTS] = {
 	/* INPUT_MOVE_RIGHT    */ { SDL_SCANCODE_RIGHT, (SDL_Scancode)0, SDL_CONTROLLER_BUTTON_DPAD_RIGHT },
 	/* INPUT_MOVE_UP       */ { SDL_SCANCODE_UP,    (SDL_Scancode)0, SDL_CONTROLLER_BUTTON_DPAD_UP },

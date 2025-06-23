@@ -8,7 +8,7 @@ static Texture    textures[NUM_TEXTURES];
 static Sprite     sprites [NUM_SPRITES];
 static Font       fonts   [NUM_FONTS];
 static Mix_Chunk* sounds  [NUM_SOUNDS];
-static u32        shaders [NUM_SHADERS];
+static Shader     shaders [NUM_SHADERS];
 
 void load_global_assets() {
 	{
@@ -171,8 +171,8 @@ void load_assets_for_game() {
 		u32 shd_sine_frag = compile_shader(GL_FRAGMENT_SHADER, get_file_str("shaders/sine.frag"), "shd_sine_frag");
 		defer { glDeleteShader(shd_sine_frag); };
 
-		shaders[shd_palette] = link_program(shd_palette_vert, shd_palette_frag, "shd_palette");
-		shaders[shd_sine]    = link_program(shd_sine_vert,    shd_sine_frag,    "shd_sine");
+		shaders[shd_palette].id = link_program(shd_palette_vert, shd_palette_frag, "shd_palette");
+		shaders[shd_sine].id    = link_program(shd_sine_vert,    shd_sine_frag,    "shd_sine");
 	}
 }
 
@@ -211,10 +211,7 @@ void free_all_assets() {
 	}
 
 	for (int i = 0; i < NUM_SHADERS; i++) {
-		if (shaders[i] != 0) {
-			glDeleteProgram(shaders[i]);
-			shaders[i] = 0;
-		}
+		free_shader(&shaders[i]);
 	}
 }
 
@@ -258,10 +255,10 @@ Mix_Chunk* get_sound(u32 sound_index) {
 	return sounds[sound_index];
 }
 
-u32 get_shader(u32 shader_index) {
+const Shader& get_shader(u32 shader_index) {
 	Assert(shader_index < NUM_SHADERS);
 
-	if (shaders[shader_index] == 0) {
+	if (shaders[shader_index].id == 0) {
 		log_warn("Trying to access shader %u that hasn't been loaded.", shader_index);
 	}
 

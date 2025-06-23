@@ -126,8 +126,7 @@ void Program::draw(float delta) {
 
 	// draw fps
 	{
-		char buf[16];
-		string str = Sprintf(buf, "%.0f", roundf(window.avg_fps));
+		string str = tprintf("%.0f", roundf(window.avg_fps));
 		draw_text(get_font(fnt_hud), str, {window.game_width, window.game_height}, HALIGN_RIGHT, VALIGN_BOTTOM);
 	}
 
@@ -151,9 +150,7 @@ void Program::late_draw(float delta) {
 
 #ifdef DEVELOPER
 	if (program.show_debug_info) {
-		char buf[256];
-		string str = Sprintf(buf,
-							 "frame: %fms\n"
+		string str = tprintf("frame: %fms\n"
 							 "update: %fms\n"
 							 "draw: %fms\n"
 							 "draw calls: %d\n"
@@ -168,9 +165,7 @@ void Program::late_draw(float delta) {
 		if (program_mode == PROGRAM_GAME) {
 			Player* p = &game.player;
 
-			char buf[256];
-			string str = Sprintf(buf,
-								 "state: %s\n"
+			string str = tprintf("state: %s\n"
 								 "ground speed: %f\n"
 								 "ground angle: %f\n"
 								 "xspeed: %f\n"
@@ -226,6 +221,7 @@ static string s_ConsoleCommandsBuf[] = {
 	"show_debug_info",
 	"show_hitboxes",
 	"load_level",
+	"debugbreak",
 };
 
 array<string> g_ConsoleCommands = s_ConsoleCommandsBuf;
@@ -268,6 +264,11 @@ bool console_callback(string str, void* userdata) {
 		program.level_filepath = copy_string(level);
 
 		program.set_program_mode(PROGRAM_GAME);
+		return true;
+	}
+
+	if (command == "debugbreak") {
+		Assert(false);
 		return true;
 	}
 

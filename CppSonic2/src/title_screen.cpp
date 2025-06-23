@@ -148,17 +148,17 @@ void Title_Screen::draw(float delta) {
 		pos.x = 0;
 
 		// water
-		set_shader(get_shader(shd_palette));
+		set_shader(get_shader(shd_palette).id);
 
-		glUniform1i(glGetUniformLocation(get_shader(shd_palette), "u_Palette"), 1);
+		glUniform1i(glGetUniformLocation(get_shader(shd_palette).id, "u_Palette"), 1);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, get_texture(tex_title_water_palette).id);
 
 		int palette_index = (SDL_GetTicks() / 200) % 3 + 1;
 
-		glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteIndex"),  palette_index);
-		glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteWidth"),  get_texture(tex_title_water_palette).width);
-		glUniform1f(glGetUniformLocation(get_shader(shd_palette), "u_PaletteHeight"), get_texture(tex_title_water_palette).height);
+		glUniform1f(glGetUniformLocation(get_shader(shd_palette).id, "u_PaletteIndex"),  palette_index);
+		glUniform1f(glGetUniformLocation(get_shader(shd_palette).id, "u_PaletteWidth"),  get_texture(tex_title_water_palette).width);
+		glUniform1f(glGetUniformLocation(get_shader(shd_palette).id, "u_PaletteHeight"), get_texture(tex_title_water_palette).height);
 
 		auto draw_lane = [&](int lane, vec2 pos) {
 			pos.y += 16 * lane;

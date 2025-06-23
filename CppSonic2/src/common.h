@@ -53,26 +53,30 @@ struct Rectf {
 
 #define ArrayLength(a) (sizeof(a) / sizeof(a[0]))
 
+// template <typename T, size_t N>
+// constexpr size_t ArrayLength(const T (&arr)[N]) { return N; }
+
 #define Kilobytes(x) ((size_t)((x) * (size_t)1024))
 #define Megabytes(x) Kilobytes((x) * (size_t)1024)
 #define Gigabytes(x) Megabytes((x) * (size_t)1024)
 
-// 
-// Logging and assert
-// 
+
+
+// -----------------------------------------------------------
+//                 SECTION: Logging
+// -----------------------------------------------------------
 
 #define log_info(fmt, ...)  log_internal(SDL_LOG_PRIORITY_INFO,  fmt, ##__VA_ARGS__)
 #define log_warn(fmt, ...)  log_internal(SDL_LOG_PRIORITY_WARN,  fmt, ##__VA_ARGS__)
 #define log_error(fmt, ...) log_internal(SDL_LOG_PRIORITY_ERROR, fmt, ##__VA_ARGS__)
 
 inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(SDL_LogPriority priority, SDL_PRINTF_FORMAT_STRING const char* fmt, ...) {
-#if 1
 	char buf[512];
 
 	// SDL_snprintf doesn't support %g.
 	va_list va;
 	va_start(va, fmt);
-	int written = stb_vsnprintf(buf, sizeof(buf), fmt, va);
+	int written = stbsp_vsnprintf(buf, sizeof(buf), fmt, va);
 	va_end(va);
 
 	if (written >= sizeof(buf)) {
@@ -80,7 +84,7 @@ inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(SDL_LogPriority priority, SDL
 		if (heap_buf) {
 			va_list va;
 			va_start(va, fmt);
-			stb_vsnprintf(heap_buf, written + 1, fmt, va);
+			stbsp_vsnprintf(heap_buf, written + 1, fmt, va);
 			va_end(va);
 
 			SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, priority, "%s", heap_buf);
@@ -93,92 +97,34 @@ inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(SDL_LogPriority priority, SDL
 	} else {
 		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, priority, "%s", buf);
 	}
-#else
-	char buf[STB_SPRINTF_MIN];
-
-	switch (priority) {
-		case SDL_LOG_PRIORITY_VERBOSE: {
-			static const char buf[] = "VERBOSE: ";
-			fwrite(buf, 1, sizeof buf, stdout);
-			break;
-		}
-
-		case SDL_LOG_PRIORITY_DEBUG: {
-			static const char buf[] = "DEBUG: ";
-			fwrite(buf, 1, sizeof buf, stdout);
-			break;
-		}
-
-		case SDL_LOG_PRIORITY_INFO: {
-			static const char buf[] = "INFO: ";
-			fwrite(buf, 1, sizeof buf, stdout);
-			break;
-		}
-
-		case SDL_LOG_PRIORITY_WARN: {
-			static const char buf[] = "WARN: ";
-			fwrite(buf, 1, sizeof buf, stdout);
-			break;
-		}
-
-		case SDL_LOG_PRIORITY_ERROR: {
-			static const char buf[] = "ERROR: ";
-			fwrite(buf, 1, sizeof buf, stdout);
-			break;
-		}
-
-		case SDL_LOG_PRIORITY_CRITICAL: {
-			static const char buf[] = "CRITICAL: ";
-			fwrite(buf, 1, sizeof buf, stdout);
-			break;
-		}
-	}
-
-	va_list va;
-	va_start(va, fmt);
-
-	stb_vsprintfcb([](const char *buf, void *user, int len) -> char* {
-		char* orig_buf = (char*) user;
-
-		fwrite(buf, 1, len, stdout);
-
-		return orig_buf;
-	}, buf, buf, fmt, va);
-
-	va_end(va);
-
-	char newl = '\n';
-	fwrite(&newl, 1, 1, stdout);
-#endif
 }
 
-//
-// For now, asserts will be enabled in release build.
-//
+
+
 #ifdef NDEBUG
 	#ifdef ENABLE_ASSERTS_IN_RELEASE
-		#define Assert(expr) while (!(expr)) panic_and_abort("Assertion Failed: " #expr)
+		#define Assert(expr) if (!(expr)) panic_and_abort("Assertion Failed: " #expr)
 	#else
 		#define Assert(expr)
 	#endif
 #else
-	#define Assert(expr) while (!(expr)) { try_to_exit_fullscreen_properly(); SDL_TriggerBreakpoint(); }
+	#define Assert(expr) if (!(expr)) { try_to_exit_fullscreen_properly(); SDL_TriggerBreakpoint(); }
 #endif
 
 #define panic_and_abort(fmt, ...) _panic_and_abort(__FILE__ ":" STRINGIFY(__LINE__) ": " fmt, ##__VA_ARGS__)
 
-extern SDL_Window* get_window_handle(); // defined in window_creation.h
+SDL_Window* get_window_handle(); // defined in window_creation.h
 
 inline void try_to_exit_fullscreen_properly() {
+	// This exists because when you trigger a breakpoint or show a message box while your game is
+	// in fullscreen, then the window gets stuck and you have to kill the process with Ctrl+Alt+Delete.
+
 	if (SDL_Window* window = get_window_handle()) {
 		SDL_SetWindowFullscreen(window, 0);
 
-		// NOTE: if you leave fullscreen right before triggering the debugger or showing a message box,
-		// then you have to respond to the OS events here, otherwise you won't actually leave fullscreen and get a stuck window.
-		// At least, that was the case before I updated my GPU driver I think.
-
-		SDL_Event ev;
-		while (SDL_PollEvent(&ev)) {}
+		// I guess this is not needed anymore?
+		// SDL_Event ev;
+		// while (SDL_PollEvent(&ev)) {}
 	}
 }
 
@@ -187,7 +133,7 @@ SDL_NORETURN inline void _panic_and_abort(const char* fmt, ...) {
 
 	va_list va;
 	va_start(va, fmt);
-	stb_vsnprintf(buf, sizeof(buf), fmt, va);
+	stbsp_vsnprintf(buf, sizeof(buf), fmt, va);
 	va_end(va);
 
 	log_error("%s", buf);
@@ -249,25 +195,26 @@ public:
 #define GENERATE_ENUM(x) x,
 #define GENERATE_STRING(x) #x,
 
-#define DEFINE_NAMED_ENUM(Type, List) \
-	enum Type { List(GENERATE_ENUM) }; \
-	inline const char* Get##Type##Name(Type val) { \
+#define DEFINE_NAMED_ENUM(Type, List)                           \
+	enum Type { List(GENERATE_ENUM) };                          \
+	inline const char* Get##Type##Name(Type val) {              \
 		static const char* names[] = { List(GENERATE_STRING) }; \
-		Assert(val >= 0); \
-		Assert(val < ArrayLength(names)); \
-		return names[val]; \
+		if (val >= 0 && val < ArrayLength(names)) {             \
+			return names[val];                                  \
+		}                                                       \
+		return "unknown";                                       \
 	}
 
 #define GENERATE_ENUM_WITH_VALUES(name, value) name = value,
 #define GENERATE_ENUM_CASE(name, value) case name: return #name;
 
-#define DEFINE_NAMED_ENUM_WITH_VALUES(Type, List) \
+#define DEFINE_NAMED_ENUM_WITH_VALUES(Type, List)  \
 	enum Type { List(GENERATE_ENUM_WITH_VALUES) }; \
 	inline const char* Get##Type##Name(Type val) { \
-		switch (val) { \
-			List(GENERATE_ENUM_CASE) \
-		} \
-		return "unknown"; \
+		switch (val) {                             \
+			List(GENERATE_ENUM_CASE)               \
+		}                                          \
+		return "unknown";                          \
 	}
 
 // 
@@ -314,21 +261,21 @@ inline const char* format_size_string(size_t bytes) {
 }
 
 
-inline constexpr vec4 get_color(u32 rgba) {
+constexpr vec4 get_color(u32 rgba) {
 	return {((rgba >> 24) & 0xFF) / 255.0f,
 			((rgba >> 16) & 0xFF) / 255.0f,
 			((rgba >>  8) & 0xFF) / 255.0f,
 			((rgba >>  0) & 0xFF) / 255.0f};
 }
 
-inline constexpr vec4 get_color(u8 r, u8 g, u8 b, u8 a = 0xFF) {
+constexpr vec4 get_color(u8 r, u8 g, u8 b, u8 a = 0xFF) {
 	return {r / 255.0f,
 			g / 255.0f,
 			b / 255.0f,
 			a / 255.0f};
 }
 
-inline constexpr vec4 get_color_4bit(u16 rgba) {
+constexpr vec4 get_color_4bit(u16 rgba) {
 	return {((rgba >> 12) & 0xF) / 15.0f,
 			((rgba >>  8) & 0xF) / 15.0f,
 			((rgba >>  4) & 0xF) / 15.0f,
@@ -612,37 +559,159 @@ struct Arena {
 	size_t capacity;
 };
 
-inline Arena malloc_arena(size_t capacity) {
-	Arena a = {};
-	a.data     = (u8*) malloc(capacity);
-	a.capacity = capacity;
-	Assert(a.data);
-	return a;
-}
-
-inline void free_arena(Arena* a) {
-	free(a->data);
-	*a = {};
-}
-
-inline u8* arena_push(Arena* a, size_t size, size_t alignment = Arena::DEFAULT_ALIGNMENT) {
-	uintptr_t curr_ptr = (uintptr_t)a->data + (uintptr_t)a->count;
+inline u8* arena_push(Arena* arena, size_t size, size_t alignment = Arena::DEFAULT_ALIGNMENT) {
+	uintptr_t curr_ptr = (uintptr_t)arena->data + (uintptr_t)arena->count;
 	uintptr_t offset = align_forward(curr_ptr, alignment);
-	offset -= (uintptr_t)a->data;
+	offset -= (uintptr_t)arena->data;
 
-	Assert(offset + size <= a->capacity && "Arena out of memory.");
+	Assert((offset + size) >= 0 && (offset + size) <= arena->capacity);
 
-	u8* ptr = a->data + offset;
-	a->count = offset + size;
+	u8* ptr = arena->data + offset;
+	arena->count = offset + size;
 
 	return ptr;
 }
 
-inline Arena arena_create_from_arena(Arena* arena, size_t capacity) {
-	Arena a = {};
-	a.data     = arena_push(arena, capacity);
-	a.capacity = capacity;
+inline void arena_pop(Arena* arena, size_t size) {
+	Assert(arena->count >= size);
+	arena->count -= size;
+}
+
+
+
+// ----------------------------------------------------
+//                SECTION: Allocator
+// ----------------------------------------------------
+
+enum AllocatorMode {
+	ALLOCATOR_MODE_ALLOCATE,
+	ALLOCATOR_MODE_RESIZE,
+	ALLOCATOR_MODE_FREE,
+};
+
+typedef void* (*AllocatorProc)(AllocatorMode mode, size_t size, size_t old_size, void* old_ptr, void* userdata);
+
+struct Allocator {
+	AllocatorProc proc;
+	void* userdata;
+};
+
+// Allocate *from* an allocator, not *an* allocator.
+inline u8* allocator_allocate(Allocator allocator, size_t size) {
+	return (u8*) allocator.proc(ALLOCATOR_MODE_ALLOCATE, size, 0, nullptr, allocator.userdata);
+}
+
+// Arguments are in this order to resemble `realloc`.
+inline u8* allocator_resize(Allocator allocator, void* old_ptr, size_t size, size_t old_size) {
+	return (u8*) allocator.proc(ALLOCATOR_MODE_RESIZE, size, old_size, old_ptr, allocator.userdata);
+}
+
+inline void allocator_free(Allocator allocator, void* old_ptr, size_t old_size) {
+	allocator.proc(ALLOCATOR_MODE_FREE, 0, old_size, old_ptr, allocator.userdata);
+}
+
+
+
+inline Arena allocate_arena(Allocator allocator, size_t capacity) {
+	Arena arena = {};
+	arena.data = allocator_allocate(allocator, capacity);
+	arena.capacity = capacity;
+
+	// Maybe store the allocator in the arena?
+
+	return arena;
+}
+
+
+
+inline void* libc_allocator_proc(AllocatorMode mode, size_t size, size_t old_size, void* old_ptr, void* userdata) {
+	switch (mode) {
+		case ALLOCATOR_MODE_ALLOCATE: {
+			return malloc(size);
+		}
+
+		case ALLOCATOR_MODE_RESIZE: {
+			return realloc(old_ptr, size);
+		}
+
+		case ALLOCATOR_MODE_FREE: {
+			free(old_ptr);
+			return nullptr;
+		}
+	}
+
+	Assert(false);
+	return nullptr;
+}
+
+inline Allocator get_libc_allocator() {
+	Allocator a = {};
+	a.proc = libc_allocator_proc;
 	return a;
+}
+
+
+
+inline void* arena_allocator_proc(AllocatorMode mode, size_t size, size_t old_size, void* old_ptr, void* userdata) {
+	Arena* arena = (Arena*) userdata;
+
+	switch (mode) {
+		case ALLOCATOR_MODE_ALLOCATE: {
+			return arena_push(arena, size);
+		}
+
+		case ALLOCATOR_MODE_RESIZE: {
+			if (old_ptr == nullptr) {
+				return arena_push(arena, size);
+			}
+
+			// if it's the last allocation then we can resize it
+			if (arena->data + arena->count - old_size == old_ptr) {
+				if (size >= old_size) {
+					arena_push(arena, size - old_size, 1); // no alignment
+				} else {
+					arena_pop(arena, old_size - size);
+				}
+
+				return old_ptr;
+			}
+
+			// cannot be resized
+			Assert(false);
+			return nullptr;
+		}
+
+		case ALLOCATOR_MODE_FREE: {
+			// if it's the last allocation then we can pop it
+			if (arena->data + arena->count - old_size == old_ptr) {
+				arena_pop(arena, old_size);
+				// alignment cannot not be reverted
+
+				return nullptr;
+			}
+
+			// cannot be freed
+			Assert(false);
+			return nullptr;
+		}
+	}
+
+	Assert(false);
+	return nullptr;
+}
+
+inline Allocator get_arena_allocator(Arena* arena) {
+	Allocator a = {};
+	a.proc = arena_allocator_proc;
+	a.userdata = arena;
+	return a;
+}
+
+
+Arena* get_temp_arena();
+
+inline Allocator get_temp_allocator() {
+	return get_arena_allocator(get_temp_arena());
 }
 
 
@@ -653,7 +722,7 @@ inline Arena arena_create_from_arena(Arena* arena, size_t capacity) {
 
 
 
-// Standard linear bump array
+// No growing, triggers an assertion when runs out of capacity.
 template <typename T>
 struct bump_array {
 	T*     data;
@@ -677,18 +746,11 @@ struct bump_array {
 };
 
 template <typename T>
-inline bump_array<T> bump_array_from_arena(Arena* a, size_t capacity) {
+inline bump_array<T> allocate_bump_array(Allocator allocator, size_t capacity) {
 	bump_array<T> arr = {};
-	arr.data     = (T*) arena_push(a, capacity * sizeof(T));
+	arr.data = (T*) allocator_allocate(allocator, capacity * sizeof(T));
 	arr.capacity = capacity;
-	return arr;
-}
 
-template <typename T>
-inline bump_array<T> malloc_bump_array(size_t capacity) {
-	bump_array<T> arr = {};
-	arr.data     = (T*) malloc(capacity * sizeof(T));
-	arr.capacity = capacity;
 	return arr;
 }
 
@@ -772,9 +834,18 @@ struct dynamic_array {
 };
 
 template <typename T>
-inline void array_grow(dynamic_array<T>* arr) {
-	size_t new_capacity = arr->capacity + arr->capacity / 2;
-	if (new_capacity < arr->capacity + 1) new_capacity = arr->capacity + 1;
+inline void _array_grow(dynamic_array<T>* arr) {
+	size_t new_capacity;
+	if (arr->capacity == 0) {
+		new_capacity = 16; // initial capacity
+	} else {
+		new_capacity = arr->capacity + arr->capacity / 2;
+	}
+
+	// make sure that we added at least one element
+	if (new_capacity < arr->capacity + 1) {
+		new_capacity = arr->capacity + 1;
+	}
 
 	T* new_data = (T*) realloc(arr->data, new_capacity * sizeof(T));
 	Assert(new_data);
@@ -786,7 +857,7 @@ inline void array_grow(dynamic_array<T>* arr) {
 template <typename T>
 inline T* array_add(dynamic_array<T>* arr, const T& val) {
 	if (arr->count == arr->capacity) {
-		array_grow(arr);
+		_array_grow(arr);
 	}
 
 	T* result = &arr->data[arr->count];
@@ -822,7 +893,7 @@ inline T* array_insert(dynamic_array<T>* arr, T* it, const T& val) {
 	size_t index = it - arr->begin();
 
 	if (arr->count == arr->capacity) {
-		array_grow(arr);
+		_array_grow(arr);
 	}
 
 	it = arr->begin() + index;
@@ -890,7 +961,7 @@ struct array {
 		}
 
 		for (size_t i = 0; i < count; i++) {
-			if (data[i] != other[i]) {
+			if (data[i] != other.data[i]) {
 				return false;
 			}
 		}
@@ -965,7 +1036,7 @@ struct string {
 		}
 
 		for (size_t i = 0; i < count; i++) {
-			if (data[i] != other[i]) {
+			if (data[i] != other.data[i]) {
 				return false;
 			}
 		}
@@ -1157,11 +1228,33 @@ inline string SDL_PRINTF_VARARG_FUNC(2) Sprintf(char (&buf)[N], SDL_PRINTF_FORMA
 
 	static_assert(N < (size_t)INT_MAX, "");
 
-	int result = stb_vsnprintf(buf, (int)N, fmt, va);
+	int result = stbsp_vsnprintf(buf, (int)N, fmt, va);
 	va_end(va);
 
 	Assert(result > 0);
 	size_t count = min((size_t)result, N - 1);
+
+	return {buf, count};
+}
+
+inline string SDL_PRINTF_VARARG_FUNC(1) tprintf(SDL_PRINTF_FORMAT_STRING const char* fmt, ...) {
+	Arena* temp_arena = get_temp_arena();
+
+	char* buf = (char*) arena_push(temp_arena, 0);
+
+	Assert(temp_arena->capacity > temp_arena->count);
+	size_t N = temp_arena->capacity - temp_arena->count;
+
+	va_list va;
+	va_start(va, fmt);
+	size_t written = (size_t)stbsp_vsnprintf(buf, (int)N, fmt, va);
+	va_end(va);
+
+	size_t count = min(written, N - 1);
+	Assert(count == written && "out of memory");
+
+	// account for null pointer and disable alignment
+	arena_push(temp_arena, count + 1, 1);
 
 	return {buf, count};
 }
