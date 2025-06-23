@@ -645,6 +645,8 @@ static void push_vertices(RenderMode mode, const Texture& t, array<Vertex> verti
 		renderer.current_mode = mode;
 	}
 
+	// TODO: what if there's not enough capacity?
+
 	For (it, vertices) array_add(&renderer.vertices, *it);
 }
 
