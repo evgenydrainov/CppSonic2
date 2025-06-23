@@ -51,58 +51,7 @@ void Game::load_level(const char* path) {
 
 	// load tilemap data
 	stb_snprintf(buf, sizeof(buf), "%s/Tilemap.bin", path);
-
-#if !defined(__ANDROID__)
 	read_tilemap(&tm, buf);
-#else
-	{
-		// weird compiler bug on android
-
-		Tilemap* tm = &this->tm;
-		const char* fname = buf;
-
-		free_tilemap(tm);
-
-		size_t filesize;
-		u8* filedata = get_file(fname, &filesize);
-
-		SDL_RWops* f = SDL_RWFromConstMem(filedata, filesize);
-		defer { SDL_RWclose(f); };
-
-		char magic[4];
-		SDL_RWread(f, magic, sizeof magic, 1);
-
-		u32 version;
-		SDL_RWread(f, &version, sizeof version, 1);
-
-		int width;
-		SDL_RWread(f, &width, sizeof width, 1);
-
-		tm->width = width;
-
-		int height;
-		SDL_RWread(f, &height, sizeof height, 1);
-
-		tm->height = height;
-
-		tm->tiles_a = calloc_array<Tile>(width * height);
-		tm->tiles_b = calloc_array<Tile>(width * height);
-		tm->tiles_c = calloc_array<Tile>(width * height);
-		tm->tiles_d = calloc_array<Tile>(width * height);
-
-		SDL_RWread(f, tm->tiles_a.data, sizeof(tm->tiles_a[0]), tm->tiles_a.count);
-
-		SDL_RWread(f, tm->tiles_b.data, sizeof(tm->tiles_b[0]), tm->tiles_b.count);
-
-		if (version >= 2) {
-			SDL_RWread(f, tm->tiles_c.data, sizeof(tm->tiles_c[0]), tm->tiles_c.count);
-
-			if (version >= 3) {
-				SDL_RWread(f, tm->tiles_d.data, sizeof(tm->tiles_d[0]), tm->tiles_d.count);
-			}
-		}
-	}
-#endif
 
 	// load tileset data
 	stb_snprintf(buf, sizeof(buf), "%s/Tileset.bin", path);
@@ -4051,6 +4000,8 @@ bool read_tilemap(Tilemap* tm, const char* fname) {
 			SDL_RWread(f, tm->tiles_d.data, sizeof(tm->tiles_d[0]), tm->tiles_d.count);
 		}
 	}
+
+	return true;
 }
 
 void read_tileset(Tileset* ts, const char* fname) {

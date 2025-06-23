@@ -25,6 +25,9 @@ add_library(main SHARED)
 
 target_compile_options(main PRIVATE -Wno-c++11-narrowing)
 
+# VERY IMPORTANT! Not returning on arm64 is a big deal.
+target_compile_options(main PRIVATE -Werror=return-type)
+
 set(SourceDir ${SolutionDir}/CppSonic2/src)
 
 target_sources(main PRIVATE
@@ -48,6 +51,8 @@ target_sources(main PRIVATE
         ${SourceDir}/program.cpp
         ${SourceDir}/title_screen.cpp
         ${SourceDir}/util.cpp
+        ${SourceDir}/input.cpp
+        ${SourceDir}/input_bindings.cpp
         )
 
 target_link_libraries(main SDL2 SDL2_mixer)
