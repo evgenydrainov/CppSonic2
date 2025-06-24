@@ -175,13 +175,13 @@ struct ObjectsEditor {
 	void update(float delta);
 };
 
-enum NotificationType {
-	NOTIF_INFO,
-	NOTIF_WARN,
+enum EditorMessageType {
+	MESSAGE_INFO,
+	MESSAGE_WARN,
 };
 
-struct Notification {
-	NotificationType type;
+struct EditorMessage {
+	EditorMessageType type;
 	char buf[128];
 	float timer = 2.5f;
 	float alpha;
@@ -222,7 +222,7 @@ struct Editor {
 
 	const char* process_name;
 
-	dynamic_array<Notification> notifications;
+	dynamic_array<EditorMessage> messages;
 
 	bool laptop_mode;
 
@@ -246,7 +246,7 @@ struct Editor {
 	void action_perform(const Action& action);
 	void action_revert(const Action& action);
 	bool try_run_game();
-	void notify(NotificationType type, const char* fmt, ...);
+	void show_message(EditorMessageType type, const char* fmt, ...);
 };
 
 extern Editor editor;

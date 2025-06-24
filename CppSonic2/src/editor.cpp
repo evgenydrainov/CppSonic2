@@ -744,7 +744,7 @@ void Editor::try_save_level() {
 	saved_action_index = action_index;
 	update_window_caption();
 
-	notify(NOTIF_INFO, "Saved.");
+	show_message(MESSAGE_INFO, "Saved.");
 }
 
 void Editor::try_load_layer_from_binary_file() {
@@ -980,13 +980,13 @@ void Editor::update(float delta) {
 
 	undo_history_window();
 
-	// render notifications
+	// draw messages
 	{
 		int i = 0;
 
 		ImVec2 pos = io.DisplaySize - ImVec2(20, 20);
 
-		For (it, notifications) {
+		For (it, messages) {
 			if (it->timer > 0) {
 				it->timer -= io.DeltaTime;
 
@@ -997,7 +997,7 @@ void Editor::update(float delta) {
 				// fade out
 				it->alpha -= io.DeltaTime * 6.0f;
 				if (it->alpha <= 0) {
-					array_remove(&notifications, it);
+					array_remove(&messages, it);
 					it--;
 					continue;
 				}
@@ -1013,13 +1013,13 @@ void Editor::update(float delta) {
 			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, it->alpha);
 
 			char buf[128];
-			stbsp_snprintf(buf, sizeof(buf), "notif%d", i++);
+			stbsp_snprintf(buf, sizeof(buf), "message%d", i++);
 
 			ImGui::Begin(buf, nullptr, window_flags);
 
-			if (it->type == NOTIF_INFO) {
+			if (it->type == MESSAGE_INFO) {
 				ImGui::Text(ICON_FA_INFO_CIRCLE " Info");
-			} else if (it->type == NOTIF_WARN) {
+			} else if (it->type == MESSAGE_WARN) {
 				ImGui::Text(ICON_FA_EXCLAMATION_TRIANGLE " Warning");
 			}
 			ImGui::Text("%s", it->buf);
@@ -1037,17 +1037,17 @@ void Editor::try_undo() {
 	if (!is_level_open) return;
 
 	if (ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseDown(ImGuiMouseButton_Right) || ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
-		notify(NOTIF_WARN, "Can't undo while dragging the mouse.");
+		show_message(MESSAGE_WARN, "Can't undo while dragging the mouse.");
 		return;
 	}
 
 	if (ImGui::GetActiveID() != 0) {
-		notify(NOTIF_WARN, "Can't undo while interacting with a widget.");
+		show_message(MESSAGE_WARN, "Can't undo while interacting with a widget.");
 		return;
 	}
 
 	if (action_index == -1) {
-		notify(NOTIF_INFO, "Nothing to Undo.");
+		show_message(MESSAGE_INFO, "Nothing to Undo.");
 		return;
 	}
 
@@ -1056,7 +1056,7 @@ void Editor::try_undo() {
 	const Action& action = actions[action_index];
 	action_revert(action);
 
-	notify(NOTIF_INFO, "Undid %s.", GetActionTypeName(action.type));
+	show_message(MESSAGE_INFO, "Undid %s.", GetActionTypeName(action.type));
 
 	// decrement after reverting action
 	action_index--;
@@ -1068,17 +1068,17 @@ void Editor::try_redo() {
 	if (!is_level_open) return;
 
 	if (ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseDown(ImGuiMouseButton_Right) || ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
-		notify(NOTIF_WARN, "Can't redo while dragging the mouse.");
+		show_message(MESSAGE_WARN, "Can't redo while dragging the mouse.");
 		return;
 	}
 
 	if (ImGui::GetActiveID() != 0) {
-		notify(NOTIF_WARN, "Can't redo while interacting with a widget.");
+		show_message(MESSAGE_WARN, "Can't redo while interacting with a widget.");
 		return;
 	}
 
 	if (action_index + 1 >= actions.count) {
-		notify(NOTIF_INFO, "Nothing to Redo.");
+		show_message(MESSAGE_INFO, "Nothing to Redo.");
 		return;
 	}
 
@@ -1090,7 +1090,7 @@ void Editor::try_redo() {
 	const Action& action = actions[action_index];
 	action_perform(action);
 
-	notify(NOTIF_INFO, "Redid %s.", GetActionTypeName(action.type));
+	show_message(MESSAGE_INFO, "Redid %s.", GetActionTypeName(action.type));
 
 	update_window_caption();
 }
@@ -1283,16 +1283,16 @@ bool Editor::try_run_game() {
 	return true;
 }
 
-void Editor::notify(NotificationType type, const char* fmt, ...) {
-	Notification notif = {};
-	notif.type = type;
+void Editor::show_message(EditorMessageType type, const char* fmt, ...) {
+	EditorMessage message = {};
+	message.type = type;
 
 	va_list va;
 	va_start(va, fmt);
-	stbsp_vsnprintf(notif.buf, sizeof(notif.buf), fmt, va);
+	stbsp_vsnprintf(message.buf, sizeof(message.buf), fmt, va);
 	va_end(va);
 
-	array_insert(&notifications, 0, notif);
+	array_insert(&messages, 0, message);
 }
 
 void free_action(Action* action) {
@@ -2057,17 +2057,17 @@ void TilemapEditor::update(float delta) {
 						if (ImGui::IsKeyPressed(ImGuiKey_X, false)) {
 							editor.action_add_and_perform(cut_action);
 
-							editor.notify(NOTIF_INFO, "Cut %d tiles.", brush_w * brush_h);
+							editor.show_message(MESSAGE_INFO, "Cut %d tiles.", brush_w * brush_h);
 						} else {
 							free_action(&cut_action);
 
-							editor.notify(NOTIF_INFO, "Copied %d tiles.", brush_w * brush_h);
+							editor.show_message(MESSAGE_INFO, "Copied %d tiles.", brush_w * brush_h);
 						}
 
 						tool = TOOL_BRUSH;
 						tilemap_selection = {};
 					} else {
-						editor.notify(NOTIF_WARN, "Trying to cut/copy from invisible layer!");
+						editor.show_message(MESSAGE_WARN, "Trying to cut/copy from invisible layer!");
 					}
 				}
 			}
