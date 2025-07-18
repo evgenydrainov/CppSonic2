@@ -16,9 +16,9 @@ static void GLAPIENTRY gl_debug_callback(GLenum source,
 										 const char *message,
 										 const void * /*userParam*/) {
 	// ignore non-significant error/warning codes
-	// if (id == 131169 || id == 131185 || id == 131218 || id == 131204) {
-	// 	return;
-	// }
+	if (id == 131169 || id == 131185 || id == 131218 || id == 131204) {
+		return;
+	}
 
 	log_info("---------------");
 	log_info("Debug message (%u): %s", id, message);
