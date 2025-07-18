@@ -1944,6 +1944,14 @@ void TilemapEditor::update(float delta) {
 			draw_layer(3);
 			draw_layer(0);
 			draw_layer(1);
+
+			// draw objects
+			if (tilemap_editor.show_objects) {
+				draw_objects(editor.objects, SDL_GetTicks() / (1000.0f / 60.0f), true, false);
+
+				draw_editor_object_gizmos();
+			}
+
 			draw_layer(2);
 
 			// draw selection
@@ -1951,13 +1959,6 @@ void TilemapEditor::update(float delta) {
 				draw_rectangle_outline_thick({(float)tilemap_editor.tilemap_selection.x * 16, (float)tilemap_editor.tilemap_selection.y * 16, (float)tilemap_editor.tilemap_selection.w * 16, (float)tilemap_editor.tilemap_selection.h * 16},
 											 1,
 											 color_white);
-			}
-
-			// draw objects
-			if (tilemap_editor.show_objects) {
-				draw_objects(editor.objects, SDL_GetTicks() / (1000.0f / 60.0f), true, false);
-
-				draw_editor_object_gizmos();
 			}
 
 			// draw grid and border
@@ -2421,9 +2422,10 @@ void ObjectsEditor::update(float delta) {
 			// draw layers
 			draw_tilemap_layer(editor.tm, 3, editor.tileset_texture, pos_from.x, pos_from.y, pos_to.x, pos_to.y, color_white);
 			draw_tilemap_layer(editor.tm, 0, editor.tileset_texture, pos_from.x, pos_from.y, pos_to.x, pos_to.y, color_white);
-			draw_tilemap_layer(editor.tm, 2, editor.tileset_texture, pos_from.x, pos_from.y, pos_to.x, pos_to.y, color_white);
 
 			draw_objects(editor.objects, SDL_GetTicks() / (1000.0f / 60.0f), true, false);
+
+			draw_tilemap_layer(editor.tm, 2, editor.tileset_texture, pos_from.x, pos_from.y, pos_to.x, pos_to.y, color_white);
 
 			draw_editor_object_gizmos();
 
@@ -2740,6 +2742,16 @@ void ObjectsEditor::update(float delta) {
 				object_index = i;
 			}
 
+			// double click to focus on object
+			if (ImGui::IsItemHovered()) {
+				if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+					View& tilemap_view = editor.tilemap_editor.tilemap_view;
+
+					vec2 size = tilemap_view.item_rect_max - tilemap_view.item_rect_min;
+					tilemap_view.scrolling = -editor.objects[i].pos * tilemap_view.zoom + size / 2.0f;
+				}
+			}
+
 			/*if (object_index == i) {
 				ImGui::SetItemDefaultFocus();
 			}*/
@@ -2839,7 +2851,18 @@ void ObjectsEditor::update(float delta) {
 			}
 		}
 
+		bool should_remove_object = false;
+
 		if (ImGui::Button("Remove Object")) {
+			should_remove_object = true;
+		}
+		ImGui::SetItemTooltip("Shortcut: Delete");
+
+		if (IsKeyPressedNoMod(ImGuiKey_Delete)) {
+			should_remove_object = true;
+		}
+
+		if (should_remove_object) {
 			Action action = {};
 			action.type = ACTION_REMOVE_OBJECT;
 			action.remove_object.index = object_index;
