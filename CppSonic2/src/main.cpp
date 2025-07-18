@@ -188,7 +188,7 @@ Arena* get_temp_arena() {
 }
 
 int main(int argc, char* argv[]) {
-	temp_arena = allocate_arena(get_libc_allocator(), Megabytes(1));
+	temp_arena = allocate_arena(Megabytes(1), get_libc_allocator());
 	defer { free(temp_arena.data); };
 
 #if defined(_DEBUG) && defined(_WIN32)

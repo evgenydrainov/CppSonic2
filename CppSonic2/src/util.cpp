@@ -111,16 +111,16 @@ bump_array<Vertex> load_3d_model_from_obj_file(const char* fname) {
 	const size_t NUM_NORMALS   = 10'000;
 	const size_t NUM_VERTICES  = 10'000;
 
-	auto positions = allocate_bump_array<vec3>(get_libc_allocator(), NUM_POSITIONS);
+	auto positions = allocate_bump_array<vec3>(NUM_POSITIONS, get_libc_allocator());
 	defer { free(positions.data); };
 
-	auto uvs = allocate_bump_array<vec2>(get_libc_allocator(), NUM_UVS);
+	auto uvs = allocate_bump_array<vec2>(NUM_UVS, get_libc_allocator());
 	defer { free(uvs.data); };
 
-	auto normals = allocate_bump_array<vec3>(get_libc_allocator(), NUM_NORMALS);
+	auto normals = allocate_bump_array<vec3>(NUM_NORMALS, get_libc_allocator());
 	defer { free(normals.data); };
 
-	auto vertices = allocate_bump_array<Vertex>(get_libc_allocator(), NUM_VERTICES);
+	auto vertices = allocate_bump_array<Vertex>(NUM_VERTICES, get_libc_allocator());
 
 	string text = get_file_str(fname);
 

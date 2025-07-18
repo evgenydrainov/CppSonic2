@@ -6,7 +6,7 @@
 bump_array<Particle> g_Particles;
 
 void init_particles() {
-	g_Particles = allocate_bump_array<Particle>(get_libc_allocator(), MAX_PARTICLES);
+	g_Particles = allocate_bump_array<Particle>(MAX_PARTICLES, get_libc_allocator());
 }
 
 void deinit_particles() {

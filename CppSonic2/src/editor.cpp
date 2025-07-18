@@ -689,7 +689,7 @@ void Editor::try_open_level(const char* path) {
 		return;
 	}
 
-	objects = allocate_bump_array<Object>(get_libc_allocator(), MAX_OBJECTS);
+	objects = allocate_bump_array<Object>(MAX_OBJECTS, get_libc_allocator());
 
 	if (!read_objects(&objects, (current_level_dir / "Objects.bin").u8string().c_str())) {
 		log_error("Couldn't load level: couldn't read objects.");
@@ -700,7 +700,7 @@ void Editor::try_open_level(const char* path) {
 	gen_heightmap_texture(&heightmap, ts, tileset_texture);
 	gen_widthmap_texture(&widthmap, ts, tileset_texture);
 
-	actions = allocate_bump_array<Action>(get_libc_allocator(), 10'000);
+	actions = allocate_bump_array<Action>(10'000, get_libc_allocator());
 	action_index = -1;
 	saved_action_index = -1;
 

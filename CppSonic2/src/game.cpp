@@ -58,7 +58,7 @@ void Game::load_level(const char* path) {
 	read_tileset(&ts, buf);
 
 	// load object data
-	objects = allocate_bump_array<Object>(get_libc_allocator(), MAX_OBJECTS);
+	objects = allocate_bump_array<Object>(MAX_OBJECTS, get_libc_allocator());
 	stbsp_snprintf(buf, sizeof(buf), "%s/Objects.bin", path);
 	read_objects(&objects, buf);
 
@@ -2392,7 +2392,7 @@ void Game::init(int argc, char* argv[]) {
 
 	// show_player_hitbox = true;
 
-	debug_rects = allocate_bump_array<Rectf>(get_libc_allocator(), 100);
+	debug_rects = allocate_bump_array<Rectf>(100, get_libc_allocator());
 
 	play_music("music/EEZ_Act1.mp3");
 }

@@ -1,7 +1,7 @@
 #include "tests.h"
 
 static void test_arena_realloc() {
-	Arena arena = allocate_arena(get_libc_allocator(), 128);
+	Arena arena = allocate_arena(128, get_libc_allocator());
 	defer { free(arena.data); };
 
 	Allocator allocator = get_arena_allocator(&arena);
@@ -11,28 +11,28 @@ static void test_arena_realloc() {
 
 	u8* memory = nullptr;
 
-	memory = allocator_resize(allocator, memory, 16, 0);
+	memory = allocator_resize(memory, 16, 0, allocator);
 	Assert(arena.count == 24);
 
-	memory = allocator_resize(allocator, memory, 32, 16);
+	memory = allocator_resize(memory, 32, 16, allocator);
 	Assert(arena.count == 40);
 
-	memory = allocator_resize(allocator, memory, 16, 32);
+	memory = allocator_resize(memory, 16, 32, allocator);
 	Assert(arena.count == 24);
 
-	memory = allocator_resize(allocator, memory, 32, 16);
+	memory = allocator_resize(memory, 32, 16, allocator);
 	Assert(arena.count == 40);
 
-	memory = allocator_resize(allocator, memory, 16, 32);
+	memory = allocator_resize(memory, 16, 32, allocator);
 	Assert(arena.count == 24);
 
-	memory = allocator_resize(allocator, memory, 32, 16);
+	memory = allocator_resize(memory, 32, 16, allocator);
 	Assert(arena.count == 40);
 
-	memory = allocator_resize(allocator, memory, 16, 32);
+	memory = allocator_resize(memory, 16, 32, allocator);
 	Assert(arena.count == 24);
 
-	allocator_free(allocator, memory, 16);
+	allocator_free(memory, 16, allocator);
 	Assert(arena.count == 8);
 }
 

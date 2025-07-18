@@ -597,24 +597,24 @@ struct Allocator {
 };
 
 // Allocate *from* an allocator, not *an* allocator.
-inline u8* allocator_allocate(Allocator allocator, size_t size) {
+inline u8* allocator_allocate(size_t size, Allocator allocator) {
 	return (u8*) allocator.proc(ALLOCATOR_MODE_ALLOCATE, size, 0, nullptr, allocator.userdata);
 }
 
 // Arguments are in this order to resemble `realloc`.
-inline u8* allocator_resize(Allocator allocator, void* old_ptr, size_t size, size_t old_size) {
+inline u8* allocator_resize(void* old_ptr, size_t size, size_t old_size, Allocator allocator) {
 	return (u8*) allocator.proc(ALLOCATOR_MODE_RESIZE, size, old_size, old_ptr, allocator.userdata);
 }
 
-inline void allocator_free(Allocator allocator, void* old_ptr, size_t old_size) {
+inline void allocator_free(void* old_ptr, size_t old_size, Allocator allocator) {
 	allocator.proc(ALLOCATOR_MODE_FREE, 0, old_size, old_ptr, allocator.userdata);
 }
 
 
 
-inline Arena allocate_arena(Allocator allocator, size_t capacity) {
+inline Arena allocate_arena(size_t capacity, Allocator allocator) {
 	Arena arena = {};
-	arena.data = allocator_allocate(allocator, capacity);
+	arena.data = allocator_allocate(capacity, allocator);
 	arena.capacity = capacity;
 
 	// Maybe store the allocator in the arena?
@@ -640,7 +640,7 @@ inline void* libc_allocator_proc(AllocatorMode mode, size_t size, size_t old_siz
 		}
 	}
 
-	Assert(false);
+	Assert(!"unknown allocator mode");
 	return nullptr;
 }
 
@@ -677,7 +677,6 @@ inline void* arena_allocator_proc(AllocatorMode mode, size_t size, size_t old_si
 			}
 
 			// cannot be resized
-			Assert(false);
 			return nullptr;
 		}
 
@@ -691,12 +690,11 @@ inline void* arena_allocator_proc(AllocatorMode mode, size_t size, size_t old_si
 			}
 
 			// cannot be freed
-			Assert(false);
 			return nullptr;
 		}
 	}
 
-	Assert(false);
+	Assert(!"unknown allocator mode");
 	return nullptr;
 }
 
@@ -746,9 +744,9 @@ struct bump_array {
 };
 
 template <typename T>
-inline bump_array<T> allocate_bump_array(Allocator allocator, size_t capacity) {
+inline bump_array<T> allocate_bump_array(size_t capacity, Allocator allocator) {
 	bump_array<T> arr = {};
-	arr.data = (T*) allocator_allocate(allocator, capacity * sizeof(T));
+	arr.data = (T*) allocator_allocate(capacity * sizeof(T), allocator);
 	arr.capacity = capacity;
 
 	return arr;

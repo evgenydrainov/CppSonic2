@@ -14,10 +14,10 @@ void Console::init(ConsoleCallbackFn _callback,
 	callback_userdata = _callback_userdata;
 	commands          = _commands;
 	
-	cmd     = allocate_bump_array<char>(get_libc_allocator(), 64);
-	history = allocate_bump_array<char>(get_libc_allocator(), 1024);
+	cmd     = allocate_bump_array<char>(64, get_libc_allocator());
+	history = allocate_bump_array<char>(1024, get_libc_allocator());
 
-	cmd_hist = allocate_bump_array<string>(get_libc_allocator(), CMD_HIST);
+	cmd_hist = allocate_bump_array<string>(CMD_HIST, get_libc_allocator());
 }
 
 void Console::deinit() {

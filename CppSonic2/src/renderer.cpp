@@ -306,7 +306,7 @@ void init_renderer() {
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); // ebo must be unbound after vao
 
-		renderer.vertices = allocate_bump_array<Vertex>(get_libc_allocator(), BATCH_MAX_VERTICES);
+		renderer.vertices = allocate_bump_array<Vertex>(BATCH_MAX_VERTICES, get_libc_allocator());
 
 		u8 pixel_data[] = {255, 255, 255, 255};
 		renderer.texture_for_shapes = load_texture(pixel_data, 1, 1, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_RGBA);
