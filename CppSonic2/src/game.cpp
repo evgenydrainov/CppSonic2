@@ -197,13 +197,21 @@ static bool player_is_on_a_wall(Player* p) {
 static void apply_slope_factor(Player* p, float delta) {
 	// Adjust Ground Speed based on current Ground Angle (Slope Factor).
 
-	if (player_get_mode(p) == MODE_CEILING) return;
+	if (player_get_mode(p) == MODE_CEILING) {
+		return;
+	}
 
-	if (p->ground_speed == 0.0f) return;
+	// don't apply slope factor when standing still so you can do a spindash
+	// this is commented out because it looks bad when you walk up a concave curve
+	/*if (p->ground_speed == 0.0f) {
+		return;
+	}*/
 
-	// abort if moving down and slant is too shallow
-	//float a = angle_wrap(p->ground_angle);
-	//if ((signf(dsin(p->ground_angle)) == signf(p->ground_speed)) && (a < 22.5f || a > 337.5f)) return;
+	// abort if moving down and slant is too shallow @GML
+	/*float a = angle_wrap(p->ground_angle);
+	if ((signf(dsin(p->ground_angle)) == signf(p->ground_speed)) && (a < 22.5f || a > 337.5f)) {
+		return;
+	}*/
 
 	const float PLAYER_SLOPE_FACTOR_NORMAL = 0.125f * 0.75f;
 	const float PLAYER_SLOPE_FACTOR_ROLLUP = 0.078125f;
@@ -222,7 +230,7 @@ static void apply_slope_factor(Player* p, float delta) {
 	factor *= dsin(p->ground_angle);
 
 	// help the player walk up slopes
-	if (signf(factor) == signf(p->ground_speed)) {
+	if (signf(factor) == signf(p->ground_speed)) { // @GML
 		if (fabsf(factor) < 0.046875f) {
 			return;
 		}
@@ -1766,11 +1774,13 @@ static void player_state_ground(Player* p, float delta) {
 				p->ground_speed += input_h * PLAYER_DEC * delta;
 
 				if (fabsf(p->ground_speed) >= 4) {
-					if (p->anim != anim_skid) {
-						p->next_anim = anim_skid;
-						p->frame_duration = 8;
+					if (p->ground_angle == 0) {
+						if (p->anim != anim_skid) {
+							p->next_anim = anim_skid;
+							p->frame_duration = 8;
 
-						play_sound(get_sound(snd_skid));
+							play_sound(get_sound(snd_skid));
+						}
 					}
 				}
 			} else {
@@ -1780,6 +1790,8 @@ static void player_state_ground(Player* p, float delta) {
 				}
 			}
 		}
+	} else {
+		Approach(&p->ground_speed, 0.0f, PLAYER_FRICTION * delta);
 	}
 
 	auto physics_step = [&](float delta) {
