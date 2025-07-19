@@ -1269,6 +1269,11 @@ static void player_get_hit(Player* p, int side) {
 	play_sound(get_sound(snd_lose_rings));
 }
 
+static bool player_can_attack(Player* p) {
+	return (p->anim == anim_roll
+			|| p->anim == anim_spindash);
+}
+
 static bool player_reaction_monitor(Player* p, Object* obj, Direction dir) {
 	if (p->anim != anim_roll) return false;
 
@@ -1699,7 +1704,7 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 			}
 
 			case OBJ_MOSQUI: {
-				if (p->anim == anim_roll) {
+				if (player_can_attack(p)) {
 					// kill enemy
 					it->flags |= FLAG_INSTANCE_DEAD;
 
