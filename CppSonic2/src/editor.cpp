@@ -1742,6 +1742,36 @@ void TilesetEditor::update(float delta) {
 }
 
 void TilemapEditor::update(float delta) {
+	auto overlay_window = [&](vec2 cursor, vec2 size) {
+		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0.75));
+		defer { ImGui::PopStyleColor(); };
+
+		ImGui::SetNextWindowPos(ImVec2(cursor.x + size.x - 10, cursor.y + size.y - 10), 0, ImVec2(1, 1));
+
+		ImGui::Begin("tilemap info overlay",
+					 nullptr,
+					 ImGuiWindowFlags_NoDecoration
+					 | ImGuiWindowFlags_NoSavedSettings
+					 | ImGuiWindowFlags_NoInputs
+					 | ImGuiWindowFlags_AlwaysAutoResize);
+		defer { ImGui::End(); };
+
+		ivec2 tile_pos = view_get_tile_pos(tilemap_view,
+										   {16, 16},
+										   {editor.tm.width, editor.tm.height},
+										   ImGui::GetMousePos());
+
+		Tile tile = get_tile(editor.tm, tile_pos.x, tile_pos.y, layer_index);
+
+		ImGui::Text("Tile X: %d", tile_pos.x);
+		ImGui::Text("Tile Y: %d", tile_pos.y);
+		ImGui::Text("Tile ID: %d", tile.index);
+		ImGui::Text("Tile HFlip: %d", tile.hflip);
+		ImGui::Text("Tile VFlip: %d", tile.vflip);
+		ImGui::Text("Tile Top Solid: %d", tile.top_solid);
+		ImGui::Text("Tile LRB Solid: %d", tile.lrb_solid);
+	};
+
 	auto tilemap_editor_window = [&]() {
 		ImGui::Begin("Tilemap Editor##tilemap_editor");
 		defer { ImGui::End(); };
@@ -1775,6 +1805,8 @@ void TilemapEditor::update(float delta) {
 			ImGui::Text("No level opened.");
 			return;
 		}
+
+		overlay_window(ImGui::GetCursorScreenPos(), ImGui::GetContentRegionAvail());
 
 		auto callback = []() {
 			TilemapEditor& tilemap_editor = editor.tilemap_editor;
