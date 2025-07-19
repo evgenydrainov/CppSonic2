@@ -1274,8 +1274,22 @@ static bool player_can_attack(Player* p) {
 			|| p->anim == anim_spindash);
 }
 
+static bool player_can_get_hit(Player* p) {
+	if (p->invulnerable > 0) {
+		return false;
+	}
+
+	if (p->anim == anim_hurt) {
+		return false;
+	}
+
+	return true;
+}
+
 static bool player_reaction_monitor(Player* p, Object* obj, Direction dir) {
-	if (p->anim != anim_roll) return false;
+	if (p->anim != anim_roll) {
+		return false;
+	}
 
 	if (dir == DIR_DOWN) {
 		float bounce_speed = 0;
@@ -1326,7 +1340,9 @@ static bool player_reaction_monitor(Player* p, Object* obj, Direction dir) {
 }
 
 static bool player_reaction_spring(Player* p, Object* obj, Direction dir) {
-	if (obj->spring.direction != opposite_dir(dir)) return false;
+	if (obj->spring.direction != opposite_dir(dir)) {
+		return false;
+	}
 
 	float force = get_spring_force(*obj);
 
@@ -1380,15 +1396,16 @@ static bool player_reaction_spring_diagonal(Player* p, Object* obj, Direction di
 }
 
 static bool player_reaction_spike(Player* p, Object* obj, Direction dir) {
-	if (obj->spike.direction != opposite_dir(dir)) return false;
+	if (obj->spike.direction != opposite_dir(dir)) {
+		return false;
+	}
 
-	if (p->invulnerable > 0) return false;
-
-	if (p->anim == anim_hurt) return false;
+	if (!player_can_get_hit(p)) {
+		return false;
+	}
 
 	float side = signf(p->pos.x - obj->pos.x);
 	if (side == 0) side = 1;
-
 	player_get_hit(p, side);
 
 	return true;
@@ -1737,10 +1754,11 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 
 					array_add(&game.objects, flower);
 				} else {
-					// take hit
-					float side = signf(p->pos.x - it->pos.x);
-					if (side == 0) side = 1;
-					player_get_hit(p, side);
+					if (player_can_get_hit(p)) {
+						float side = signf(p->pos.x - it->pos.x);
+						if (side == 0) side = 1;
+						player_get_hit(p, side);
+					}
 				}
 				break;
 			}
