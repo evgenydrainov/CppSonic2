@@ -123,7 +123,7 @@ void Game::load_level(const char* path) {
 
 			case OBJ_MOSQUI: {
 				it->mosqui.timer = 64;
-				it->mosqui.xspeed = 1;
+				it->speed.x = 1;
 				break;
 			}
 		}
@@ -2633,76 +2633,89 @@ void Game::update(float delta) {
 				}
 
 				case OBJ_MOSQUI: {
-					if (it->flags & FLAG_MOSQUI_IS_DIVING) {
-						it->mosqui.frame_index += (1.0f / 4.0f) * delta;
-						if (it->mosqui.frame_index >= 4) {
-							it->mosqui.frame_index = 4;
+					auto& obj = *it;
+					auto& mosqui = obj.mosqui;
 
-							it->pos.y += it->mosqui.yspeed * delta;
+					if (obj.flags & FLAG_MOSQUI_IS_DIVING) {
+						const float anim_spd = 0.25;
+						obj.frame_index += anim_spd * delta;
 
-							SensorResult res = sensor_check_down(it->pos + vec2{0, 14}, 0);
+						if (obj.frame_index >= 4) {
+							obj.frame_index = 4;
+
+							obj.pos.y += obj.speed.y * delta;
+
+							SensorResult res = sensor_check_down(obj.pos + vec2{0, 14}, 0);
 							if (res.dist < 0) {
-								it->pos.y += res.dist;
-								it->pos = floor(it->pos);
-								it->mosqui.yspeed = 0;
+								obj.pos.y += res.dist;
+								obj.pos = floor(obj.pos);
+								obj.speed.y = 0;
 							}
 						}
 					} else {
-						it->mosqui.timer -= delta;
-						if (it->mosqui.timer <= 0) {
-							it->mosqui.timer += 128;
-							it->mosqui.xspeed = -it->mosqui.xspeed;
+						mosqui.timer -= delta;
+						if (mosqui.timer <= 0) {
+							mosqui.timer += 128;
+							obj.speed.x = -obj.speed.x;
 						}
 
-						it->pos.x += it->mosqui.xspeed * delta;
+						obj.pos.x += obj.speed.x * delta;
 
-						it->mosqui.frame_index += (1.0f / 4.0f) * delta;
-						it->mosqui.frame_index = fmodf(it->mosqui.frame_index, 2);
+						const float anim_spd = 0.25;
+						obj.frame_index += anim_spd * delta;
+						obj.frame_index = fmodf(obj.frame_index, 2);
 
 						Rectf rect;
 						rect.w = 32;
 						rect.h = 150;
-						rect.x = it->pos.x - rect.w / 2;
-						rect.y = it->pos.y;
+						rect.x = obj.pos.x - rect.w / 2;
+						rect.y = obj.pos.y;
 
 						if (point_in_rect(player.pos, rect)) {
-							it->flags |= FLAG_MOSQUI_IS_DIVING;
-							it->mosqui.yspeed = 4;
+							obj.flags |= FLAG_MOSQUI_IS_DIVING;
+							obj.speed.y = 4;
 						}
 					}
 					break;
 				}
 
 				case OBJ_FLOWER: {
-					if (it->flower.timer > 0) {
-						it->flower.timer -= delta;
+					auto& obj = *it;
+					auto& flower = obj.flower;
 
-						it->flower.frame_index += (1.0f / 4.0f) * delta;
-						it->flower.frame_index = fmodf(it->flower.frame_index, 2);
+					if (flower.timer > 0) {
+						flower.timer -= delta;
 
-						if (it->flower.timer <= 0) {
-							it->flower.yspeed = 2;
+						const float anim_spd = 0.25;
+						obj.frame_index += anim_spd * delta;
+						obj.frame_index = fmodf(obj.frame_index, 2);
+
+						if (flower.timer <= 0) {
+							obj.speed.y = 2;
 						}
 					} else {
-						if (it->flower.yspeed == 0) {
-							if (it->flower.frame_index >= 7) {
-								it->flower.frame_index += (1.0f / 20.0f) * delta;
-								it->flower.frame_index = 7 + fmodf(it->flower.frame_index - 7, 2);
+						if (obj.speed.y == 0) {
+							if (obj.frame_index >= 7) {
+								const float anim_spd = 0.05;
+								obj.frame_index += anim_spd * delta;
+								obj.frame_index = 7 + fmodf(obj.frame_index - 7, 2);
 							} else {
-								it->flower.frame_index += (1.0f / 4.0f) * delta;	
+								const float anim_spd = 0.25;
+								obj.frame_index += anim_spd * delta;	
 							}
 						} else {
-							SensorResult res = sensor_check_down(it->pos + vec2{0, 2}, 0);
+							SensorResult res = sensor_check_down(obj.pos + vec2{0, 2}, 0);
 							if (res.dist < 0) {
-								it->pos.y += res.dist;
-								it->pos = floor(it->pos);
-								it->flower.yspeed = 0;
+								obj.pos.y += res.dist;
+								obj.pos = floor(obj.pos);
+								obj.speed.y = 0;
 							}
 
-							it->flower.frame_index += (1.0f / 4.0f) * delta;
-							it->flower.frame_index = fmodf(it->flower.frame_index, 2);
+							const float anim_spd = 0.25;
+							obj.frame_index += anim_spd * delta;
+							obj.frame_index = fmodf(obj.frame_index, 2);
 
-							it->pos.y += it->flower.yspeed * delta;
+							obj.pos.y += obj.speed.y * delta;
 						}
 					}
 					break;
@@ -3162,11 +3175,11 @@ void draw_objects(array<Object> objects,
 
 			case OBJ_MOSQUI: {
 				u32 sprite_index = spr_mosqui;
-				float frame_index = it->mosqui.frame_index;
+				float frame_index = it->frame_index;
 
 				vec2 scale = {1, 1};
-				if (it->mosqui.xspeed != 0) {
-					scale.x = -signf(it->mosqui.xspeed);
+				if (it->speed.x != 0) {
+					scale.x = -signf(it->speed.x);
 				}
 
 				if (out_of_bounds(get_sprite(sprite_index), it->pos)) break;
@@ -3176,7 +3189,7 @@ void draw_objects(array<Object> objects,
 
 			case OBJ_FLOWER: {
 				u32 sprite_index = spr_flower;
-				float frame_index = it->flower.frame_index;
+				float frame_index = it->frame_index;
 				if (out_of_bounds(get_sprite(sprite_index), it->pos)) break;
 				draw_sprite(get_sprite(sprite_index), frame_index, it->pos);
 				break;

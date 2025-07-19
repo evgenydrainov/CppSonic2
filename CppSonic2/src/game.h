@@ -157,6 +157,9 @@ struct Object {
 	u32 flags;
 
 	vec2 pos;
+	vec2 speed;
+
+	float frame_index;
 
 	union {
 		struct {
@@ -214,16 +217,11 @@ struct Object {
 		} layswitch; // OBJ_LAYER_SWITCHER_HORIZONTAL and OBJ_LAYER_SWITCHER_VERTICAL
 
 		struct {
-			float frame_index;
 			float timer;
-			float xspeed;
-			float yspeed;
 		} mosqui; // OBJ_MOSQUI
 
 		struct {
-			float frame_index;
 			float timer;
-			float yspeed;
 		} flower; // OBJ_FLOWER
 	};
 };
