@@ -2523,6 +2523,17 @@ void Game::update(float delta) {
 		|| titlecard_state == TITLECARD_WAIT)
 	{
 		should_skip_frame = true;
+
+#ifdef DEVELOPER
+		if (is_key_pressed(SDL_SCANCODE_A)) {
+			titlecard_state = TITLECARD_OUT;
+			titlecard_timer = 0;
+			titlecard_t = 0.5f;
+
+			// don't skip frame so that player can go into debug mode
+			should_skip_frame = false;
+		}
+#endif
 	}
 
 	if (pause_state != PAUSE_NOT_PAUSED) {
