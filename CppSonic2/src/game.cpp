@@ -68,9 +68,12 @@ void Game::load_level(const char* path) {
 
 		For (it, objects) {
 			if (it->type == OBJ_PLAYER_INIT_POS) {
+				if (found) {
+					log_warn("Multiple OBJ_PLAYER_INIT_POS objects found.");
+				}
+
 				player.pos = it->pos;
 				found = true;
-				//break;
 			}
 		}
 
@@ -87,6 +90,8 @@ void Game::load_level(const char* path) {
 
 	// init objects
 	For (it, objects) {
+		it->start_pos = it->pos;
+
 		switch (it->type) {
 			case OBJ_MOVING_PLATFORM: {
 				it->mplatform.init_pos = it->pos;
@@ -122,7 +127,6 @@ void Game::load_level(const char* path) {
 			}
 
 			case OBJ_MOSQUI: {
-				it->mosqui.timer = 64;
 				it->speed.x = 1;
 				break;
 			}
@@ -2682,13 +2686,15 @@ void Game::update(float delta) {
 							}
 						}
 					} else {
-						mosqui.timer -= delta;
-						if (mosqui.timer <= 0) {
-							mosqui.timer += 128;
-							obj.speed.x = -obj.speed.x;
+						obj.pos.x += obj.speed.x * delta;
+
+						if (obj.pos.x > obj.start_pos.x + mosqui.fly_distance) {
+							obj.speed.x = -fabsf(obj.speed.x);
 						}
 
-						obj.pos.x += obj.speed.x * delta;
+						if (obj.pos.x < obj.start_pos.x - mosqui.fly_distance) {
+							obj.speed.x = fabsf(obj.speed.x);
+						}
 
 						const float anim_spd = 0.25;
 						obj.frame_index += anim_spd * delta;
@@ -4134,7 +4140,7 @@ void write_objects(array<Object> objects, const char* fname) {
 	char magic[4] = {'O', 'B', 'J', 'T'};
 	SDL_RWwrite(f, magic, sizeof magic, 1);
 
-	u32 version = 1;
+	u32 version = 2;
 	SDL_RWwrite(f, &version, sizeof version, 1);
 
 	u32 num_objects = (u32) objects.count;
@@ -4152,8 +4158,7 @@ void write_objects(array<Object> objects, const char* fname) {
 
 		switch (o.type) {
 			case OBJ_PLAYER_INIT_POS:
-			case OBJ_RING:
-			case OBJ_MOSQUI: {
+			case OBJ_RING: {
 				break;
 			}
 
@@ -4232,6 +4237,12 @@ void write_objects(array<Object> objects, const char* fname) {
 				break;
 			}
 
+			case OBJ_MOSQUI: {
+				float fly_distance = o.mosqui.fly_distance;
+				SDL_RWwrite(f, &fly_distance, sizeof fly_distance, 1);
+				break;
+			}
+
 			default: {
 				Assert(false);
 				break;
@@ -4262,9 +4273,9 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 	char magic[4];
 	SDL_RWread(f, magic, sizeof magic, 1);
 	if (!(magic[0] == 'O'
-		   && magic[1] == 'B'
-		   && magic[2] == 'J'
-		   && magic[3] == 'T'))
+		&& magic[1] == 'B'
+		&& magic[2] == 'J'
+		&& magic[3] == 'T'))
 	{
 		log_error("Couldn't read objects: wrong magic value.");
 		objects->count = 0;
@@ -4273,7 +4284,7 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 
 	u32 version;
 	SDL_RWread(f, &version, sizeof version, 1);
-	if (!(version == 1)) {
+	if (!(version >= 1 && version <= 2)) {
 		log_error("Couldn't read objects: version %u is not supported.", version);
 		objects->count = 0;
 		return false;
@@ -4297,8 +4308,7 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 
 		switch (o->type) {
 			case OBJ_PLAYER_INIT_POS:
-			case OBJ_RING:
-			case OBJ_MOSQUI: {
+			case OBJ_RING: {
 				return true;
 			}
 
@@ -4390,6 +4400,17 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 				int priority_2;
 				SDL_RWread(f, &priority_2, sizeof priority_2, 1);
 				o->layswitch.priority_2 = priority_2;
+				return true;
+			}
+
+			case OBJ_MOSQUI: {
+				if (version >= 2) {
+					float fly_distance;
+					SDL_RWread(f, &fly_distance, sizeof fly_distance, 1);
+					o->mosqui.fly_distance = fly_distance;
+				} else {
+					o->mosqui.fly_distance = 64;
+				}
 				return true;
 			}
 		}

@@ -161,6 +161,8 @@ struct Object {
 
 	float frame_index;
 
+	vec2 start_pos;
+
 	union {
 		struct {
 			int layer;
@@ -217,7 +219,7 @@ struct Object {
 		} layswitch; // OBJ_LAYER_SWITCHER_HORIZONTAL and OBJ_LAYER_SWITCHER_VERTICAL
 
 		struct {
-			float timer;
+			float fly_distance;
 		} mosqui; // OBJ_MOSQUI
 
 		struct {

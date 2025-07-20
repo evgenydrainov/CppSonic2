@@ -636,6 +636,29 @@ static void draw_editor_object_gizmos() {
 				}
 				break;
 			}
+
+			case OBJ_MOSQUI: {
+				{
+					vec2 p1 = it->pos;
+					vec2 p2 = it->pos + vec2{it->mosqui.fly_distance, 0};
+
+					float length = point_distance(p1, p2);
+					float direction = point_direction(p1, p2);
+
+					draw_arrow_thick(p1, length, direction, 2, 1, color_white);
+				}
+
+				{
+					vec2 p1 = it->pos;
+					vec2 p2 = it->pos - vec2{it->mosqui.fly_distance, 0};
+
+					float length = point_distance(p1, p2);
+					float direction = point_direction(p1, p2);
+
+					draw_arrow_thick(p1, length, direction, 2, 1, color_white);
+				}
+				break;
+			}
 		}
 	}
 }
@@ -2879,6 +2902,11 @@ void ObjectsEditor::update(float delta) {
 				UndoableDragFloat2("Radius", object_index, offsetof(Object, mplatform.radius));
 				UndoableDragFloat2("Offset", object_index, offsetof(Object, mplatform.offset));
 				UndoableInputFloat("Time Multiplier", object_index, offsetof(Object, mplatform.time_multiplier));
+				break;
+			}
+
+			case OBJ_MOSQUI: {
+				UndoableDragFloat("Fly Distance", object_index, offsetof(Object, mosqui.fly_distance));
 				break;
 			}
 		}
