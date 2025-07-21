@@ -226,6 +226,10 @@ struct Editor {
 
 	bool laptop_mode;
 
+	static constexpr float CREATE_LEVEL_BACKUP_TIME = 10 * 60 * 60; // 10 minutes
+
+	float create_level_backup_timer;
+
 	void init(int argc, char* argv[]);
 	void deinit();
 	void update(float delta);
@@ -236,6 +240,7 @@ struct Editor {
 	void try_pick_and_open_level();
 	void try_open_level(const char* path);
 	void close_level();
+	void save_level_internal(const std::filesystem::path& dir);
 	void try_save_level();
 	void try_load_layer_from_binary_file();
 

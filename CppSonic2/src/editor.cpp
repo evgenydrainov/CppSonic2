@@ -15,6 +15,8 @@
 #include "IconsFontAwesome5.h"
 #include "subprocess.h"
 
+#include <sstream>
+
 Editor editor;
 
 void Editor::init(int argc, char* argv[]) {
@@ -729,6 +731,8 @@ void Editor::try_open_level(const char* path) {
 
 	is_level_open = true;
 	update_window_caption();
+
+	create_level_backup_timer = CREATE_LEVEL_BACKUP_TIME;
 }
 
 void Editor::close_level() {
@@ -756,13 +760,17 @@ void Editor::close_level() {
 	update_window_caption();
 }
 
+void Editor::save_level_internal(const std::filesystem::path& dir) {
+	write_tilemap(tm, (dir / "Tilemap.bin").u8string().c_str());
+	write_tileset(ts, (dir / "Tileset.bin").u8string().c_str());
+
+	write_objects(objects, (dir / "Objects.bin").u8string().c_str());
+}
+
 void Editor::try_save_level() {
 	if (!is_level_open) return;
 
-	write_tilemap(tm, (current_level_dir / "Tilemap.bin").u8string().c_str());
-	write_tileset(ts, (current_level_dir / "Tileset.bin").u8string().c_str());
-
-	write_objects(objects, (current_level_dir / "Objects.bin").u8string().c_str());
+	save_level_internal(current_level_dir);
 
 	saved_action_index = action_index;
 	update_window_caption();
@@ -1052,6 +1060,36 @@ void Editor::update(float delta) {
 			ImGui::End();
 
 			ImGui::PopStyleVar();
+		}
+	}
+
+	auto get_timestamp_str = []() {
+		auto t = std::time(nullptr);
+
+		std::tm tm = {};
+		localtime_s(&tm, &t);
+
+		std::ostringstream oss;
+		oss << std::put_time(&tm, "%Y-%m-%d-%H-%M-%S");
+		auto str = oss.str();
+
+		return str;
+	};
+
+	if (is_level_open) {
+		if (create_level_backup_timer <= 0) {
+			create_level_backup_timer += CREATE_LEVEL_BACKUP_TIME;
+			
+			auto level_name = current_level_dir.filename().u8string();
+
+			auto dir = current_level_dir / ".backups" / std::filesystem::u8path(level_name + "-" + get_timestamp_str());
+
+			// create the directory recursivly if it doesn't exist
+			std::filesystem::create_directories(dir);
+
+			save_level_internal(dir);
+		} else {
+			create_level_backup_timer -= delta;
 		}
 	}
 }
