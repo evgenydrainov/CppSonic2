@@ -158,7 +158,7 @@ struct Object {
 
 	vec2 pos;
 	vec2 speed;
-
+	vec2 radius;
 	float frame_index;
 
 	vec2 start_pos;
@@ -166,12 +166,7 @@ struct Object {
 	union {
 		struct {
 			int layer;
-			vec2 radius;
 		} layset; // OBJ_LAYER_SET
-
-		struct {
-			vec2 radius;
-		} layflip; // OBJ_LAYER_FLIP
 
 		struct {
 			MonitorIcon icon;
@@ -199,7 +194,6 @@ struct Object {
 
 		struct {
 			u32 sprite_index;
-			vec2 radius;
 			vec2 offset;
 			float time_multiplier;
 
@@ -210,7 +204,6 @@ struct Object {
 		} mplatform; // OBJ_MOVING_PLATFORM
 
 		struct {
-			vec2 radius;
 			int layer_1;
 			int layer_2;
 			int priority_1;

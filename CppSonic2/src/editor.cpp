@@ -2673,21 +2673,21 @@ void ObjectsEditor::update(float delta) {
 					}
 
 					case OBJ_LAYER_SWITCHER_VERTICAL: {
-						o.layswitch.radius.y = 128;
+						o.radius = {128, 128};
 						o.layswitch.priority_1 = 1;
 						o.layswitch.priority_2 = 1;
 						break;
 					}
 
 					case OBJ_LAYER_SWITCHER_HORIZONTAL: {
-						o.layswitch.radius.x = 128;
+						o.radius = {128, 128};
 						o.layswitch.priority_1 = 1;
 						o.layswitch.priority_2 = 1;
 						break;
 					}
 
 					case OBJ_MOVING_PLATFORM: {
-						o.mplatform.radius = {32, 6};
+						o.radius = {32, 6};
 						o.mplatform.offset = {0, 32};
 						o.mplatform.time_multiplier = 1.0f / 32.0f;
 						break;
@@ -2906,11 +2906,7 @@ void ObjectsEditor::update(float delta) {
 
 			case OBJ_LAYER_SWITCHER_VERTICAL:
 			case OBJ_LAYER_SWITCHER_HORIZONTAL: {
-				if (o->type == OBJ_LAYER_SWITCHER_VERTICAL) {
-					UndoableDragFloat("Height Radius", object_index, offsetof(Object, layswitch.radius.y));
-				} else {
-					UndoableDragFloat("Width Radius", object_index, offsetof(Object, layswitch.radius.x));
-				}
+				UndoableDragFloat2("Radius", object_index, offsetof(Object, radius));
 
 				{
 					const char* values[] = {"A", "B"};
@@ -2937,7 +2933,7 @@ void ObjectsEditor::update(float delta) {
 					UndoableCombo("Sprite Index", object_index, offsetof(Object, mplatform.sprite_index), values, ArrayLength(values));
 				}
 
-				UndoableDragFloat2("Radius", object_index, offsetof(Object, mplatform.radius));
+				UndoableDragFloat2("Radius", object_index, offsetof(Object, radius));
 				UndoableDragFloat2("Offset", object_index, offsetof(Object, mplatform.offset));
 				UndoableInputFloat("Time Multiplier", object_index, offsetof(Object, mplatform.time_multiplier));
 				break;

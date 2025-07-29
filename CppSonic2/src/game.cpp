@@ -1670,7 +1670,7 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 			}
 
 			if (!skip) {
-				if (p->pos.y > it->pos.y - it->layswitch.radius.y && p->pos.y < it->pos.y + it->layswitch.radius.y) {
+				if (p->pos.y > it->pos.y - it->radius.y && p->pos.y < it->pos.y + it->radius.y) {
 					if (it->layswitch.current_side == 0) {
 						if (p->pos.x >= it->pos.x) {
 							p->layer = it->layswitch.layer_2;
@@ -3068,7 +3068,7 @@ void draw_objects(array<Object> objects,
 				if (!show_editor_objects) break;
 				
 				const Sprite& s = get_object_sprite(it->type);
-				vec2 scale = (it->layflip.radius * 2.0f) / vec2{s.width, s.height};
+				vec2 scale = (it->radius * 2.0f) / vec2{s.width, s.height};
 				draw_sprite(s, 0, it->pos, scale);
 				break;
 			}
@@ -3077,7 +3077,7 @@ void draw_objects(array<Object> objects,
 				if (!show_editor_objects) break;
 
 				const Sprite& s = get_object_sprite(it->type);
-				vec2 scale = (it->layset.radius * 2.0f) / vec2{s.width, s.height};
+				vec2 scale = (it->radius * 2.0f) / vec2{s.width, s.height};
 				draw_sprite(s, 0, it->pos, scale);
 				break;
 			}
@@ -3178,16 +3178,16 @@ void draw_objects(array<Object> objects,
 			case OBJ_LAYER_SWITCHER_VERTICAL: {
 				if (!show_editor_objects) break;
 
-				const float w = it->layswitch.radius.y;
+				const float w = it->radius.x;
 
 				float x = it->pos.x;
 				if (it->layswitch.current_side == 1) {
 					x -= w;
 				}
-				draw_rectangle({x, it->pos.y - it->layswitch.radius.y, w, it->layswitch.radius.y * 2}, get_color(0xff7d1262));
+				draw_rectangle({x, it->pos.y - it->radius.y, w, it->radius.y * 2}, get_color(0xff7d1262));
 
-				draw_line_thick(it->pos - vec2{0, it->layswitch.radius.y} + vec2{0.5f, 0.5f},
-								it->pos + vec2{0, it->layswitch.radius.y} + vec2{0.5f, 0.5f},
+				draw_line_thick(it->pos - vec2{0, it->radius.y} + vec2{0.5f, 0.5f},
+								it->pos + vec2{0, it->radius.y} + vec2{0.5f, 0.5f},
 								1,
 								get_color(0xf0761fff));
 
@@ -4140,7 +4140,7 @@ void write_objects(array<Object> objects, const char* fname) {
 	char magic[4] = {'O', 'B', 'J', 'T'};
 	SDL_RWwrite(f, magic, sizeof magic, 1);
 
-	u32 version = 2;
+	u32 version = 3;
 	SDL_RWwrite(f, &version, sizeof version, 1);
 
 	u32 num_objects = (u32) objects.count;
@@ -4165,7 +4165,7 @@ void write_objects(array<Object> objects, const char* fname) {
 			case OBJ_LAYER_SET_DEPRECATED: {
 				log_warn("Serializing deprecated object %s!", GetObjTypeName(o.type));
 
-				vec2 radius = o.layset.radius;
+				vec2 radius = o.radius;
 				SDL_RWwrite(f, &radius, sizeof radius, 1);
 
 				int layer = o.layset.layer;
@@ -4176,7 +4176,7 @@ void write_objects(array<Object> objects, const char* fname) {
 			case OBJ_LAYER_FLIP_DEPRECATED: {
 				log_warn("Serializing deprecated object %s!", GetObjTypeName(o.type));
 
-				vec2 radius = o.layflip.radius;
+				vec2 radius = o.radius;
 				SDL_RWwrite(f, &radius, sizeof radius, 1);
 				break;
 			}
@@ -4207,7 +4207,7 @@ void write_objects(array<Object> objects, const char* fname) {
 				u32 sprite_index = o.mplatform.sprite_index;
 				SDL_RWwrite(f, &sprite_index, sizeof sprite_index, 1);
 
-				vec2 radius = o.mplatform.radius;
+				vec2 radius = o.radius;
 				SDL_RWwrite(f, &radius, sizeof radius, 1);
 
 				vec2 offset = o.mplatform.offset;
@@ -4220,7 +4220,7 @@ void write_objects(array<Object> objects, const char* fname) {
 
 			case OBJ_LAYER_SWITCHER_VERTICAL:
 			case OBJ_LAYER_SWITCHER_HORIZONTAL: {
-				vec2 radius = o.layswitch.radius;
+				vec2 radius = o.radius;
 				SDL_RWwrite(f, &radius, sizeof radius, 1);
 
 				int layer_1 = o.layswitch.layer_1;
@@ -4284,7 +4284,7 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 
 	u32 version;
 	SDL_RWread(f, &version, sizeof version, 1);
-	if (!(version >= 1 && version <= 2)) {
+	if (!(version >= 1 && version <= 3)) {
 		log_error("Couldn't read objects: version %u is not supported.", version);
 		objects->count = 0;
 		return false;
@@ -4317,7 +4317,7 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 
 				vec2 radius;
 				SDL_RWread(f, &radius, sizeof radius, 1);
-				o->layset.radius = radius;
+				o->radius = radius;
 
 				int layer;
 				SDL_RWread(f, &layer, sizeof layer, 1);
@@ -4330,7 +4330,7 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 
 				vec2 radius;
 				SDL_RWread(f, &radius, sizeof radius, 1);
-				o->layflip.radius = radius;
+				o->radius = radius;
 				return true;
 			}
 
@@ -4367,7 +4367,7 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 
 				vec2 radius;
 				SDL_RWread(f, &radius, sizeof radius, 1);
-				o->mplatform.radius = radius;
+				o->radius = radius;
 
 				vec2 offset;
 				SDL_RWread(f, &offset, sizeof offset, 1);
@@ -4383,7 +4383,16 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 			case OBJ_LAYER_SWITCHER_HORIZONTAL: {
 				vec2 radius;
 				SDL_RWread(f, &radius, sizeof radius, 1);
-				o->layswitch.radius = radius;
+
+				if (version >= 3) {
+					o->radius = radius;
+				} else {
+					if (o->type == OBJ_LAYER_SWITCHER_VERTICAL) {
+						o->radius = {radius.y, radius.y};
+					} else { // OBJ_LAYER_SWITCHER_HORIZONTAL
+						o->radius = {radius.x, radius.x};
+					}
+				}
 
 				int layer_1;
 				SDL_RWread(f, &layer_1, sizeof layer_1, 1);
@@ -4566,15 +4575,10 @@ const Sprite& get_object_sprite(ObjType type) {
 
 vec2 get_object_size(const Object& o) {
 	switch (o.type) {
-		case OBJ_PLAYER_INIT_POS:           return {30, 44};
-		case OBJ_LAYER_SET_DEPRECATED:      return o.layset.radius  * 2.0f;
-		case OBJ_LAYER_FLIP_DEPRECATED:     return o.layflip.radius * 2.0f;
-		case OBJ_MONITOR:                   return {30, 30};
-		case OBJ_MOVING_PLATFORM:           return o.mplatform.radius * 2.0f;
-		case OBJ_LAYER_SWITCHER_VERTICAL:   return {o.layswitch.radius.y * 2, o.layswitch.radius.y * 2};
-		case OBJ_LAYER_SWITCHER_HORIZONTAL: return {o.layswitch.radius.x * 2, o.layswitch.radius.x * 2};
-		case OBJ_SPRING_DIAGONAL:           return {30, 30};
-		case OBJ_MOSQUI:                    return {16, 16};
+		case OBJ_PLAYER_INIT_POS: return {30, 44};
+		case OBJ_MONITOR:         return {30, 30};
+		case OBJ_SPRING_DIAGONAL: return {30, 30};
+		case OBJ_MOSQUI:          return {16, 16};
 
 		case OBJ_SPRING: {
 			vec2 size = {32, 16};
@@ -4587,6 +4591,12 @@ vec2 get_object_size(const Object& o) {
 			}
 			return size;
 		}
+
+		case OBJ_LAYER_SET_DEPRECATED:
+		case OBJ_LAYER_FLIP_DEPRECATED:
+		case OBJ_MOVING_PLATFORM:
+		case OBJ_LAYER_SWITCHER_VERTICAL:
+		case OBJ_LAYER_SWITCHER_HORIZONTAL:  return o.radius * 2.0f;
 	}
 
 	const Sprite& s = get_object_sprite(o.type);
