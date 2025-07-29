@@ -1103,16 +1103,16 @@ void Editor::try_undo() {
 	}
 
 	if (ImGui::GetActiveID() != 0) {
-		show_message(MESSAGE_WARN, "Can't undo while interacting with a widget.");
+		// show_message(MESSAGE_WARN, "Can't undo while interacting with a widget.");
 		return;
 	}
 
 	if (action_index == -1) {
-		show_message(MESSAGE_INFO, "Nothing to Undo.");
+		// show_message(MESSAGE_INFO, "Nothing to Undo.");
 		return;
 	}
 
-	//ImGui::ClearActiveID();
+	// ImGui::ClearActiveID();
 
 	const Action& action = actions[action_index];
 	action_revert(action);
@@ -1134,16 +1134,16 @@ void Editor::try_redo() {
 	}
 
 	if (ImGui::GetActiveID() != 0) {
-		show_message(MESSAGE_WARN, "Can't redo while interacting with a widget.");
+		// show_message(MESSAGE_WARN, "Can't redo while interacting with a widget.");
 		return;
 	}
 
 	if (action_index + 1 >= actions.count) {
-		show_message(MESSAGE_INFO, "Nothing to Redo.");
+		// show_message(MESSAGE_INFO, "Nothing to Redo.");
 		return;
 	}
 
-	//ImGui::ClearActiveID();
+	// ImGui::ClearActiveID();
 
 	// increment before performing action
 	action_index++;
