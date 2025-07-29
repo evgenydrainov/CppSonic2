@@ -85,16 +85,16 @@ struct Action {
 		} set_tiles;
 
 		struct {
-			Object o;
+			Object object;
 		} add_object;
 
 		struct {
-			Object o;
-			int index;
+			Object object;
+			int object_index;
 		} remove_object;
 
 		struct {
-			int index;
+			int object_index;
 			u32 field_offset;
 			u32 field_size;
 			u8 data_from[8];

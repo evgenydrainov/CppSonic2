@@ -411,7 +411,7 @@ static void UndoableComboEnum(const char* label,
 
 					Action action = {};
 					action.type = ACTION_SET_OBJECT_FIELD;
-					action.set_object_field.index = object_index;
+					action.set_object_field.object_index = object_index;
 					action.set_object_field.field_offset = field_offset;
 					action.set_object_field.field_size = sizeof(T);
 
@@ -448,7 +448,7 @@ static void UndoableCombo(const char* label,
 
 					Action action = {};
 					action.type = ACTION_SET_OBJECT_FIELD;
-					action.set_object_field.index = object_index;
+					action.set_object_field.object_index = object_index;
 					action.set_object_field.field_offset = field_offset;
 					action.set_object_field.field_size = sizeof(int);
 
@@ -487,7 +487,7 @@ static void UndoableDragFloat2(const char* label,
 		if (*field_ptr != copy) {
 			Action action = {};
 			action.type = ACTION_SET_OBJECT_FIELD;
-			action.set_object_field.index = object_index;
+			action.set_object_field.object_index = object_index;
 			action.set_object_field.field_offset = field_offset;
 			action.set_object_field.field_size = sizeof(vec2);
 
@@ -518,7 +518,7 @@ static void UndoableDragFloat(const char* label,
 		if (*field_ptr != copy) {
 			Action action = {};
 			action.type = ACTION_SET_OBJECT_FIELD;
-			action.set_object_field.index = object_index;
+			action.set_object_field.object_index = object_index;
 			action.set_object_field.field_offset = field_offset;
 			action.set_object_field.field_size = sizeof(float);
 
@@ -545,7 +545,7 @@ static void UndoableInputFloat2(const char* label,
 		if (*field_ptr != copy) {
 			Action action = {};
 			action.type = ACTION_SET_OBJECT_FIELD;
-			action.set_object_field.index = object_index;
+			action.set_object_field.object_index = object_index;
 			action.set_object_field.field_offset = field_offset;
 			action.set_object_field.field_size = sizeof(vec2);
 
@@ -571,7 +571,7 @@ static void UndoableInputFloat(const char* label,
 		if (*field_ptr != copy) {
 			Action action = {};
 			action.type = ACTION_SET_OBJECT_FIELD;
-			action.set_object_field.index = object_index;
+			action.set_object_field.object_index = object_index;
 			action.set_object_field.field_offset = field_offset;
 			action.set_object_field.field_size = sizeof(float);
 
@@ -599,7 +599,7 @@ static void UndoableCheckboxFlags(const char* label,
 		if (*field_ptr != copy) {
 			Action action = {};
 			action.type = ACTION_SET_OBJECT_FIELD;
-			action.set_object_field.index = object_index;
+			action.set_object_field.object_index = object_index;
 			action.set_object_field.field_offset = field_offset;
 			action.set_object_field.field_size = sizeof(u32);
 
@@ -1229,19 +1229,19 @@ void Editor::action_perform(const Action& action) {
 		}
 
 		case ACTION_ADD_OBJECT: {
-			array_add(&objects, action.add_object.o);
+			array_add(&objects, action.add_object.object);
 			objects_editor.object_index = -1;
 			break;
 		}
 
 		case ACTION_REMOVE_OBJECT: {
-			array_remove(&editor.objects, action.remove_object.index);
+			array_remove(&editor.objects, action.remove_object.object_index);
 			objects_editor.object_index = -1;
 			break;
 		}
 
 		case ACTION_SET_OBJECT_FIELD: {
-			u8* obj_member = (u8*)&editor.objects[action.set_object_field.index] + action.set_object_field.field_offset;
+			u8* obj_member = (u8*)&editor.objects[action.set_object_field.object_index] + action.set_object_field.field_offset;
 			memcpy(obj_member, action.set_object_field.data_to, action.set_object_field.field_size);
 			break;
 		}
@@ -1304,13 +1304,13 @@ void Editor::action_revert(const Action& action) {
 		}
 
 		case ACTION_REMOVE_OBJECT: {
-			array_insert(&objects, action.remove_object.index, action.remove_object.o);
+			array_insert(&objects, action.remove_object.object_index, action.remove_object.object);
 			objects_editor.object_index = -1;
 			break;
 		}
 
 		case ACTION_SET_OBJECT_FIELD: {
-			u8* obj_member = (u8*)&editor.objects[action.set_object_field.index] + action.set_object_field.field_offset;
+			u8* obj_member = (u8*)&editor.objects[action.set_object_field.object_index] + action.set_object_field.field_offset;
 			memcpy(obj_member, action.set_object_field.data_from, action.set_object_field.field_size);
 			break;
 		}
@@ -2622,7 +2622,7 @@ void ObjectsEditor::update(float delta) {
 						if (pos != obj.pos) {
 							Action action = {};
 							action.type = ACTION_SET_OBJECT_FIELD;
-							action.set_object_field.index = object_index;
+							action.set_object_field.object_index = object_index;
 							action.set_object_field.field_offset = offsetof(Object, pos);
 							action.set_object_field.field_size = sizeof(vec2);
 
@@ -2696,7 +2696,7 @@ void ObjectsEditor::update(float delta) {
 
 				Action action = {};
 				action.type = ACTION_ADD_OBJECT;
-				action.add_object.o = o;
+				action.add_object.object = o;
 
 				editor.action_add_and_perform(action);
 			}
@@ -2757,7 +2757,7 @@ void ObjectsEditor::update(float delta) {
 					if (pos != obj.pos) {
 						Action action = {};
 						action.type = ACTION_SET_OBJECT_FIELD;
-						action.set_object_field.index = object_index;
+						action.set_object_field.object_index = object_index;
 						action.set_object_field.field_offset = offsetof(Object, pos);
 						action.set_object_field.field_size = sizeof(vec2);
 
@@ -2959,8 +2959,8 @@ void ObjectsEditor::update(float delta) {
 		if (should_remove_object) {
 			Action action = {};
 			action.type = ACTION_REMOVE_OBJECT;
-			action.remove_object.index = object_index;
-			action.remove_object.o = editor.objects[object_index];
+			action.remove_object.object_index = object_index;
+			action.remove_object.object = editor.objects[object_index];
 
 			editor.action_add_and_perform(action);
 			return;
