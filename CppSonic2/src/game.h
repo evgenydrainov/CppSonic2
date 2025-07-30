@@ -112,6 +112,9 @@ enum {
 
 	// serialized
 	FLAG_LAYER_SWITCHER_GROUND_ONLY = 1 << 16,
+
+	// serialized
+	FLAG_PLATFORM_CIRCULAR_MOVEMENT = 1 << 16,
 };
 
 // serialized

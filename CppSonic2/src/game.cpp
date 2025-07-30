@@ -2572,8 +2572,13 @@ void Game::update(float delta) {
 					it->mplatform.prev_pos = it->pos;
 
 					float a = player_time * it->mplatform.time_multiplier;
-					it->pos.x = floorf(it->mplatform.init_pos.x - sinf(a) * it->mplatform.offset.x);
-					it->pos.y = floorf(it->mplatform.init_pos.y + sinf(a) * it->mplatform.offset.y);
+					if (it->flags & FLAG_PLATFORM_CIRCULAR_MOVEMENT) {
+						it->pos.x = floorf(it->mplatform.init_pos.x + cosf(a) * it->mplatform.offset.x);
+						it->pos.y = floorf(it->mplatform.init_pos.y - sinf(a) * it->mplatform.offset.y);
+					} else {
+						it->pos.x = floorf(it->mplatform.init_pos.x - sinf(a) * it->mplatform.offset.x);
+						it->pos.y = floorf(it->mplatform.init_pos.y + sinf(a) * it->mplatform.offset.y);
+					}
 
 					if (it->mplatform.mounts[0] != 0) {
 						if (Object* obj = find_object(it->mplatform.mounts[0])) {

@@ -2936,6 +2936,8 @@ void ObjectsEditor::update(float delta) {
 				UndoableDragFloat2("Radius", object_index, offsetof(Object, radius));
 				UndoableDragFloat2("Offset", object_index, offsetof(Object, mplatform.offset));
 				UndoableInputFloat("Time Multiplier", object_index, offsetof(Object, mplatform.time_multiplier));
+
+				UndoableCheckboxFlags("Circular Movement", object_index, offsetof(Object, flags), FLAG_PLATFORM_CIRCULAR_MOVEMENT);
 				break;
 			}
 
