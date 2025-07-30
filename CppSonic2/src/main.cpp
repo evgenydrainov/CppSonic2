@@ -58,7 +58,7 @@ static void do_one_frame() {
 
 	// draw
 	{
-		vec4 clear_color = color_cornflower_blue;
+		vec4 clear_color = {};
 		render_begin_frame(clear_color);
 
 		program.draw(window.delta);

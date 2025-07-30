@@ -126,8 +126,12 @@ void load_assets_for_game() {
 	textures[tex_title_water_palette] = load_texture_from_file("textures/title_water_palette.png");
 	textures[tex_title_clouds] = load_texture_from_file("textures/title_clouds.png", GL_NEAREST, GL_REPEAT);
 
-	textures[tex_bg_EE_back]  = load_texture_from_file("textures/bg_EE_back.png");
-	textures[tex_bg_EE_front] = load_texture_from_file("textures/bg_EE_front.png");
+	textures[tex_bg_EE_back_old]  = load_texture_from_file("textures/bg_EE_back_old.png");
+	textures[tex_bg_EE_front_old] = load_texture_from_file("textures/bg_EE_front_old.png");
+
+	textures[tex_back_EE_highbg2] = load_texture_from_file("textures/back_EE_highbg2.png");
+	textures[tex_back_EE_hindmountains] = load_texture_from_file("textures/back_EE_hindmountains.png");
+	textures[tex_back_EE_medbg2] = load_texture_from_file("textures/back_EE_medbg2.png");
 
 	textures[tex_titlecard_line] = load_texture_from_file("textures/titlecard_line.png", GL_NEAREST, GL_REPEAT);
 

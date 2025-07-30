@@ -3301,6 +3301,110 @@ static void player_draw(Player* p) {
 	}
 }
 
+static void draw_eez_background_old() {
+	render_clear_color(get_color(0x01abe8ff));
+
+	auto draw_part = [&](float bg_height, float bg_pos_y, const Texture& t, Rect src, float parallax, float time_mul) -> void {
+		vec2 pos;
+		pos.x = game.camera_pos.x * parallax + game.time_seconds * time_mul;
+		pos.y = lerp(0.0f, game.tm.height * 16.0f - bg_height, game.camera_pos.y / (game.tm.height * 16.0f - window.game_height));
+
+		pos.y += src.y;
+		pos.y += bg_pos_y;
+
+		while (pos.x + t.width < game.camera_pos.x) {
+			pos.x += t.width;
+		}
+
+		pos = floor(pos);
+
+		draw_texture(t, src, pos);
+
+		if (pos.x + t.width < game.camera_pos.x + window.game_width) {
+			pos.x += t.width;
+			draw_texture(t, src, pos);
+		}
+	};
+
+	const Texture& back  = get_texture(tex_bg_EE_back_old);
+	const Texture& front = get_texture(tex_bg_EE_front_old);
+
+	float bg_height = 512;
+
+	set_shader(get_shader(shd_sine).id);
+
+	{
+		glUniform1f(glGetUniformLocation(get_shader(shd_sine).id, "u_Time"), game.time_seconds);
+	}
+	{
+		float water_pos_y_on_screen = game.water_pos_y - game.camera_pos.y;
+		glUniform1f(glGetUniformLocation(get_shader(shd_sine).id, "u_WaterPosY"), water_pos_y_on_screen);
+	}
+
+	const float time_mul = -10;
+
+	draw_part(bg_height, 0, back, {0, 0, 1024, 96}, 0.96f, 1.0f * time_mul);
+
+	for (int i = 0; i < 12; i++) {
+		float f = i / 11.0f;
+		float parallax = lerp(0.94f, 0.92f, f);
+		int y = 16 * (i + 6);
+		draw_part(bg_height, 0, back, {0, y, 1024, 16}, parallax, lerp(0.9f, 0.0f, f) * time_mul);
+	}
+
+	draw_part(bg_height, 176, front, {0,   0, 1024, 208}, 0.90f, 0);
+	draw_part(bg_height, 176, front, {0, 208, 1024, 128}, 0.88f, 0);
+
+	reset_shader();
+}
+
+static void draw_eez_background() {
+	auto draw_parallax = [&](const Texture& t, float rel_x, float rel_y) {
+		vec2 pos;
+		pos.x = game.camera_pos.x * rel_x;
+		pos.y = game.camera_pos.y * rel_y;
+
+		while (pos.x + t.width < game.camera_pos.x) {
+			pos.x += t.width;
+		}
+
+		pos = floor(pos);
+
+		draw_texture(t, {}, pos);
+
+		if (pos.x + t.width < game.camera_pos.x + window.game_width) {
+			pos.x += t.width;
+			draw_texture(t, {}, pos);
+		}
+	};
+
+	float room_height = game.tm.height * 16;
+
+	{
+		u32 tex = tex_back_EE_highbg2;
+		int w = get_texture(tex).width;
+		int h = get_texture(tex).height;
+		float rel_y = (room_height - h) / (room_height - window.game_height);
+		draw_parallax(get_texture(tex), 1 - 0.02, rel_y);
+	}
+
+	{
+		u32 tex = tex_back_EE_hindmountains;
+		int w = get_texture(tex).width;
+		int h = get_texture(tex).height;
+		float rel_y = (room_height - h) / (room_height - window.game_height);
+		draw_parallax(get_texture(tex), 1 - 0.18, rel_y);
+	}
+
+	{
+		u32 tex = tex_back_EE_medbg2;
+		int w = get_texture(tex).width;
+		int h = get_texture(tex).height;
+		float rel_y = (room_height - h) / (room_height - window.game_height);
+		draw_parallax(get_texture(tex), 1 - 0.35, rel_y);
+	}
+}
+
 void Game::draw(float delta) {
 	set_proj_mat(get_ortho(0, window.game_width, window.game_height, 0));
 	defer { set_proj_mat({1}); };
@@ -3310,65 +3414,12 @@ void Game::draw(float delta) {
 
 	set_viewport(0, 0, window.game_width, window.game_height);
 
-	render_clear_color(get_color(0x01abe8ff));
+	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	// defer { glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); };
 
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	//defer { glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); };
-
-	// draw background
+	// draw bg
 	{
-		auto draw_part = [&](float bg_height, float bg_pos_y, const Texture& t, Rect src, float parallax, float time_mul) -> void {
-			vec2 pos;
-			pos.x = camera_pos.x * parallax + time_seconds * time_mul;
-			pos.y = lerp(0.0f, this->tm.height * 16.0f - bg_height, camera_pos.y / (this->tm.height * 16.0f - window.game_height));
-
-			pos.y += src.y;
-			pos.y += bg_pos_y;
-
-			while (pos.x + t.width < camera_pos.x) {
-				pos.x += t.width;
-			}
-
-			pos = floor(pos);
-
-			draw_texture(t, src, pos);
-
-			if (pos.x + t.width < camera_pos.x + window.game_width) {
-				pos.x += t.width;
-				draw_texture(t, src, pos);
-			}
-		};
-
-		const Texture& back  = get_texture(tex_bg_EE_back);
-		const Texture& front = get_texture(tex_bg_EE_front);
-
-		float bg_height = 512;
-
-		set_shader(get_shader(shd_sine).id);
-
-		{
-			glUniform1f(glGetUniformLocation(get_shader(shd_sine).id, "u_Time"), time_seconds);
-		}
-		{
-			float water_pos_y_on_screen = water_pos_y - camera_pos.y;
-			glUniform1f(glGetUniformLocation(get_shader(shd_sine).id, "u_WaterPosY"), water_pos_y_on_screen);
-		}
-
-		const float time_mul = -10;
-
-		draw_part(bg_height, 0, back, {0, 0, 1024, 96}, 0.96f, 1.0f * time_mul);
-
-		for (int i = 0; i < 12; i++) {
-			float f = i / 11.0f;
-			float parallax = lerp(0.94f, 0.92f, f);
-			int y = 16 * (i + 6);
-			draw_part(bg_height, 0, back, {0, y, 1024, 16}, parallax, lerp(0.9f, 0.0f, f) * time_mul);
-		}
-
-		draw_part(bg_height, 176, front, {0,   0, 1024, 208}, 0.90f, 0);
-		draw_part(bg_height, 176, front, {0, 208, 1024, 128}, 0.88f, 0);
-
-		reset_shader();
+		draw_eez_background();
 	}
 
 	int xfrom = clamp((int)camera_pos.x / 16, 0, tm.width  - 1);
