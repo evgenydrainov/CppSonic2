@@ -65,6 +65,8 @@ struct SetTile {
 
 struct Action {
 	ActionType type;
+	bool cannot_merge;
+
 	union {
 		struct {
 			dynamic_array<SetTileHeight> sets;
@@ -247,7 +249,9 @@ struct Editor {
 	void try_undo();
 	void try_redo();
 	void action_add(const Action& action);
+	void action_add_or_merge(const Action& action);
 	void action_add_and_perform(const Action& action);
+	void action_merge_add_and_perform(const Action& action);
 	void action_perform(const Action& action);
 	void action_revert(const Action& action);
 	bool try_run_game();

@@ -393,21 +393,20 @@ static void AddArrow(ImDrawList* draw_list,
 	draw_list->AddLine(p2, p4, col, thickness * zoom);
 }
 
+// only for enums that start at 0 and only increment by 1
 template <typename T>
-static void UndoableComboEnum(const char* label,
-							  const char* (*GetEnumName)(T t),
-							  int object_index,
-							  u32 field_offset,
-							  T num_enums) {
-	static_assert(sizeof(T) == 4);
-
-	T* field_ptr = (T*) ((u8*)&editor.objects[object_index] + field_offset);
-
+static void ObjUndoComboEnum(const char* label,
+							 T* field_ptr,
+							 int object_index,
+							 const char* (*GetEnumName)(T t),
+							 T num_enums) {
 	if (ImGui::BeginCombo(label, GetEnumName(*field_ptr))) {
 		for (int i = 0; i < num_enums; i++) {
 			if (ImGui::Selectable(GetEnumName((T) i), i == *field_ptr)) {
 				if (i != *field_ptr) {
 					T data_to = (T) i;
+
+					u32 field_offset = (u32)field_ptr - (u32)&editor.objects[object_index];
 
 					Action action = {};
 					action.type = ACTION_SET_OBJECT_FIELD;
@@ -433,18 +432,40 @@ static void UndoableComboEnum(const char* label,
 	}
 }
 
-static void UndoableCombo(const char* label,
-						  int object_index,
-						  u32 field_offset,
-						  const char** values,
-						  int num_values) {
-	int* field_ptr = (int*) ((u8*)&editor.objects[object_index] + field_offset);
+template <typename T>
+static Action get_obj_set_field_action(T* field_ptr,
+									   int object_index,
+									   T data_to) {
+	u32 field_offset = (u32)field_ptr - (u32)&editor.objects[object_index];
+
+	Action action = {};
+	action.type = ACTION_SET_OBJECT_FIELD;
+	action.set_object_field.object_index = object_index;
+	action.set_object_field.field_offset = field_offset;
+	action.set_object_field.field_size = sizeof(T);
+
+	static_assert(sizeof(T) <= sizeof(action.set_object_field.data_from));
+
+	memcpy(action.set_object_field.data_from, field_ptr, sizeof(T));
+	memcpy(action.set_object_field.data_to, &data_to, sizeof(T));
+
+	return action;
+}
+
+static bool ObjUndoCombo(const char* label,
+						 int* field_ptr,
+						 int object_index,
+						 const char** values,
+						 int num_values) {
+	bool result = false;
 
 	if (ImGui::BeginCombo(label, values[*field_ptr])) {
 		for (int i = 0; i < num_values; i++) {
 			if (ImGui::Selectable(values[i], i == *field_ptr)) {
 				if (i != *field_ptr) {
 					int data_to = (int) i;
+
+					u32 field_offset = (u32)field_ptr - (u32)&editor.objects[object_index];
 
 					Action action = {};
 					action.type = ACTION_SET_OBJECT_FIELD;
@@ -458,6 +479,8 @@ static void UndoableCombo(const char* label,
 					memcpy(action.set_object_field.data_to, &data_to, sizeof(int));
 
 					editor.action_add_and_perform(action);
+
+					result = true;
 				}
 			}
 
@@ -468,149 +491,110 @@ static void UndoableCombo(const char* label,
 
 		ImGui::EndCombo();
 	}
+
+	return result;
 }
 
-// TODO: dragging doesn't work
-static void UndoableDragFloat2(const char* label,
-							   int object_index,
-							   u32 field_offset,
-							   float v_speed = 1,
-							   float v_min = 0,
-							   float v_max = 0,
-							   const char* format = "%.3f") {
-	vec2* field_ptr = (vec2*) ((u8*)&editor.objects[object_index] + field_offset);
-	vec2 copy = *field_ptr;
+static bool ObjUndoCombo(const char* label,
+						 u32* field_ptr,
+						 int object_index,
+						 const char** values,
+						 int num_values) {
+	return ObjUndoCombo(label, (int*)field_ptr, object_index, values, num_values);
+}
 
-	ImGui::DragFloat2(label, &copy[0], v_speed, v_min, v_max, format);
+template <typename T, typename F>
+static void ObjUndoWidget(const F& do_widget,
+						  T* field_ptr,
+						  int object_index) {
+	T copy = *field_ptr;
+	bool modified = do_widget(&copy);
 
-	if (!ImGui::IsItemActive()) {
-		if (*field_ptr != copy) {
+	if (modified) {
+		if (copy != *field_ptr) {
+			u32 field_offset = (u32)field_ptr - (u32)&editor.objects[object_index];
+
 			Action action = {};
 			action.type = ACTION_SET_OBJECT_FIELD;
 			action.set_object_field.object_index = object_index;
 			action.set_object_field.field_offset = field_offset;
-			action.set_object_field.field_size = sizeof(vec2);
+			action.set_object_field.field_size = sizeof(T);
 
-			static_assert(sizeof(vec2) <= sizeof(action.set_object_field.data_from));
+			static_assert(sizeof(T) <= sizeof(action.set_object_field.data_from));
 
-			memcpy(action.set_object_field.data_from, field_ptr, sizeof(vec2));
-			memcpy(action.set_object_field.data_to, &copy, sizeof(vec2));
+			memcpy(action.set_object_field.data_from, field_ptr, sizeof(T));
+			memcpy(action.set_object_field.data_to, &copy, sizeof(T));
 
-			editor.action_add_and_perform(action);
+			editor.action_merge_add_and_perform(action);
 		}
 	}
 }
 
-// TODO: dragging doesn't work
-static void UndoableDragFloat(const char* label,
+static void ObjUndoDragVec2(const char* label,
+							vec2* field_ptr,
+							int object_index,
+							float v_speed = 1.0f,
+							float v_min = 0.0f,
+							float v_max = 0.0f,
+							const char* format = "%.3f",
+							ImGuiSliderFlags flags = 0) {
+	auto do_widget = [&](vec2* copy) {
+		return ImGui::DragFloat2(label, &copy->x, v_speed, v_min, v_max, format, flags);
+	};
+
+	ObjUndoWidget<vec2>(do_widget, field_ptr, object_index);
+}
+
+static void ObjUndoDragFloat(const char* label,
+							 float* field_ptr,
+							 int object_index,
+							 float v_speed = 1.0f,
+							 float v_min = 0.0f,
+							 float v_max = 0.0f,
+							 const char* format = "%.3f",
+							 ImGuiSliderFlags flags = 0) {
+	auto do_widget = [&](float* copy) {
+		return ImGui::DragFloat(label, copy, v_speed, v_min, v_max, format, flags);
+	};
+
+	ObjUndoWidget<float>(do_widget, field_ptr, object_index);
+}
+
+//static void ObjUndoInputVec2(const char* label,
+//							 vec2* field_ptr,
+//							 int object_index,
+//							 const char* format = "%.3f",
+//							 ImGuiInputTextFlags flags = 0) {
+//	auto do_widget = [&](vec2* copy) {
+//		return ImGui::InputFloat2(label, &copy->x, format, flags);
+//	};
+//
+//	ObjUndoWidget<vec2>(do_widget, field_ptr, object_index);
+//}
+
+static void ObjUndoInputFloat(const char* label,
+							  float* field_ptr,
 							  int object_index,
-							  u32 field_offset,
-							  float v_speed = 1,
-							  float v_min = 0,
-							  float v_max = 0,
-							  const char* format = "%.3f") {
-	float* field_ptr = (float*) ((u8*)&editor.objects[object_index] + field_offset);
-	float copy = *field_ptr;
+							  float step = 0.0f,
+							  float step_fast = 0.0f,
+							  const char* format = "%.3f",
+							  ImGuiInputTextFlags flags = 0) {
+	auto do_widget = [&](float* copy) {
+		return ImGui::InputFloat(label, copy, step, step_fast, format, flags);
+	};
 
-	ImGui::DragFloat(label, &copy, v_speed, v_min, v_max, format);
-
-	if (!ImGui::IsItemActive()) {
-		if (*field_ptr != copy) {
-			Action action = {};
-			action.type = ACTION_SET_OBJECT_FIELD;
-			action.set_object_field.object_index = object_index;
-			action.set_object_field.field_offset = field_offset;
-			action.set_object_field.field_size = sizeof(float);
-
-			static_assert(sizeof(float) <= sizeof(action.set_object_field.data_from));
-
-			memcpy(action.set_object_field.data_from, field_ptr, sizeof(float));
-			memcpy(action.set_object_field.data_to, &copy, sizeof(float));
-
-			editor.action_add_and_perform(action);
-		}
-	}
+	ObjUndoWidget<float>(do_widget, field_ptr, object_index);
 }
 
-static void UndoableInputFloat2(const char* label,
-								int object_index,
-								u32 field_offset,
-								const char* format = "%.3f") {
-	vec2* field_ptr = (vec2*) ((u8*)&editor.objects[object_index] + field_offset);
-	vec2 copy = *field_ptr;
+static void ObjUndoCheckboxFlags(const char* label,
+								 u32* field_ptr,
+								 int object_index,
+								 u32 flags_value) {
+	auto do_widget = [&](u32* copy) {
+		return ImGui::CheckboxFlags(label, copy, flags_value);
+	};
 
-	ImGui::InputFloat2(label, &copy[0], format);
-
-	if (!ImGui::IsItemActive()) {
-		if (*field_ptr != copy) {
-			Action action = {};
-			action.type = ACTION_SET_OBJECT_FIELD;
-			action.set_object_field.object_index = object_index;
-			action.set_object_field.field_offset = field_offset;
-			action.set_object_field.field_size = sizeof(vec2);
-
-			static_assert(sizeof(vec2) <= sizeof(action.set_object_field.data_from));
-
-			memcpy(action.set_object_field.data_from, field_ptr, sizeof(vec2));
-			memcpy(action.set_object_field.data_to, &copy, sizeof(vec2));
-
-			editor.action_add_and_perform(action);
-		}
-	}
-}
-
-static void UndoableInputFloat(const char* label,
-							   int object_index,
-							   u32 field_offset) {
-	float* field_ptr = (float*) ((u8*)&editor.objects[object_index] + field_offset);
-	float copy = *field_ptr;
-
-	ImGui::InputFloat(label, &copy);
-
-	if (!ImGui::IsItemActive()) {
-		if (*field_ptr != copy) {
-			Action action = {};
-			action.type = ACTION_SET_OBJECT_FIELD;
-			action.set_object_field.object_index = object_index;
-			action.set_object_field.field_offset = field_offset;
-			action.set_object_field.field_size = sizeof(float);
-
-			static_assert(sizeof(float) <= sizeof(action.set_object_field.data_from));
-
-			memcpy(action.set_object_field.data_from, field_ptr, sizeof(float));
-			memcpy(action.set_object_field.data_to, &copy, sizeof(float));
-
-			editor.action_add_and_perform(action);
-		}
-	}
-}
-
-// TODO: type safety? what if we pass a field offset to a field of another type (not u32)?
-static void UndoableCheckboxFlags(const char* label,
-								  int object_index,
-								  u32 field_offset,
-								  u32 flags_value) {
-	u32* field_ptr = (u32*) ((u8*)&editor.objects[object_index] + field_offset);
-	u32 copy = *field_ptr;
-
-	ImGui::CheckboxFlags(label, &copy, flags_value);
-
-	if (!ImGui::IsItemActive()) {
-		if (*field_ptr != copy) {
-			Action action = {};
-			action.type = ACTION_SET_OBJECT_FIELD;
-			action.set_object_field.object_index = object_index;
-			action.set_object_field.field_offset = field_offset;
-			action.set_object_field.field_size = sizeof(u32);
-
-			static_assert(sizeof(u32) <= sizeof(action.set_object_field.data_from));
-
-			memcpy(action.set_object_field.data_from, field_ptr, sizeof(u32));
-			memcpy(action.set_object_field.data_to, &copy, sizeof(u32));
-
-			editor.action_add_and_perform(action);
-		}
-	}
+	ObjUndoWidget<u32>(do_widget, field_ptr, object_index);
 }
 
 static void draw_editor_object_gizmos() {
@@ -1091,6 +1075,12 @@ void Editor::update(float delta) {
 		} else {
 			create_level_backup_timer -= delta;
 		}
+
+		if (ImGui::GetActiveID() == 0) {
+			if (actions.count > 0) {
+				actions[actions.count - 1].cannot_merge = true;
+			}
+		}
 	}
 }
 
@@ -1177,10 +1167,55 @@ void Editor::action_add(const Action& action) {
 	update_window_caption();
 }
 
+void Editor::action_add_or_merge(const Action& action) {
+	Assert(is_level_open);
+
+	bool merged = false;
+
+	if (actions.count > 0) {
+		Action* action2 = &actions[actions.count - 1];
+
+		if (action.type == action2->type) {
+			if (!action.cannot_merge && !action2->cannot_merge) {
+				switch (action.type) {
+					case ACTION_SET_OBJECT_FIELD: {
+						bool can_merge = true;
+						can_merge &= action.set_object_field.object_index == action2->set_object_field.object_index;
+						can_merge &= action.set_object_field.field_offset == action2->set_object_field.field_offset;
+						can_merge &= action.set_object_field.field_size == action2->set_object_field.field_size;
+
+						can_merge &= memcmp(action2->set_object_field.data_to, action.set_object_field.data_from, action.set_object_field.field_size) == 0;
+
+						if (can_merge) {
+							memcpy(action2->set_object_field.data_to, action.set_object_field.data_to, action.set_object_field.field_size);
+
+							merged = true;
+						}
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	if (!merged) {
+		action_add(action);
+	}
+
+	update_window_caption();
+}
+
 void Editor::action_add_and_perform(const Action& action) {
 	Assert(is_level_open);
 
 	action_add(action);
+	action_perform(action);
+}
+
+void Editor::action_merge_add_and_perform(const Action& action) {
+	Assert(is_level_open);
+
+	action_add_or_merge(action);
 	action_perform(action);
 }
 
@@ -2865,84 +2900,91 @@ void ObjectsEditor::update(float delta) {
 
 		ImGui::Text("ID: %d", object_index);
 
-		UndoableDragFloat2("Position", object_index, offsetof(Object, pos), 1, 0, 0, "%.0f");
+		ObjUndoDragVec2("Position", &o->pos, object_index, 1, 0, 0, "%.0f");
 
 		switch (o->type) {
 			case OBJ_MONITOR: {
-				UndoableComboEnum("Monitor Icon",
-								  GetMonitorIconName,
-								  object_index,
-								  offsetof(Object, monitor.icon),
-								  NUM_MONITOR_ICONS);
+				ObjUndoComboEnum("Monitor Icon",
+								 &o->monitor.icon,
+								 object_index,
+								 GetMonitorIconName,
+								 NUM_MONITOR_ICONS);
 				break;
 			}
 
 			case OBJ_SPRING:
 			case OBJ_SPRING_DIAGONAL: {
-				UndoableComboEnum("Spring Color",
-								  GetSpringColorName,
-								  object_index,
-								  offsetof(Object, spring.color),
-								  NUM_SPING_COLORS);
+				ObjUndoComboEnum("Spring Color",
+								 &o->spring.color,
+								 object_index,
+								 GetSpringColorName,
+								 NUM_SPING_COLORS);
 
-				UndoableComboEnum("Direction",
-								  GetDirectionName,
-								  object_index,
-								  offsetof(Object, spring.direction),
-								  NUM_DIRS);
+				ObjUndoComboEnum("Direction",
+								 &o->spring.direction,
+								 object_index,
+								 GetDirectionName,
+								 NUM_DIRS);
 
-				UndoableCheckboxFlags("Small Hitbox", object_index, offsetof(Object, flags), FLAG_SPRING_SMALL_HITBOX);
+				ObjUndoCheckboxFlags("Small Hitbox", &o->flags, object_index, FLAG_SPRING_SMALL_HITBOX);
 				break;
 			}
 
 			case OBJ_SPIKE: {
-				UndoableComboEnum("Direction",
-								  GetDirectionName,
-								  object_index,
-								  offsetof(Object, spike.direction),
-								  NUM_DIRS);
+				ObjUndoComboEnum("Direction",
+								 &o->spike.direction,
+								 object_index,
+								 GetDirectionName,
+								 NUM_DIRS);
 				break;
 			}
 
 			case OBJ_LAYER_SWITCHER_VERTICAL:
 			case OBJ_LAYER_SWITCHER_HORIZONTAL: {
-				UndoableDragFloat2("Radius", object_index, offsetof(Object, radius));
+				ObjUndoDragVec2("Radius", &o->radius, object_index);
 
 				{
 					const char* values[] = {"A", "B"};
-					UndoableCombo("Layer 1", object_index, offsetof(Object, layswitch.layer_1), values, ArrayLength(values));
-					UndoableCombo("Layer 2", object_index, offsetof(Object, layswitch.layer_2), values, ArrayLength(values));
+					ObjUndoCombo("Layer 1", &o->layswitch.layer_1, object_index, values, ArrayLength(values));
+					ObjUndoCombo("Layer 2", &o->layswitch.layer_2, object_index, values, ArrayLength(values));
 				}
 
 				{
 					const char* values[] = {"Low", "High"};
-					UndoableCombo("Priority 1", object_index, offsetof(Object, layswitch.priority_1), values, ArrayLength(values));
-					UndoableCombo("Priority 2", object_index, offsetof(Object, layswitch.priority_2), values, ArrayLength(values));
+					ObjUndoCombo("Priority 1", &o->layswitch.priority_1, object_index, values, ArrayLength(values));
+					ObjUndoCombo("Priority 2", &o->layswitch.priority_2, object_index, values, ArrayLength(values));
 				}
 
-				UndoableCheckboxFlags("Ground Only", object_index, offsetof(Object, flags), FLAG_LAYER_SWITCHER_GROUND_ONLY);
+				ObjUndoCheckboxFlags("Ground Only", &o->flags, object_index, FLAG_LAYER_SWITCHER_GROUND_ONLY);
 				break;
 			}
 
 			case OBJ_MOVING_PLATFORM: {
 				{
-					// TODO: this code used to set default radius when you changed the sprite index
-					// o->mplatform.radius = {32, 6};
-					// o->mplatform.radius = {64, 14};
 					const char* values[] = {"spr_EEZ_platform1", "spr_EEZ_platform2"};
-					UndoableCombo("Sprite Index", object_index, offsetof(Object, mplatform.sprite_index), values, ArrayLength(values));
+					bool res = ObjUndoCombo("Sprite Index", &o->mplatform.sprite_index, object_index, values, ArrayLength(values));
+
+					if (res) {
+						if (o->mplatform.sprite_index == 0) {
+							Action action = get_obj_set_field_action(&o->radius, object_index, {32, 6});
+							editor.action_add_and_perform(action);
+						} else if (o->mplatform.sprite_index == 1) {
+							Action action = get_obj_set_field_action(&o->radius, object_index, {64, 14});
+							editor.action_add_and_perform(action);
+						}
+					}
 				}
 
-				UndoableDragFloat2("Radius", object_index, offsetof(Object, radius));
-				UndoableDragFloat2("Offset", object_index, offsetof(Object, mplatform.offset));
-				UndoableInputFloat("Time Multiplier", object_index, offsetof(Object, mplatform.time_multiplier));
+				ObjUndoDragVec2("Radius", &o->radius, object_index);
+				ObjUndoDragVec2("Offset", &o->mplatform.offset, object_index);
+				ObjUndoInputFloat("Time Multiplier", &o->mplatform.time_multiplier, object_index, 0, 0, "%.5f");
 
-				UndoableCheckboxFlags("Circular Movement", object_index, offsetof(Object, flags), FLAG_PLATFORM_CIRCULAR_MOVEMENT);
+				ObjUndoCheckboxFlags("Circular Movement", &o->flags, object_index, FLAG_PLATFORM_CIRCULAR_MOVEMENT);
 				break;
 			}
 
 			case OBJ_MOSQUI: {
-				UndoableDragFloat("Fly Distance", object_index, offsetof(Object, mosqui.fly_distance));
+				ObjUndoDragFloat("Fly Distance", &o->mosqui.fly_distance, object_index);
 				break;
 			}
 		}
