@@ -1701,10 +1701,20 @@ void TilesetEditor::update(float delta) {
 						dragging = true;
 					}
 
+					vec2 arrow_p0 = start_pos;
+					vec2 arrow_p1 = pos;
+					if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+						arrow_p0.x = roundf_to(arrow_p0.x, 8);
+						arrow_p0.y = roundf_to(arrow_p0.y, 8);
+						
+						arrow_p1.x = roundf_to(arrow_p1.x, 8);
+						arrow_p1.y = roundf_to(arrow_p1.y, 8);
+					}
+
 					ImDrawList* draw_list = ImGui::GetWindowDrawList();
 					AddArrow(draw_list,
-							 tileset_view.thing_p0 + start_pos * tileset_view.zoom,
-							 tileset_view.thing_p0 + pos * tileset_view.zoom,
+							 tileset_view.thing_p0 + arrow_p0 * tileset_view.zoom,
+							 tileset_view.thing_p0 + arrow_p1 * tileset_view.zoom,
 							 IM_COL32_WHITE, 0.5, tileset_view.zoom);
 				} else {
 					if (dragging) {
@@ -1712,7 +1722,18 @@ void TilesetEditor::update(float delta) {
 							int tile_x = clamp((int)(start_pos.x / 16), 0, editor.tileset_texture.width  / 16 - 1);
 							int tile_y = clamp((int)(start_pos.y / 16), 0, editor.tileset_texture.height / 16 - 1);
 							int tile_index = tile_x + tile_y * (editor.tileset_texture.width / 16);
-							float angle = point_direction(start_pos.x, start_pos.y, pos.x, pos.y);
+
+							vec2 arrow_p0 = start_pos;
+							vec2 arrow_p1 = pos;
+							if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+								arrow_p0.x = roundf_to(arrow_p0.x, 8);
+								arrow_p0.y = roundf_to(arrow_p0.y, 8);
+
+								arrow_p1.x = roundf_to(arrow_p1.x, 8);
+								arrow_p1.y = roundf_to(arrow_p1.y, 8);
+							}
+
+							float angle = point_direction(arrow_p0, arrow_p1);
 
 							Action action = {};
 							action.type = ACTION_SET_TILE_ANGLE;
