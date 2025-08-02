@@ -1052,6 +1052,7 @@ static void ceiling_sensor_collision(Player* p) {
 		return;
 	}
 
+	// not implemented for other modes
 	Assert(player_get_mode(p) == MODE_FLOOR);
 
 	vec2 sensor_c;
@@ -1069,9 +1070,30 @@ static void ceiling_sensor_collision(Player* p) {
 
 	p->pos.y -= res.dist;
 
-	p->speed.y = 0;
+	float angle = get_tile_angle(game.ts, res.tile.index);
 
-	// TODO: Landing on ceilings.
+	// Landing on ceilings.
+	bool landed_on_ceiling = false;
+
+	if (angle != -1) {
+		float a = angle_wrap(angle);
+		if (a < 135 || a > 225) {
+			// steep
+
+			if (player_is_moving_mostly_up(p)) {
+				p->state = STATE_GROUND;
+				p->ground_speed = p->speed.y * -signf(dsin(angle));
+				p->ground_angle = angle;
+
+				landed_on_ceiling = true;
+			}
+		}
+	}
+
+	if (!landed_on_ceiling) {
+		// bump the ceiling
+		p->speed.y = 0;
+	}
 }
 
 static void push_sensor_collision(Player* p) {
