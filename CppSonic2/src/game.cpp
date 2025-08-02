@@ -2426,6 +2426,8 @@ static void player_update(Player* p, float delta) {
 			if (p->state == STATE_DEBUG) {
 				p->state = STATE_AIR;
 				p->speed = {};
+				p->layer = 0;
+				p->priority = 1;
 			} else {
 				p->state = STATE_DEBUG;
 			}
