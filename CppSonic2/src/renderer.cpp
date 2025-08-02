@@ -161,7 +161,9 @@ static int get_internal_format_from_gl_format(u32 gl_format) {
 		case GL_RGB:  return GL_RGB8;
 		case GL_RGBA: return GL_RGBA8;
 	}
+
 	Assert(!"format not supported");
+	return 0;
 }
 
 Texture load_texture(u8* pixel_data, int width, int height,
@@ -898,8 +900,8 @@ void draw_rectangle_outline_thick(Rectf rect, float thickness, vec4 color) {
 	draw_line_thick(pos + vec2{rect.w, 0}, pos + vec2{rect.w, rect.h}, thickness, color);
 }
 
-void draw_arrow_thick(vec2 p1, float length, float direction, float arrow_head_length, float thickness, vec4 color) {
-	vec2 p2 = p1 + lengthdir_v2(length, direction);
+void draw_arrow_thick(vec2 p1, vec2 p2, float arrow_head_length, float thickness, vec4 color) {
+	float direction = point_direction(p1, p2);
 
 	draw_line_thick(p1, p2 - lengthdir_v2(0.5f, direction), thickness, color);
 
@@ -908,4 +910,10 @@ void draw_arrow_thick(vec2 p1, float length, float direction, float arrow_head_l
 
 	vec2 p4 = p2 + lengthdir_v2(arrow_head_length, direction - 135);
 	draw_line_thick(p2, p4, thickness, color);
+}
+
+void draw_arrow_thick(vec2 p1, float length, float direction, float arrow_head_length, float thickness, vec4 color) {
+	vec2 p2 = p1 + lengthdir_v2(length, direction);
+
+	draw_arrow_thick(p1, p2, arrow_head_length, thickness, color);
 }

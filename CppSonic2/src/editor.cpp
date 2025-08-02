@@ -601,24 +601,47 @@ static void draw_editor_object_gizmos() {
 	For (it, editor.objects) {
 		switch (it->type) {
 			case OBJ_MOVING_PLATFORM: {
-				{
-					vec2 p1 = it->pos;
-					vec2 p2 = it->pos + it->mplatform.offset;
+				if (it->flags & FLAG_PLATFORM_CIRCULAR_MOVEMENT) {
+					const int precision = 32;
 
-					float length = point_distance(p1, p2);
-					float direction = point_direction(p1, p2);
+					for (int i = 0; i < precision; i++) {
+						float angle1 = lerp(10.0f, 350.0f, i     / (float)precision);
+						float angle2 = lerp(10.0f, 350.0f, (i+1) / (float)precision);
 
-					draw_arrow_thick(p1, length, direction, 2, 1, color_white);
-				}
+						vec2 p1;
+						p1.x = it->pos.x + lengthdir_x(it->mplatform.offset.x, angle1);
+						p1.y = it->pos.y + lengthdir_y(it->mplatform.offset.y, angle1);
 
-				{
-					vec2 p1 = it->pos;
-					vec2 p2 = it->pos - it->mplatform.offset;
+						vec2 p2;
+						p2.x = it->pos.x + lengthdir_x(it->mplatform.offset.x, angle2);
+						p2.y = it->pos.y + lengthdir_y(it->mplatform.offset.y, angle2);
+						
+						if (i == precision - 1) {
+							draw_arrow_thick(p1, p2, 2, 1, color_white);
+						} else {
+							draw_line_thick(p1, p2, 1, color_white);
+						}
+					}
+				} else {
+					{
+						vec2 p1 = it->pos;
+						vec2 p2 = it->pos + it->mplatform.offset;
 
-					float length = point_distance(p1, p2);
-					float direction = point_direction(p1, p2);
+						float length = point_distance(p1, p2);
+						float direction = point_direction(p1, p2);
 
-					draw_arrow_thick(p1, length, direction, 2, 1, color_white);
+						draw_arrow_thick(p1, length, direction, 2, 1, color_white);
+					}
+
+					{
+						vec2 p1 = it->pos;
+						vec2 p2 = it->pos - it->mplatform.offset;
+
+						float length = point_distance(p1, p2);
+						float direction = point_direction(p1, p2);
+
+						draw_arrow_thick(p1, length, direction, 2, 1, color_white);
+					}
 				}
 				break;
 			}

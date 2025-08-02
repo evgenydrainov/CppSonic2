@@ -163,4 +163,5 @@ void draw_rectangle_outline(Rectf rect, vec4 color);
 void draw_rectangle_outline_exact(Rectf rect, vec4 color);
 void draw_rectangle_outline_thick(Rectf rect, float thickness, vec4 color);
 
+void draw_arrow_thick(vec2 p1, vec2 p2, float arrow_head_length, float thickness, vec4 color);
 void draw_arrow_thick(vec2 p1, float length, float direction, float arrow_head_length, float thickness, vec4 color);
