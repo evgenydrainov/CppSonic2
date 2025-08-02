@@ -105,11 +105,11 @@ void Title_Screen::draw(float delta) {
 		pitch = clamp(pitch, -89.0f, 89.0f);
 		yaw   = wrapf(yaw, 360.0f);
 
-		break_batch();
-		renderer.proj_mat = glm::perspectiveFov<float>(to_radians(60), window.game_width, window.game_height, 0.1f, 10'000.0f);
-		renderer.view_mat = glm::lookAt(pos, pos + forward, up);
-		renderer.model_mat = {1};
-		glViewport(0, 0, window.game_width, window.game_height);
+		set_proj_mat(glm::perspectiveFov<float>(to_radians(60), window.game_width, window.game_height, 0.1f, 10'000.0f));
+		defer { set_proj_mat(get_ortho(0, window.game_width, window.game_height, 0)); };
+
+		set_view_mat(glm::lookAt(pos, pos + forward, up));
+		defer { set_view_mat(get_identity()); };
 
 		// clouds
 		const Texture& t = get_texture(tex_title_clouds);
@@ -128,12 +128,7 @@ void Title_Screen::draw(float delta) {
 		draw_quad(t, vertices);
 	}
 
-	break_batch();
-	renderer.proj_mat = glm::ortho<float>(0, window.game_width, window.game_height, 0);
-	renderer.view_mat = {1};
-	renderer.model_mat = {1};
-	glViewport(0, 0, window.game_width, window.game_height);
-
+	// 2d
 	{
 		const Texture& t = get_texture(tex_title_water);
 		vec2 pos = {0, window.game_height - t.height};
@@ -216,6 +211,4 @@ void Title_Screen::draw(float delta) {
 
 		draw_text(get_font(fnt_hud), "press start", pos, HALIGN_CENTER, VALIGN_MIDDLE, color_yellow);
 	}
-
-	break_batch();
 }

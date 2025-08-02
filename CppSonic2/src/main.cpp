@@ -22,8 +22,14 @@
 #endif
 
 
+static void reset_temporary_storage() {
+	Arena* temp_arena = get_temp_arena();
+	temp_arena->count = 0;
+}
+
+
 static void do_one_frame() {
-	get_temp_arena()->count = 0;
+	reset_temporary_storage();
 
 	begin_frame();
 
@@ -142,7 +148,7 @@ static int editor_main(int argc, char* argv[]) {
 	defer { editor.deinit(); };
 
 	while (!window.should_quit) {
-		get_temp_arena()->count = 0;
+		reset_temporary_storage();
 
 		begin_frame();
 
@@ -176,7 +182,7 @@ static int editor_main(int argc, char* argv[]) {
 }
 
 
-enum Lauch_Mode {
+enum Launch_Mode {
 	LAUNCH_GAME,
 	LAUNCH_EDITOR,
 };
@@ -195,7 +201,7 @@ int main(int argc, char* argv[]) {
 	run_tests();
 #endif
 
-	Lauch_Mode launch_mode = LAUNCH_GAME;
+	Launch_Mode launch_mode = LAUNCH_GAME;
 
 	if (argc >= 2) {
 		if (strcmp(argv[1], "--editor") == 0) {

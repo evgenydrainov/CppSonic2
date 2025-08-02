@@ -3246,6 +3246,8 @@ void draw_objects(array<Object> objects,
 }
 
 static void player_draw(Player* p) {
+	// draw player
+
 	int frame_index = p->frame_index;
 
 	if (/*p->anim == anim_roll*/0 || p->anim == anim_spindash) {
@@ -3258,7 +3260,7 @@ static void player_draw(Player* p) {
 
 	const Sprite& s = anim_get_sprite(p->anim);
 
-	//float angle = roundf_to(p->ground_angle, 45.0f);
+	// float angle = roundf_to(p->ground_angle, 45.0f);
 	float angle = p->ground_angle;
 
 	if ((player_is_grounded(p) && p->ground_speed == 0) || p->anim == anim_roll) {
@@ -3411,13 +3413,9 @@ static void draw_eez_background() {
 }
 
 void Game::draw(float delta) {
-	set_proj_mat(get_ortho(0, window.game_width, window.game_height, 0));
-	defer { set_proj_mat({1}); };
-
 	set_view_mat(get_translation({-camera_pos.x, -camera_pos.y, 0}));
-	defer { set_view_mat({1}); };
-
-	set_viewport(0, 0, window.game_width, window.game_height);
+	// don't need to reset view mat since we do that later for the ui
+	// defer { set_view_mat(get_identity()); };
 
 	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	// defer { glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); };
@@ -3640,7 +3638,7 @@ void Game::draw(float delta) {
 #endif
 
 	// :ui
-	set_view_mat({1});
+	set_view_mat(get_identity());
 
 	// draw titlecard
 	if (titlecard_state != TITLECARD_FINISHED) {
@@ -3885,8 +3883,6 @@ void Game::draw(float delta) {
 			}
 		}
 	}
-
-	break_batch();
 }
 
 void free_tilemap(Tilemap* tm) {

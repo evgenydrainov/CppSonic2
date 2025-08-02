@@ -107,11 +107,6 @@ void Program::draw(float delta) {
 		}
 	}
 
-	set_proj_mat(get_ortho(0, window.game_width, window.game_height, 0));
-	defer { set_proj_mat({1}); };
-
-	set_viewport(0, 0, window.game_width, window.game_height);
-
 	// fill the screen with black during transition
 	if (transition_t != 0) {
 		Rectf rect = {0, 0, (float)window.game_width, (float)window.game_height};
@@ -120,8 +115,6 @@ void Program::draw(float delta) {
 		color.a = transition_t;
 
 		draw_rectangle(rect, color);
-
-		break_batch();
 	}
 
 	// draw fps
@@ -129,8 +122,6 @@ void Program::draw(float delta) {
 		string str = tprintf("%.0f", roundf(window.avg_fps));
 		draw_text(get_font(fnt_hud), str, {window.game_width, window.game_height}, HALIGN_RIGHT, VALIGN_BOTTOM);
 	}
-
-	break_batch();
 }
 
 void Program::late_draw(float delta) {
@@ -179,8 +170,6 @@ void Program::late_draw(float delta) {
 		}
 	}
 #endif
-
-	break_batch();
 }
 
 void Program::deinit_program_mode() {
