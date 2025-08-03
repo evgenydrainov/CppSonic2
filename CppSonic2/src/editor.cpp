@@ -406,7 +406,7 @@ static void ObjUndoComboEnum(const char* label,
 				if (i != *field_ptr) {
 					T data_to = (T) i;
 
-					u32 field_offset = (u32)field_ptr - (u32)&editor.objects[object_index];
+					u32 field_offset = (size_t)field_ptr - (size_t)&editor.objects[object_index];
 
 					Action action = {};
 					action.type = ACTION_SET_OBJECT_FIELD;
@@ -436,7 +436,7 @@ template <typename T>
 static Action get_obj_set_field_action(T* field_ptr,
 									   int object_index,
 									   T data_to) {
-	u32 field_offset = (u32)field_ptr - (u32)&editor.objects[object_index];
+	u32 field_offset = (size_t)field_ptr - (size_t)&editor.objects[object_index];
 
 	Action action = {};
 	action.type = ACTION_SET_OBJECT_FIELD;
@@ -465,7 +465,7 @@ static bool ObjUndoCombo(const char* label,
 				if (i != *field_ptr) {
 					int data_to = (int) i;
 
-					u32 field_offset = (u32)field_ptr - (u32)&editor.objects[object_index];
+					u32 field_offset = (size_t)field_ptr - (size_t)&editor.objects[object_index];
 
 					Action action = {};
 					action.type = ACTION_SET_OBJECT_FIELD;
@@ -512,7 +512,7 @@ static void ObjUndoWidget(const F& do_widget,
 
 	if (modified) {
 		if (copy != *field_ptr) {
-			u32 field_offset = (u32)field_ptr - (u32)&editor.objects[object_index];
+			u32 field_offset = (size_t)field_ptr - (size_t)&editor.objects[object_index];
 
 			Action action = {};
 			action.type = ACTION_SET_OBJECT_FIELD;
@@ -1299,8 +1299,8 @@ void Editor::action_perform(const Action& action) {
 		}
 
 		case ACTION_SET_OBJECT_FIELD: {
-			u8* obj_member = (u8*)&editor.objects[action.set_object_field.object_index] + action.set_object_field.field_offset;
-			memcpy(obj_member, action.set_object_field.data_to, action.set_object_field.field_size);
+			u8* field_ptr = (u8*)&editor.objects[action.set_object_field.object_index] + action.set_object_field.field_offset;
+			memcpy(field_ptr, action.set_object_field.data_to, action.set_object_field.field_size);
 			break;
 		}
 
@@ -1368,8 +1368,8 @@ void Editor::action_revert(const Action& action) {
 		}
 
 		case ACTION_SET_OBJECT_FIELD: {
-			u8* obj_member = (u8*)&editor.objects[action.set_object_field.object_index] + action.set_object_field.field_offset;
-			memcpy(obj_member, action.set_object_field.data_from, action.set_object_field.field_size);
+			u8* field_ptr = (u8*)&editor.objects[action.set_object_field.object_index] + action.set_object_field.field_offset;
+			memcpy(field_ptr, action.set_object_field.data_from, action.set_object_field.field_size);
 			break;
 		}
 
