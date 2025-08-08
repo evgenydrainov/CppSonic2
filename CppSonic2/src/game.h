@@ -72,6 +72,11 @@ struct Player {
 	PlayerMode prev_mode;
 	vec2 prev_radius;
 
+	PlayerMode old_mode;
+	PlayerMode new_mode;
+	float change_mode_timer;
+	float dont_change_mode_timer;
+
 	u32 input;
 	u32 input_press;
 	u32 input_release;

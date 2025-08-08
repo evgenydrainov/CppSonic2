@@ -149,24 +149,34 @@ static bool player_is_grounded(Player* p) {
 }
 
 static PlayerMode player_get_mode(Player* p) {
-	if (!player_is_grounded(p)) {
-		return MODE_FLOOR;
-	}
+	PlayerMode mode;
 
-	// The Floor and Ceiling mode ranges are slightly bigger than the wall ranges.
-	float a = angle_wrap(p->ground_angle);
-	if (a < 46 || a >= 315) {
-		return MODE_FLOOR;
-	}
-	if (a >= 135 && a < 226) {
-		return MODE_CEILING;
-	}
+	if (player_is_grounded(p)) {
+		// The Floor and Ceiling mode ranges are slightly bigger than the wall ranges.
+		float a = angle_wrap(p->ground_angle);
+		if (a < 46 || a >= 315) {
+			mode = MODE_FLOOR;
+		} else if (a >= 135 && a < 226) {
+			mode = MODE_CEILING;
+		} else if (a < 180) {
+			mode = MODE_RIGHT_WALL;
+		} else {
+			mode = MODE_LEFT_WALL;
+		}
 
-	if (a < 180) {
-		return MODE_RIGHT_WALL;
+		if (p->change_mode_timer > 0 && p->dont_change_mode_timer == 0) {
+			if (mode == p->old_mode) {
+				mode = p->new_mode;
+			}
+		}
 	} else {
-		return MODE_LEFT_WALL;
+		mode = MODE_FLOOR;
+
+		p->change_mode_timer = 0;
+		p->dont_change_mode_timer = 2.5;
 	}
+
+	return mode;
 }
 
 static PlayerMode player_get_push_mode(Player* p) {
@@ -294,13 +304,13 @@ static bool is_push_sensor_e_active(Player* p) {
 			return false;
 		}
 
-		return (p->ground_speed < 0.0f);
+		return (p->ground_speed < -0.01f);
 	} else {
 		// return (player_is_moving_mostly_left(p)
 		// 		|| player_is_moving_mostly_up(p)
 		// 		|| player_is_moving_mostly_down(p));
 
-		return p->speed.x < 0.0f;
+		return p->speed.x < -0.01f;
 	}
 }
 
@@ -311,13 +321,13 @@ static bool is_push_sensor_f_active(Player* p) {
 			return false;
 		}
 
-		return (p->ground_speed > 0.0f);
+		return (p->ground_speed > 0.01f);
 	} else {
 		// return (player_is_moving_mostly_right(p)
 		// 		|| player_is_moving_mostly_up(p)
 		// 		|| player_is_moving_mostly_down(p));
 
-		return p->speed.x > 0.0f;
+		return p->speed.x > 0.01f;
 	}
 }
 
@@ -938,19 +948,53 @@ static void ground_sensor_collision(Player* p) {
 
 	float angle = get_tile_angle(game.ts, res.tile.index);
 
+	/*auto set_ground_angle = [&](float ground_angle) {
+		vec2 prev_a;
+		vec2 prev_b;
+		get_ground_sensors_pos(p, &prev_a, &prev_b);
+		PlayerMode prev_mode = player_get_mode(p);
+
+		p->ground_angle = ground_angle;
+
+		if (!player_is_grounded(p)) {
+			return;
+		}
+
+		vec2 new_a;
+		vec2 new_b;
+		get_ground_sensors_pos(p, &new_a, &new_b);
+		PlayerMode new_mode = player_get_mode(p);
+
+		vec2 radius = player_get_radius(p);
+
+		if (new_mode == MODE_FLOOR) {
+			if (prev_mode == MODE_LEFT_WALL) {
+				p->pos.x = prev_b.x + radius.x;
+				p->pos.y = prev_b.y - radius.y;
+			}
+		}
+
+		if (new_mode == MODE_LEFT_WALL) {
+			if (prev_mode == MODE_FLOOR) {
+				p->pos.x = prev_a.x + radius.y;
+				p->pos.y = prev_a.y + radius.x;
+			}
+		}
+	};*/
+
 	// stick only to angled tiles while on a wall
-	if (p->ground_angle == 90 || p->ground_angle == 270) {
+	/*if (p->ground_angle == 90 || p->ground_angle == 270) {
 		if (angle == -1) {
 			if (res.dist > 0) {
 				p->state = STATE_AIR;
 				return;
 			}
 		}
-	}
+	}*/
 
-	//if (res.dist < -14) {
-	//	return;
-	//}
+	/*if (res.dist < -14) {
+		return;
+	}*/
 
 	switch (player_get_mode(p)) {
 		case MODE_FLOOR:      p->pos.y += res.dist; break;
@@ -958,6 +1002,8 @@ static void ground_sensor_collision(Player* p) {
 		case MODE_CEILING:    p->pos.y -= res.dist; break;
 		case MODE_LEFT_WALL:  p->pos.x -= res.dist; break;
 	}
+
+	PlayerMode old_mode = player_get_mode(p);
 
 	if (angle == -1.0f) { // flagged
 		// float a = angle_wrap(p->ground_angle);
@@ -993,6 +1039,13 @@ static void ground_sensor_collision(Player* p) {
 				p->ground_angle = angle;
 			}
 		}
+	}
+
+	PlayerMode new_mode = player_get_mode(p);
+	if (new_mode != old_mode) {
+		p->old_mode = old_mode;
+		p->new_mode = new_mode;
+		p->change_mode_timer = 2.5;
 	}
 
 	if (p->state == STATE_AIR) {
@@ -1053,7 +1106,10 @@ static void ceiling_sensor_collision(Player* p) {
 	}
 
 	// not implemented for other modes
-	Assert(player_get_mode(p) == MODE_FLOOR);
+	// Assert(player_get_mode(p) == MODE_FLOOR);
+	if (player_get_mode(p) != MODE_FLOOR) {
+		return;
+	}
 
 	vec2 sensor_c;
 	vec2 sensor_d;
@@ -1861,6 +1917,31 @@ static void player_state_ground(Player* p, float delta) {
 		physics_step(delta / (float)NUM_PHYSICS_STEPS);
 	}
 
+	/*{
+		float ground_speed = fabsf(p->ground_speed);
+		while (ground_speed > 0) {
+			float step = fminf(ground_speed, 4);
+
+			// Move the Player object
+			p->speed.x =  dcos(p->ground_angle) * p->ground_speed;
+			p->speed.y = -dsin(p->ground_angle) * p->ground_speed;
+
+			vec2 speed;
+			speed.x =  dcos(p->ground_angle) * step * signf(p->ground_speed);
+			speed.y = -dsin(p->ground_angle) * step * signf(p->ground_speed);
+
+			p->pos += speed * delta;
+
+			// Push Sensor collision occurs.
+			push_sensor_collision(p);
+
+			// Grounded Ground Sensor collision occurs.
+			ground_sensor_collision(p);
+
+			ground_speed -= step;
+		}
+	}*/
+
 	// collide with objects
 	player_collide_with_solid_objects(p);
 
@@ -2366,6 +2447,9 @@ static void player_update(Player* p, float delta) {
 	}
 
 	Approach(&p->ignore_rings, 0.0f, delta);
+
+	Approach(&p->change_mode_timer, 0.0f, delta);
+	Approach(&p->dont_change_mode_timer, 0.0f, delta);
 
 	auto anim_get_frame_count = [](anim_index anim) -> int {
 		const Sprite& s = anim_get_sprite(anim);
