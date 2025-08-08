@@ -257,8 +257,8 @@ void init_window_and_opengl(const char* title,
 		log_info("Detected DPI scale from SDL_GetDisplayDPI: %f %f %f", ddpi/96.0f, hdpi/96.0f, vdpi/96.0f);
 	}
 
-	glDisable(GL_CULL_FACE);
-	glDisable(GL_DEPTH_TEST);
+	// glDisable(GL_CULL_FACE); // disabled by default
+	// glDisable(GL_DEPTH_TEST); // disabled by default
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
