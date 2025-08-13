@@ -1214,7 +1214,7 @@ static bool player_try_slip(Player* p) {
 	}
 #else
 	// slide if moving too slow @GML
-	if (fabsf(p->ground_speed) < 2.5 && a >= 45 && a <= 315) {
+	if (fabsf(p->ground_speed) < 2.5 && a > 45 && a < 315) {
 		// if not at gravity angle, fall instead @GML
 		if (a >= 90 && a <= 270) {
 			p->state = STATE_AIR;
