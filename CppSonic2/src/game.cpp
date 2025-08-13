@@ -1202,25 +1202,25 @@ static bool player_try_slip(Player* p) {
 	// Check for slipping/falling when Ground Speed is too low on walls/ceilings.
 
 	float a = angle_wrap(p->ground_angle);
-#if 1
-	if (a > 45.0f && a < 315.0f) {
-		if (fabsf(p->ground_speed) < 2.5f) {
+#if 0
+	if (a > 45 && a < 315) {
+		if (fabsf(p->ground_speed) < 2.5) {
 			p->state = STATE_AIR;
-			p->ground_speed = 0.0f;
-			p->control_lock = 32.0f;
+			p->ground_speed = 0;
+			p->control_lock = 32;
 
 			return true;
 		}
 	}
 #else
-	// slide if moving too slow
-	if (fabsf(p->ground_speed) < 2.5f && a >= 45 && a <= 315) {
-		// if not at gravity angle, fall instead
+	// slide if moving too slow @GML
+	if (fabsf(p->ground_speed) < 2.5 && a >= 45 && a <= 315) {
+		// if not at gravity angle, fall instead @GML
 		if (a >= 90 && a <= 270) {
 			p->state = STATE_AIR;
-			p->ground_speed = 0.0f;
+			p->ground_speed = 0;
 		} else {
-			p->control_lock = 32.0f;
+			p->control_lock = 32;
 		}
 		return true;
 	}
