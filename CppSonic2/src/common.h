@@ -66,20 +66,37 @@ struct Rectf {
 //                 SECTION: Logging
 // -----------------------------------------------------------
 
-#define log_info(fmt, ...)  log_internal(SDL_LOG_PRIORITY_INFO,  fmt, ##__VA_ARGS__)
-#define log_warn(fmt, ...)  log_internal(SDL_LOG_PRIORITY_WARN,  fmt, ##__VA_ARGS__)
-#define log_error(fmt, ...) log_internal(SDL_LOG_PRIORITY_ERROR, fmt, ##__VA_ARGS__)
+enum Log_Type {
+	LOG_INFO,
+	LOG_WARN,
+	LOG_ERROR,
+};
 
-inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(SDL_LogPriority priority, SDL_PRINTF_FORMAT_STRING const char* fmt, ...) {
-	char buf[512];
+#define log_info(fmt, ...)  log_internal(LOG_INFO,  fmt, ##__VA_ARGS__)
+#define log_warn(fmt, ...)  log_internal(LOG_WARN,  fmt, ##__VA_ARGS__)
+#define log_error(fmt, ...) log_internal(LOG_ERROR, fmt, ##__VA_ARGS__)
+
+inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(Log_Type type, SDL_PRINTF_FORMAT_STRING const char* fmt, ...) {
+	char stack_buf[512];
+
+	auto to_sdl_priority = [](Log_Type type) -> SDL_LogPriority {
+		switch (type) {
+			case LOG_INFO:  return SDL_LOG_PRIORITY_INFO;
+			case LOG_WARN:  return SDL_LOG_PRIORITY_WARN;
+			case LOG_ERROR: return SDL_LOG_PRIORITY_ERROR;
+		}
+		return {};
+	};
 
 	// SDL_snprintf doesn't support %g.
 	va_list va;
 	va_start(va, fmt);
-	int written = stbsp_vsnprintf(buf, sizeof(buf), fmt, va);
+	int written = stbsp_vsnprintf(stack_buf, sizeof(stack_buf), fmt, va);
 	va_end(va);
 
-	if (written >= sizeof(buf)) {
+	char* buf = stack_buf;
+
+	if (written >= sizeof(stack_buf)) {
 		char* heap_buf = (char*) malloc(written + 1);
 		if (heap_buf) {
 			va_list va;
@@ -87,15 +104,21 @@ inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(SDL_LogPriority priority, SDL
 			stbsp_vsnprintf(heap_buf, written + 1, fmt, va);
 			va_end(va);
 
-			SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, priority, "%s", heap_buf);
-
-			free(heap_buf);
-		} else {
-			// In case we didn't allocate memory, just print what we already have. But malloc never fails, right?
-			SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, priority, "%s", buf);
+			buf = heap_buf;
 		}
-	} else {
-		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, priority, "%s", buf);
+	}
+
+	switch (type) {
+		case LOG_INFO:  printf("INFO: ");  break;
+		case LOG_WARN:  printf("\033[93mWARN\033[0m: ");  break;
+		case LOG_ERROR: printf("\033[91mERROR\033[0m: "); break;
+	}
+
+	// SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, to_sdl_priority(type), "%s", buf);
+	printf("%s\n", buf);
+
+	if (buf != stack_buf) {
+		free(buf);
 	}
 }
 
