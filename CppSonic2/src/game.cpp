@@ -2530,14 +2530,15 @@ void Game::init(int argc, char* argv[]) {
 		load_level(path);
 	}
 
-	// Set camera pos after loading the level.
+	// set camera pos after loading the level
 	camera_pos_real.x = player.pos.x - window.game_width  / 2;
 	camera_pos_real.y = player.pos.y - window.game_height / 2;
 
+	// update camera so that it's in the right place when the level starts up
+	update_camera(0);
+
 	player.prev_mode = player_get_mode(&player);
 	player.prev_radius = player_get_radius(&player);
-
-	// show_player_hitbox = true;
 
 	debug_rects = allocate_bump_array<Rectf>(100, get_libc_allocator());
 
@@ -2558,6 +2559,263 @@ void Game::deinit() {
 	free_tilemap(&tm);
 
 	deinit_particles();
+}
+
+void Game::update_camera(float delta) {
+	// update camera
+
+	// NOTE: this function can be called with delta=0
+
+	Player* p = &player;
+	vec2 radius = p->prev_radius;
+
+	if (camera_lock == 0.0f) {
+		float cam_target_x = p->pos.x - window.game_width / 2;
+		float cam_target_y = p->pos.y + radius.y - 19 - window.game_height / 2;
+
+		if (camera_pos_real.x < cam_target_x - 8) {
+			Approach(&camera_pos_real.x, cam_target_x - 8, 16 * delta);
+		}
+		if (camera_pos_real.x > cam_target_x + 8) {
+			Approach(&camera_pos_real.x, cam_target_x + 8, 16 * delta);
+		}
+
+		if (player_is_grounded(p)) {
+			float camera_speed = 16;
+
+			if (fabsf(p->ground_speed) < 8) {
+				camera_speed = 6;
+			}
+
+			Approach(&camera_pos_real.y, cam_target_y, camera_speed * delta);
+		} else {
+			if (camera_pos_real.y < cam_target_y - 32) {
+				Approach(&camera_pos_real.y, cam_target_y - 32, 16 * delta);
+			}
+			if (camera_pos_real.y > cam_target_y + 32) {
+				Approach(&camera_pos_real.y, cam_target_y + 32, 16 * delta);
+			}
+		}
+
+		Clamp(&camera_pos_real.x, cam_target_x - window.game_width  / 2, cam_target_x + window.game_width  / 2);
+		Clamp(&camera_pos_real.y, cam_target_y - window.game_height / 2, cam_target_y + window.game_height / 2);
+
+		Clamp(&camera_pos_real.x, 0.0f, (float) (tm.width  * 16 - window.game_width));
+		Clamp(&camera_pos_real.y, 0.0f, (float) (tm.height * 16 - window.game_height));
+
+		camera_pos = floor(camera_pos_real);
+	}
+
+	camera_lock = fmaxf(camera_lock - delta, 0);
+}
+
+void Game::update_gameplay(float delta) {
+	// early update objects
+	For (it, objects) {
+		switch (it->type) {
+			case OBJ_MOVING_PLATFORM: {
+				it->mplatform.prev_pos = it->pos;
+
+				float a = player_time * it->mplatform.time_multiplier;
+				if (it->flags & FLAG_PLATFORM_CIRCULAR_MOVEMENT) {
+					it->pos.x = floorf(it->mplatform.init_pos.x + cosf(a) * it->mplatform.offset.x);
+					it->pos.y = floorf(it->mplatform.init_pos.y - sinf(a) * it->mplatform.offset.y);
+				} else {
+					it->pos.x = floorf(it->mplatform.init_pos.x - sinf(a) * it->mplatform.offset.x);
+					it->pos.y = floorf(it->mplatform.init_pos.y + sinf(a) * it->mplatform.offset.y);
+				}
+
+				if (it->mplatform.mounts[0] != 0) {
+					if (Object* obj = find_object(it->mplatform.mounts[0])) {
+						obj->pos += it->pos - it->mplatform.prev_pos;
+					}
+				}
+				if (it->mplatform.mounts[1] != 0) {
+					if (Object* obj = find_object(it->mplatform.mounts[1])) {
+						obj->pos += it->pos - it->mplatform.prev_pos;
+					}
+				}
+				break;
+			}
+		}
+	}
+
+	// update player
+	player_update(&player, delta);
+
+	update_camera(delta);
+
+	player_time += delta;
+
+	// update objects
+	For (it, objects) {
+		switch (it->type) {
+			case OBJ_SPRING:
+			case OBJ_SPRING_DIAGONAL: {
+				if (it->spring.animating) {
+					const Sprite& s = get_sprite(get_spring_sprite_animating(*it));
+
+					it->spring.frame_index += s.anim_spd * delta;
+					if (it->spring.frame_index >= s.frames.count) {
+						it->spring.animating = false;
+					}
+				}
+				break;
+			}
+
+			case OBJ_MONITOR_ICON: {
+				it->monitor.timer += delta;
+
+				if (it->monitor.timer > 64) {
+					it->flags |= FLAG_INSTANCE_DEAD;
+				} else if (it->monitor.timer > 32) {
+					if (!(it->flags & FLAG_MONITOR_ICON_GOT_REWARD)) {
+						switch (it->monitor.icon) {
+							case MONITOR_ICON_ROBOTNIK: {
+								player_get_hit(&player, 1);
+								break;
+							}
+
+							case MONITOR_ICON_SUPER_RING: {
+								player_rings += 10;
+								play_sound(get_sound(snd_ring));
+								break;
+							}
+
+							// TODO
+						}
+
+						it->flags |= FLAG_MONITOR_ICON_GOT_REWARD;
+					}
+				} else {
+					it->pos.y -= delta;
+				}
+				break;
+			}
+
+			case OBJ_RING_DROPPED: {
+				const float gravity = 0.09375f;
+				it->ring_dropped.speed.y += gravity * delta;
+				it->pos += it->ring_dropped.speed * delta;
+
+				SensorResult res = sensor_check_down(it->pos + vec2{0, 8}, 0);
+				if (res.dist < 0) {
+					if (it->ring_dropped.speed.y > 0) {
+						it->ring_dropped.speed.y *= -0.75f;
+					}
+				}
+
+				it->ring_dropped.frame_index += it->ring_dropped.anim_spd * delta;
+				it->ring_dropped.frame_index = wrapf(it->ring_dropped.frame_index, get_sprite(spr_ring).frames.count);
+
+				it->ring_dropped.anim_spd -= 0.002f * delta;
+
+				it->ring_dropped.lifetime += delta;
+				if (it->ring_dropped.lifetime > 256) {
+					it->flags |= FLAG_INSTANCE_DEAD;
+				}
+				break;
+			}
+
+			case OBJ_MOSQUI: {
+				auto& obj = *it;
+				auto& mosqui = obj.mosqui;
+
+				if (obj.flags & FLAG_MOSQUI_IS_DIVING) {
+					const float anim_spd = 0.25;
+					obj.frame_index += anim_spd * delta;
+
+					if (obj.frame_index >= 4) {
+						obj.frame_index = 4;
+
+						obj.pos.y += obj.speed.y * delta;
+
+						SensorResult res = sensor_check_down(obj.pos + vec2{0, 14}, 0);
+						if (res.dist < 0) {
+							obj.pos.y += res.dist;
+							obj.pos = floor(obj.pos);
+							obj.speed.y = 0;
+						}
+					}
+				} else {
+					obj.pos.x += obj.speed.x * delta;
+
+					if (obj.pos.x > obj.start_pos.x + mosqui.fly_distance) {
+						obj.speed.x = -fabsf(obj.speed.x);
+					}
+
+					if (obj.pos.x < obj.start_pos.x - mosqui.fly_distance) {
+						obj.speed.x = fabsf(obj.speed.x);
+					}
+
+					const float anim_spd = 0.25;
+					obj.frame_index += anim_spd * delta;
+					obj.frame_index = fmodf(obj.frame_index, 2);
+
+					Rectf rect;
+					rect.w = 32;
+					rect.h = 150;
+					rect.x = obj.pos.x - rect.w / 2;
+					rect.y = obj.pos.y;
+
+					if (point_in_rect(player.pos, rect)) {
+						obj.flags |= FLAG_MOSQUI_IS_DIVING;
+						obj.speed.y = 4;
+					}
+				}
+				break;
+			}
+
+			case OBJ_FLOWER: {
+				auto& obj = *it;
+				auto& flower = obj.flower;
+
+				if (flower.timer > 0) {
+					flower.timer -= delta;
+
+					const float anim_spd = 0.25;
+					obj.frame_index += anim_spd * delta;
+					obj.frame_index = fmodf(obj.frame_index, 2);
+
+					if (flower.timer <= 0) {
+						obj.speed.y = 2;
+					}
+				} else {
+					if (obj.speed.y == 0) {
+						if (obj.frame_index >= 7) {
+							const float anim_spd = 0.05;
+							obj.frame_index += anim_spd * delta;
+							obj.frame_index = 7 + fmodf(obj.frame_index - 7, 2);
+						} else {
+							const float anim_spd = 0.25;
+							obj.frame_index += anim_spd * delta;	
+						}
+					} else {
+						SensorResult res = sensor_check_down(obj.pos + vec2{0, 2}, 0);
+						if (res.dist < 0) {
+							obj.pos.y += res.dist;
+							obj.pos = floor(obj.pos);
+							obj.speed.y = 0;
+						}
+
+						const float anim_spd = 0.25;
+						obj.frame_index += anim_spd * delta;
+						obj.frame_index = fmodf(obj.frame_index, 2);
+
+						obj.pos.y += obj.speed.y * delta;
+					}
+				}
+				break;
+			}
+		}
+
+		if (it->flags & FLAG_INSTANCE_DEAD) {
+			Remove(it, objects);
+			continue;
+		}
+	}
+
+	update_particles(delta);
 }
 
 void Game::update(float delta) {
@@ -2647,12 +2905,12 @@ void Game::update(float delta) {
 		water_pos_y = 9999 + sinf(player_time/60 * 2) * 4;
 	}
 
-	bool should_skip_frame = false;
+	bool should_update_gameplay = true;
 
 	if (titlecard_state == TITLECARD_IN
 		|| titlecard_state == TITLECARD_WAIT)
 	{
-		should_skip_frame = true;
+		should_update_gameplay = false;
 
 #ifdef DEVELOPER
 		if (is_key_pressed(SDL_SCANCODE_A)) {
@@ -2660,268 +2918,22 @@ void Game::update(float delta) {
 			titlecard_timer = 0;
 			titlecard_t = 0.5f;
 
-			// don't skip frame so that player can go into debug mode
-			should_skip_frame = false;
+			// update gameplay so that player can go into debug mode
+			should_update_gameplay = true;
 		}
 #endif
 	}
 
 	if (pause_state != PAUSE_NOT_PAUSED) {
-		should_skip_frame = true;
+		should_update_gameplay = false;
 	}
 
-	should_skip_frame |= window.should_skip_frame;
-
-	if (!should_skip_frame) {
-		// early update objects
-		For (it, objects) {
-			switch (it->type) {
-				case OBJ_MOVING_PLATFORM: {
-					it->mplatform.prev_pos = it->pos;
-
-					float a = player_time * it->mplatform.time_multiplier;
-					if (it->flags & FLAG_PLATFORM_CIRCULAR_MOVEMENT) {
-						it->pos.x = floorf(it->mplatform.init_pos.x + cosf(a) * it->mplatform.offset.x);
-						it->pos.y = floorf(it->mplatform.init_pos.y - sinf(a) * it->mplatform.offset.y);
-					} else {
-						it->pos.x = floorf(it->mplatform.init_pos.x - sinf(a) * it->mplatform.offset.x);
-						it->pos.y = floorf(it->mplatform.init_pos.y + sinf(a) * it->mplatform.offset.y);
-					}
-
-					if (it->mplatform.mounts[0] != 0) {
-						if (Object* obj = find_object(it->mplatform.mounts[0])) {
-							obj->pos += it->pos - it->mplatform.prev_pos;
-						}
-					}
-					if (it->mplatform.mounts[1] != 0) {
-						if (Object* obj = find_object(it->mplatform.mounts[1])) {
-							obj->pos += it->pos - it->mplatform.prev_pos;
-						}
-					}
-					break;
-				}
-			}
-		}
-
-		// update player
-		player_update(&player, delta);
-
-		player_time += delta;
-
-		// update objects
-		For (it, objects) {
-			switch (it->type) {
-				case OBJ_SPRING:
-				case OBJ_SPRING_DIAGONAL: {
-					if (it->spring.animating) {
-						const Sprite& s = get_sprite(get_spring_sprite_animating(*it));
-
-						it->spring.frame_index += s.anim_spd * delta;
-						if (it->spring.frame_index >= s.frames.count) {
-							it->spring.animating = false;
-						}
-					}
-					break;
-				}
-
-				case OBJ_MONITOR_ICON: {
-					it->monitor.timer += delta;
-
-					if (it->monitor.timer > 64) {
-						it->flags |= FLAG_INSTANCE_DEAD;
-					} else if (it->monitor.timer > 32) {
-						if (!(it->flags & FLAG_MONITOR_ICON_GOT_REWARD)) {
-							switch (it->monitor.icon) {
-								case MONITOR_ICON_ROBOTNIK: {
-									player_get_hit(&player, 1);
-									break;
-								}
-
-								case MONITOR_ICON_SUPER_RING: {
-									player_rings += 10;
-									play_sound(get_sound(snd_ring));
-									break;
-								}
-
-								// TODO
-							}
-
-							it->flags |= FLAG_MONITOR_ICON_GOT_REWARD;
-						}
-					} else {
-						it->pos.y -= delta;
-					}
-					break;
-				}
-
-				case OBJ_RING_DROPPED: {
-					const float gravity = 0.09375f;
-					it->ring_dropped.speed.y += gravity * delta;
-					it->pos += it->ring_dropped.speed * delta;
-
-					SensorResult res = sensor_check_down(it->pos + vec2{0, 8}, 0);
-					if (res.dist < 0) {
-						if (it->ring_dropped.speed.y > 0) {
-							it->ring_dropped.speed.y *= -0.75f;
-						}
-					}
-
-					it->ring_dropped.frame_index += it->ring_dropped.anim_spd * delta;
-					it->ring_dropped.frame_index = wrapf(it->ring_dropped.frame_index, get_sprite(spr_ring).frames.count);
-
-					it->ring_dropped.anim_spd -= 0.002f * delta;
-
-					it->ring_dropped.lifetime += delta;
-					if (it->ring_dropped.lifetime > 256) {
-						it->flags |= FLAG_INSTANCE_DEAD;
-					}
-					break;
-				}
-
-				case OBJ_MOSQUI: {
-					auto& obj = *it;
-					auto& mosqui = obj.mosqui;
-
-					if (obj.flags & FLAG_MOSQUI_IS_DIVING) {
-						const float anim_spd = 0.25;
-						obj.frame_index += anim_spd * delta;
-
-						if (obj.frame_index >= 4) {
-							obj.frame_index = 4;
-
-							obj.pos.y += obj.speed.y * delta;
-
-							SensorResult res = sensor_check_down(obj.pos + vec2{0, 14}, 0);
-							if (res.dist < 0) {
-								obj.pos.y += res.dist;
-								obj.pos = floor(obj.pos);
-								obj.speed.y = 0;
-							}
-						}
-					} else {
-						obj.pos.x += obj.speed.x * delta;
-
-						if (obj.pos.x > obj.start_pos.x + mosqui.fly_distance) {
-							obj.speed.x = -fabsf(obj.speed.x);
-						}
-
-						if (obj.pos.x < obj.start_pos.x - mosqui.fly_distance) {
-							obj.speed.x = fabsf(obj.speed.x);
-						}
-
-						const float anim_spd = 0.25;
-						obj.frame_index += anim_spd * delta;
-						obj.frame_index = fmodf(obj.frame_index, 2);
-
-						Rectf rect;
-						rect.w = 32;
-						rect.h = 150;
-						rect.x = obj.pos.x - rect.w / 2;
-						rect.y = obj.pos.y;
-
-						if (point_in_rect(player.pos, rect)) {
-							obj.flags |= FLAG_MOSQUI_IS_DIVING;
-							obj.speed.y = 4;
-						}
-					}
-					break;
-				}
-
-				case OBJ_FLOWER: {
-					auto& obj = *it;
-					auto& flower = obj.flower;
-
-					if (flower.timer > 0) {
-						flower.timer -= delta;
-
-						const float anim_spd = 0.25;
-						obj.frame_index += anim_spd * delta;
-						obj.frame_index = fmodf(obj.frame_index, 2);
-
-						if (flower.timer <= 0) {
-							obj.speed.y = 2;
-						}
-					} else {
-						if (obj.speed.y == 0) {
-							if (obj.frame_index >= 7) {
-								const float anim_spd = 0.05;
-								obj.frame_index += anim_spd * delta;
-								obj.frame_index = 7 + fmodf(obj.frame_index - 7, 2);
-							} else {
-								const float anim_spd = 0.25;
-								obj.frame_index += anim_spd * delta;	
-							}
-						} else {
-							SensorResult res = sensor_check_down(obj.pos + vec2{0, 2}, 0);
-							if (res.dist < 0) {
-								obj.pos.y += res.dist;
-								obj.pos = floor(obj.pos);
-								obj.speed.y = 0;
-							}
-
-							const float anim_spd = 0.25;
-							obj.frame_index += anim_spd * delta;
-							obj.frame_index = fmodf(obj.frame_index, 2);
-
-							obj.pos.y += obj.speed.y * delta;
-						}
-					}
-					break;
-				}
-			}
-
-			if (it->flags & FLAG_INSTANCE_DEAD) {
-				Remove(it, objects);
-				continue;
-			}
-		}
-
-		update_particles(delta);
+	if (window.should_skip_frame) {
+		should_update_gameplay = false;
 	}
 
-	// update camera
-	{
-		Player* p = &player;
-		vec2 radius = p->prev_radius;
-
-		if (camera_lock == 0.0f) {
-			float cam_target_x = p->pos.x - window.game_width / 2;
-			float cam_target_y = p->pos.y + radius.y - 19 - window.game_height / 2;
-
-			if (camera_pos_real.x < cam_target_x - 8) {
-				Approach(&camera_pos_real.x, cam_target_x - 8, 16 * delta);
-			}
-			if (camera_pos_real.x > cam_target_x + 8) {
-				Approach(&camera_pos_real.x, cam_target_x + 8, 16 * delta);
-			}
-
-			if (player_is_grounded(p)) {
-				float camera_speed = 16;
-
-				if (fabsf(p->ground_speed) < 8) {
-					camera_speed = 6;
-				}
-
-				Approach(&camera_pos_real.y, cam_target_y, camera_speed * delta);
-			} else {
-				if (camera_pos_real.y < cam_target_y - 32) {
-					Approach(&camera_pos_real.y, cam_target_y - 32, 16 * delta);
-				}
-				if (camera_pos_real.y > cam_target_y + 32) {
-					Approach(&camera_pos_real.y, cam_target_y + 32, 16 * delta);
-				}
-			}
-
-			Clamp(&camera_pos_real.x, cam_target_x - window.game_width  / 2, cam_target_x + window.game_width  / 2);
-			Clamp(&camera_pos_real.y, cam_target_y - window.game_height / 2, cam_target_y + window.game_height / 2);
-
-			Clamp(&camera_pos_real.x, 0.0f, (float) (tm.width  * 16 - window.game_width));
-			Clamp(&camera_pos_real.y, 0.0f, (float) (tm.height * 16 - window.game_height));
-
-			camera_pos = floor(camera_pos_real);
-		}
-
-		camera_lock = fmaxf(camera_lock - delta, 0);
+	if (should_update_gameplay) {
+		update_gameplay(delta);
 	}
 
 	// update titlecard

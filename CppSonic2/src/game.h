@@ -365,6 +365,9 @@ struct Game {
 	void deinit();
 
 	void update(float delta);
+	void update_camera(float delta);
+	void update_gameplay(float delta);
+
 	void draw(float delta);
 
 	void load_level(const char* path);
