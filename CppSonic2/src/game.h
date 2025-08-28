@@ -265,16 +265,19 @@ struct Tilemap {
 	int width;
 	int height;
 
-	// Has collision and drawn
+	// has collision, visible
 	array<Tile> tiles_a;
 
-	// Has collision and not drawn. For alternate collision layer (to make loops work).
+	// has collision, not visible
+	// for alternate collision layer
 	array<Tile> tiles_b;
 
-	// No collision and drawn. For visuals (grass).
+	// no collision, visible
+	// for grass
 	array<Tile> tiles_c;
 
-	// No collision and drawn. For background.
+	// no collision, visible
+	// for background
 	array<Tile> tiles_d;
 };
 
@@ -329,10 +332,12 @@ struct Game {
 		PAUSE_NOT_PAUSED,
 		PAUSE_IN,
 		PAUSE_PAUSED,
+		PAUSE_BLINK,
 		PAUSE_OUT,
 	};
 
-	static constexpr float PAUSE_IN_TIME = 10;
+	static constexpr float PAUSE_IN_TIME = 15;
+	static constexpr float PAUSE_BLINK_TIME = 30;
 
 #ifdef DEVELOPER
 	static constexpr int PAUSE_MENU_NUM_ITEMS = 4;
@@ -347,12 +352,9 @@ struct Game {
 	u32 pause_last_pressed_time;
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
-	bool mobile_input_up;
-	bool mobile_input_down;
-	bool mobile_input_left;
-	bool mobile_input_right;
-	bool mobile_input_action;
-	bool mobile_input_pause;
+	u32 mobile_input_state;
+	u32 mobile_input_state_press;
+	u32 mobile_input_state_release;
 #endif
 
 	bool collision_test;
@@ -367,6 +369,8 @@ struct Game {
 	void update(float delta);
 	void update_camera(float delta);
 	void update_gameplay(float delta);
+	void update_touch_input();
+	void update_pause_menu(float delta);
 
 	void draw(float delta);
 

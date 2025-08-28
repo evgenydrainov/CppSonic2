@@ -8,7 +8,7 @@ project(GAME)
 
 
 # SDL sources are in a subfolder named "SDL"
-add_subdirectory(C:/Users/Username/source/repos/SDL SDL)
+add_subdirectory(C:/Users/Username/source/repos/SDL-release-2.32.2 SDL)
 
 # Compilation of companion libraries
 #add_subdirectory(C:/Users/Username/source/repos/SDL_image SDL_image)
@@ -17,7 +17,7 @@ set(SDL2MIXER_MOD OFF)
 set(SDL2MIXER_MIDI OFF)
 set(SDL2MIXER_OPUS OFF)
 set(SDL2MIXER_WAVPACK OFF)
-add_subdirectory(C:/Users/Username/source/repos/SDL_mixer SDL_mixer)
+add_subdirectory(C:/Users/Username/source/repos/SDL_mixer-release-2.8.0 SDL_mixer)
 
 #add_subdirectory(C:/Users/Username/source/repos/SDL_ttf SDL_ttf)
 

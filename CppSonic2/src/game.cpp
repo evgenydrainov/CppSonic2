@@ -2275,7 +2275,8 @@ static const Sprite& anim_get_sprite(anim_index anim) {
 static void get_mobile_controls(vec2* dpad_pos,
 								vec2* action_pos,
 								Rectf* action_rect,
-								Rectf* pause_rect) {
+								Rectf* pause_rect,
+								Rectf* debug_rect) {
 	dpad_pos->x	  = 48 - 32;
 	dpad_pos->y   = window.game_height - 48 - 32;
 	action_pos->x = window.game_width  - 48 - 24;
@@ -2290,6 +2291,8 @@ static void get_mobile_controls(vec2* dpad_pos,
 	pause_rect->y = 0;
 	pause_rect->w = window.game_width - pause_rect->x;
 	pause_rect->h = 8*2 + 16;
+
+	*debug_rect = {16, 8, 95, 43};
 }
 
 static void player_update(Player* p, float delta) {
@@ -2385,12 +2388,7 @@ static void player_update(Player* p, float delta) {
 
 		// Touch
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
-		if (game.mobile_input_up)    p->input |= INPUT_MOVE_UP;
-		if (game.mobile_input_down)  p->input |= INPUT_MOVE_DOWN;
-		if (game.mobile_input_left)  p->input |= INPUT_MOVE_LEFT;
-		if (game.mobile_input_right) p->input |= INPUT_MOVE_RIGHT;
-
-		if (game.mobile_input_action) p->input |= INPUT_A;
+		p->input |= game.mobile_input_state;
 #endif
 
 		p->input_press   = p->input & (~prev);
@@ -2497,12 +2495,8 @@ static void player_update(Player* p, float delta) {
 		pressed |= is_controller_button_pressed(SDL_CONTROLLER_BUTTON_Y);
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
-		if (is_mouse_button_pressed(SDL_BUTTON_LEFT)) {
-			vec2 mouse = input.mouse_world_pos;
-			Rectf rect = {16, 8, 95, 43};
-			if (point_in_rect(mouse, rect)) {
-				pressed = true;
-			}
+		if (game.mobile_input_state_press & INPUT_DEBUG) {
+			pressed = true;
 		}
 #endif
 
@@ -2610,6 +2604,8 @@ void Game::update_camera(float delta) {
 }
 
 void Game::update_gameplay(float delta) {
+	update_touch_input();
+
 	// early update objects
 	For (it, objects) {
 		switch (it->type) {
@@ -2818,89 +2814,94 @@ void Game::update_gameplay(float delta) {
 	update_particles(delta);
 }
 
-void Game::update(float delta) {
+void Game::update_touch_input() {
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
-	{
-		mobile_input_up     = false;
-		mobile_input_down   = false;
-		mobile_input_left   = false;
-		mobile_input_right  = false;
-		mobile_input_action = false;
-		mobile_input_pause  = false;
+	u32 prev = mobile_input_state;
 
-		vec2 dpad_pos;
-		vec2 action_pos;
-		Rectf action_rect;
-		Rectf pause_rect;
-		get_mobile_controls(&dpad_pos, &action_pos, &action_rect, &pause_rect);
+	mobile_input_state = 0;
 
-		float left   = dpad_pos.x;
-		float top    = dpad_pos.y;
-		float right  = left + MOBILE_DPAD_SIZE;
-		float bottom = top  + MOBILE_DPAD_SIZE;
+	vec2 dpad_pos;
+	vec2 action_pos;
+	Rectf action_rect;
+	Rectf pause_rect;
+	Rectf debug_rect;
+	get_mobile_controls(&dpad_pos, &action_pos, &action_rect, &pause_rect, &debug_rect);
 
-		vec2 center;
-		center.x     = left + MOBILE_DPAD_SIZE / 2;
-		center.y     = top  + MOBILE_DPAD_SIZE / 2;
+	float left   = dpad_pos.x;
+	float top    = dpad_pos.y;
+	float right  = left + MOBILE_DPAD_SIZE;
+	float bottom = top  + MOBILE_DPAD_SIZE;
 
-		float act_x1 = action_rect.x;
-		float act_y1 = action_rect.y;
-		float act_x2 = action_rect.x + action_rect.w;
-		float act_y2 = action_rect.y + action_rect.h;
+	vec2 center;
+	center.x     = left + MOBILE_DPAD_SIZE / 2;
+	center.y     = top  + MOBILE_DPAD_SIZE / 2;
 
-		float pause_x1 = pause_rect.x;
-		float pause_y1 = pause_rect.y;
-		float pause_x2 = pause_rect.x + pause_rect.w;
-		float pause_y2 = pause_rect.y + pause_rect.h;
+	float act_x1 = action_rect.x;
+	float act_y1 = action_rect.y;
+	float act_x2 = action_rect.x + action_rect.w;
+	float act_y2 = action_rect.y + action_rect.h;
 
-		left   -= MOBILE_DPAD_OFFSET;
-		top    -= MOBILE_DPAD_OFFSET;
-		right  += MOBILE_DPAD_OFFSET;
-		bottom += MOBILE_DPAD_OFFSET;
+	float pause_x1 = pause_rect.x;
+	float pause_y1 = pause_rect.y;
+	float pause_x2 = pause_rect.x + pause_rect.w;
+	float pause_y2 = pause_rect.y + pause_rect.h;
 
-		int num_touch_devices = SDL_GetNumTouchDevices();
-		for (int i = 0; i < num_touch_devices; i++) {
-			SDL_TouchID touch_id = SDL_GetTouchDevice(i);
+	left   -= MOBILE_DPAD_OFFSET;
+	top    -= MOBILE_DPAD_OFFSET;
+	right  += MOBILE_DPAD_OFFSET;
+	bottom += MOBILE_DPAD_OFFSET;
 
-			int num_fingers = SDL_GetNumTouchFingers(touch_id);
-			for (int i = 0; i < num_fingers; i++) {
-				SDL_Finger* finger = SDL_GetTouchFinger(touch_id, i);
+	int num_touch_devices = SDL_GetNumTouchDevices();
+	for (int i = 0; i < num_touch_devices; i++) {
+		SDL_TouchID touch_id = SDL_GetTouchDevice(i);
 
-				if (!finger) {
-					log_warn("SDL_GetTouchFinger returned null.");
-					continue;
-				}
+		int num_fingers = SDL_GetNumTouchFingers(touch_id);
+		for (int i = 0; i < num_fingers; i++) {
+			SDL_Finger* finger = SDL_GetTouchFinger(touch_id, i);
 
-				vec2 mouse;
-				mouse.x = finger->x * renderer.backbuffer_width;
-				mouse.y = finger->y * renderer.backbuffer_height;
+			if (!finger) {
+				// log_warn("SDL_GetTouchFinger returned null.");
+				continue;
+			}
 
-				auto rect = renderer.game_texture_rect;
-				mouse.x = (mouse.x - rect.x) / (float)rect.w * (float)window.game_width;
-				mouse.y = (mouse.y - rect.y) / (float)rect.h * (float)window.game_height;
+			vec2 mouse;
+			mouse.x = finger->x * renderer.backbuffer_width;
+			mouse.y = finger->y * renderer.backbuffer_height;
 
-				if (point_in_triangle(mouse, {left, top}, {right, top}, center)) {
-					mobile_input_up = true;
-				} else if (point_in_triangle(mouse, center, {left, bottom}, {right, bottom})) {
-					mobile_input_down = true;
-				} else if (point_in_triangle(mouse, {left, top}, {left, bottom}, center)) {
-					mobile_input_left = true;
-				} else if (point_in_triangle(mouse, center, {right, top}, {right, bottom})) {
-					mobile_input_right = true;
-				}
+			auto rect = renderer.game_texture_rect;
+			mouse.x = (mouse.x - rect.x) / (float)rect.w * (float)window.game_width;
+			mouse.y = (mouse.y - rect.y) / (float)rect.h * (float)window.game_height;
 
-				if (point_in_rect(mouse, action_rect)) {
-					mobile_input_action = true;
-				}
+			if (point_in_triangle(mouse, {left, top}, {right, top}, center)) {
+				mobile_input_state |= INPUT_MOVE_UP;
+			} else if (point_in_triangle(mouse, center, {left, bottom}, {right, bottom})) {
+				mobile_input_state |= INPUT_MOVE_DOWN;
+			} else if (point_in_triangle(mouse, {left, top}, {left, bottom}, center)) {
+				mobile_input_state |= INPUT_MOVE_LEFT;
+			} else if (point_in_triangle(mouse, center, {right, top}, {right, bottom})) {
+				mobile_input_state |= INPUT_MOVE_RIGHT;
+			}
 
-				if (point_in_rect(mouse, pause_rect)) {
-					mobile_input_pause = true;
-				}
+			if (point_in_rect(mouse, action_rect)) {
+				mobile_input_state |= INPUT_A;
+			}
+
+			if (point_in_rect(mouse, pause_rect)) {
+				mobile_input_state |= INPUT_PAUSE;
+			}
+
+			if (point_in_rect(mouse, debug_rect)) {
+				mobile_input_state |= INPUT_DEBUG;
 			}
 		}
 	}
-#endif
 
+	mobile_input_state_press = ~prev & mobile_input_state;
+	mobile_input_state_release = prev & ~mobile_input_state;
+#endif
+}
+
+void Game::update(float delta) {
 	{
 		water_pos_y = 9999 + sinf(player_time/60 * 2) * 4;
 	}
@@ -2975,158 +2976,181 @@ void Game::update(float delta) {
 		}
 	}
 
-	// update pause menu
-	if (program.transition_t == 0) {
-		switch (pause_state) {
-			case PAUSE_NOT_PAUSED: {
-				if (titlecard_state == TITLECARD_FINISHED) {
-					bool pressed = false;
-
-					if (is_key_pressed(SDL_SCANCODE_ESCAPE) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_START)) {
-						pressed = true;
-					}
-
-					// pause when lost window focus
-					/*if (!(SDL_GetWindowFlags(window.handle) & SDL_WINDOW_INPUT_FOCUS)) {
-						pressed = true;
-					}*/
-
-#if defined(__ANDROID__) || defined(PRETEND_MOBILE)
-					if (mobile_input_pause) {
-						pressed = true;
-					}
-#endif
-
-					if (pressed) {
-						pause_state = PAUSE_IN;
-						pause_menu_timer = 0;
-						pause_menu_t = 0;
-						pause_menu_cursor = 0;
-					}
-				}
-				break;
-			}
-
-			case PAUSE_IN: {
-				Approach(&pause_menu_timer, PAUSE_IN_TIME, delta);
-				pause_menu_t = (pause_menu_timer / PAUSE_IN_TIME) * 0.5f;
-
-				if (pause_menu_timer == PAUSE_IN_TIME) {
-					pause_state = PAUSE_PAUSED;
-					pause_menu_timer = 0;
-					pause_menu_t = 0.5f;
-				}
-				break;
-			}
-
-			case PAUSE_PAUSED: {
-				bool resume = false;
-
-				if (is_key_pressed(SDL_SCANCODE_ESCAPE)
-					|| is_key_pressed(SDL_SCANCODE_X)
-					|| is_controller_button_pressed(SDL_CONTROLLER_BUTTON_START))
-				{
-					resume = true;
-				}
-
-				if (is_key_pressed(SDL_SCANCODE_UP) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_DPAD_UP)) {
-					if (pause_menu_cursor > 0) {
-						pause_menu_cursor--;
-						pause_last_pressed_time = SDL_GetTicks();
-					}
-				}
-
-				if (is_key_pressed(SDL_SCANCODE_DOWN) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_DPAD_DOWN)) {
-					if (pause_menu_cursor < PAUSE_MENU_NUM_ITEMS - 1) {
-						pause_menu_cursor++;
-						pause_last_pressed_time = SDL_GetTicks();
-					}
-				}
-
-				bool pressed = false;
-
-				pressed |= is_key_pressed(SDL_SCANCODE_Z);
-				
-				pressed |= is_controller_button_pressed(SDL_CONTROLLER_BUTTON_A);
-
-#if defined(__ANDROID__) || defined(PRETEND_MOBILE)
-				{
-					// @Volatile
-					vec2 pos;
-					pos.x = window.game_width - 128 + 44;
-					pos.y = 40;
-
-					vec2 mouse = input.mouse_world_pos;
-
-					for (int i = 0; i < PAUSE_MENU_NUM_ITEMS; i++) {
-						float off = 12;
-						Rectf rect = {pos.x - off, pos.y - off, 65 + 2*off, 12 + 2*off};
-
-						if (point_in_rect(mouse, rect)) {
-							if (is_mouse_button_released(SDL_BUTTON_LEFT)) {
-								pressed = true;
-							} else if (is_mouse_button_held(SDL_BUTTON_LEFT)) {
-								if (pause_menu_cursor != i) {
-									pause_menu_cursor = i;
-									pause_last_pressed_time = SDL_GetTicks();
-								}
-							}
-						}
-
-						pos.y += 44;
-					}
-				}
-#endif
-
-				if (pressed) {
-					switch (pause_menu_cursor) {
-						case 0: { // resume
-							resume = true;
-							break;
-						}
-
-						case 1: { // restart
-							program.set_program_mode(PROGRAM_GAME);
-							break;
-						}
-
-						case 2: { // exit
-							program.set_program_mode(PROGRAM_TITLE);
-							break;
-						}
-
-						case 3: { // dev menu
-							// TODO
-							break;
-						}
-					}
-				}
-
-				if (resume) {
-					pause_state = PAUSE_OUT;
-					pause_menu_timer = 0;
-					pause_menu_t = 0.5f;
-				}
-				break;
-			}
-
-			case PAUSE_OUT: {
-				Approach(&pause_menu_timer, PAUSE_IN_TIME, delta);
-				pause_menu_t = 0.5f + (pause_menu_timer / PAUSE_IN_TIME) * 0.5f;
-
-				if (pause_menu_timer == PAUSE_IN_TIME) {
-					pause_state = PAUSE_NOT_PAUSED;
-					pause_menu_timer = 0;
-					pause_menu_t = 1;
-				}
-				break;
-			}
-		}
-	}
+	update_pause_menu(delta);
 
 	if (pause_state == PAUSE_NOT_PAUSED) {
 		time_frames += delta;
 		time_seconds = time_frames / 60.0f;
+	}
+}
+
+#define PAUSE_MENU_ITEMS_X (window.game_width - 128 + 44)
+#define PAUSE_MENU_ITEMS_Y (40)
+#define PAUSE_MENU_ITEMS_SEP_Y (44)
+
+void Game::update_pause_menu(float delta) {
+	// update pause menu
+
+	if (program.transition_t != 0) {
+		return;
+	}
+
+	switch (pause_state) {
+		case PAUSE_NOT_PAUSED: {
+			if (titlecard_state == TITLECARD_FINISHED) {
+				bool pressed = false;
+
+				if (is_key_pressed(SDL_SCANCODE_ESCAPE) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_START)) {
+					pressed = true;
+				}
+
+				// pause when lost window focus
+				/*if (!(SDL_GetWindowFlags(window.handle) & SDL_WINDOW_INPUT_FOCUS)) {
+					pressed = true;
+				}*/
+
+#if defined(__ANDROID__) || defined(PRETEND_MOBILE)
+				if (mobile_input_state_press & INPUT_PAUSE) {
+					pressed = true;
+				}
+#endif
+
+				if (pressed) {
+					pause_state = PAUSE_IN;
+					pause_menu_timer = 0;
+					pause_menu_t = 0;
+					pause_menu_cursor = 0;
+				}
+			}
+			break;
+		}
+
+		case PAUSE_IN: {
+			Approach(&pause_menu_timer, PAUSE_IN_TIME, delta);
+			pause_menu_t = (pause_menu_timer / PAUSE_IN_TIME) * 0.5f;
+
+			if (pause_menu_timer == PAUSE_IN_TIME) {
+				pause_state = PAUSE_PAUSED;
+				pause_menu_timer = 0;
+				pause_menu_t = 0.5f;
+			}
+			break;
+		}
+
+		case PAUSE_PAUSED: {
+			bool resume = false;
+
+			if (is_key_pressed(SDL_SCANCODE_ESCAPE)
+				|| is_key_pressed(SDL_SCANCODE_X)
+				|| is_controller_button_pressed(SDL_CONTROLLER_BUTTON_START))
+			{
+				resume = true;
+			}
+
+			if (is_key_pressed(SDL_SCANCODE_UP) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_DPAD_UP)) {
+				if (pause_menu_cursor > 0) {
+					pause_menu_cursor--;
+					pause_last_pressed_time = SDL_GetTicks();
+				}
+			}
+
+			if (is_key_pressed(SDL_SCANCODE_DOWN) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_DPAD_DOWN)) {
+				if (pause_menu_cursor < PAUSE_MENU_NUM_ITEMS - 1) {
+					pause_menu_cursor++;
+					pause_last_pressed_time = SDL_GetTicks();
+				}
+			}
+
+			bool pressed = false;
+
+			pressed |= is_key_pressed(SDL_SCANCODE_Z);
+				
+			pressed |= is_controller_button_pressed(SDL_CONTROLLER_BUTTON_A);
+
+#if defined(__ANDROID__) || defined(PRETEND_MOBILE)
+			{
+				vec2 pos;
+				pos.x = PAUSE_MENU_ITEMS_X;
+				pos.y = PAUSE_MENU_ITEMS_Y;
+
+				vec2 mouse = input.mouse_world_pos;
+
+				for (int i = 0; i < PAUSE_MENU_NUM_ITEMS; i++) {
+					float off = 12;
+					Rectf rect = {pos.x - off, pos.y - off, 65 + 2*off, 12 + 2*off};
+
+					if (point_in_rect(mouse, rect)) {
+						if (is_mouse_button_released(SDL_BUTTON_LEFT)) {
+							pressed = true;
+						} else if (is_mouse_button_held(SDL_BUTTON_LEFT)) {
+							if (pause_menu_cursor != i) {
+								pause_menu_cursor = i;
+								pause_last_pressed_time = SDL_GetTicks();
+							}
+						}
+					}
+
+					pos.y += PAUSE_MENU_ITEMS_SEP_Y;
+				}
+			}
+#endif
+
+			if (pressed) {
+				switch (pause_menu_cursor) {
+					case 0: { // resume
+						resume = true;
+						break;
+					}
+
+					case 1: { // restart
+						program.set_program_mode(PROGRAM_GAME);
+						break;
+					}
+
+					case 2: { // exit
+						program.set_program_mode(PROGRAM_TITLE);
+						break;
+					}
+
+					case 3: { // dev menu
+						// TODO
+						break;
+					}
+				}
+			}
+
+			if (resume) {
+				pause_state = PAUSE_BLINK;
+				pause_menu_timer = 0;
+				pause_menu_t = 0.5f;
+				pause_menu_cursor = 0;
+			}
+			break;
+		}
+
+		case PAUSE_BLINK: {
+			Approach(&pause_menu_timer, PAUSE_BLINK_TIME, delta);
+			pause_menu_t = 0.5f;
+
+			if (pause_menu_timer == PAUSE_BLINK_TIME) {
+				pause_state = PAUSE_OUT;
+				pause_menu_timer = 0;
+				pause_menu_t = 0.5f;
+			}
+			break;
+		}
+
+		case PAUSE_OUT: {
+			Approach(&pause_menu_timer, PAUSE_IN_TIME, delta);
+			pause_menu_t = 0.5f + (pause_menu_timer / PAUSE_IN_TIME) * 0.5f;
+
+			if (pause_menu_timer == PAUSE_IN_TIME) {
+				pause_state = PAUSE_NOT_PAUSED;
+				pause_menu_timer = 0;
+				pause_menu_t = 1;
+			}
+			break;
+		}
 	}
 }
 
@@ -3909,20 +3933,23 @@ void Game::draw(float delta) {
 		vec2 action_pos;
 		Rectf action_rect;
 		Rectf pause_rect;
-		get_mobile_controls(&dpad_pos, &action_pos, &action_rect, &pause_rect);
+		Rectf debug_rect;
+		get_mobile_controls(&dpad_pos, &action_pos, &action_rect, &pause_rect, &debug_rect);
 
 		vec4 color = {1, 1, 1, 0.85f};
 
 		// dpad
 		draw_sprite(get_sprite(spr_mobile_dpad), 0, dpad_pos, {1,1}, 0, color);
 
-		draw_sprite(get_sprite(spr_mobile_dpad_up),    (player.input & INPUT_MOVE_UP)    > 0, dpad_pos + vec2{25,  0}, {1,1}, 0, color);
-		draw_sprite(get_sprite(spr_mobile_dpad_down),  (player.input & INPUT_MOVE_DOWN)  > 0, dpad_pos + vec2{25, 37}, {1,1}, 0, color);
-		draw_sprite(get_sprite(spr_mobile_dpad_left),  (player.input & INPUT_MOVE_LEFT)  > 0, dpad_pos + vec2{ 0, 24}, {1,1}, 0, color);
-		draw_sprite(get_sprite(spr_mobile_dpad_right), (player.input & INPUT_MOVE_RIGHT) > 0, dpad_pos + vec2{37, 24}, {1,1}, 0, color);
+		u32 state = mobile_input_state;
+
+		draw_sprite(get_sprite(spr_mobile_dpad_up),    (state & INPUT_MOVE_UP)    > 0, dpad_pos + vec2{25,  0}, {1,1}, 0, color);
+		draw_sprite(get_sprite(spr_mobile_dpad_down),  (state & INPUT_MOVE_DOWN)  > 0, dpad_pos + vec2{25, 37}, {1,1}, 0, color);
+		draw_sprite(get_sprite(spr_mobile_dpad_left),  (state & INPUT_MOVE_LEFT)  > 0, dpad_pos + vec2{ 0, 24}, {1,1}, 0, color);
+		draw_sprite(get_sprite(spr_mobile_dpad_right), (state & INPUT_MOVE_RIGHT) > 0, dpad_pos + vec2{37, 24}, {1,1}, 0, color);
 
 		// action button
-		draw_sprite(get_sprite(spr_mobile_action_button), (player.input & INPUT_A) > 0, action_pos, {1,1}, 0, color);
+		draw_sprite(get_sprite(spr_mobile_action_button), (state & INPUT_A) > 0, action_pos, {1,1}, 0, color);
 
 		// pause button
 		draw_sprite(get_sprite(spr_mobile_pause_button), 0, {window.game_width - 68, 8});
@@ -3950,25 +3977,43 @@ void Game::draw(float delta) {
 			draw_rectangle(r, color);
 		}
 
+		// pause logo
 		{
-			vec2 pos = {};
-			pos.y = window.game_height - 32 - 25;
+			float y1 = window.game_height - 32 - 25;
+			float y2 = window.game_height - 32 - 25;
+			float y3 = window.game_height;
 
+			float y = lerp3(y1, y2, y3, pause_menu_t);
+
+			// black line
 			{
-				vec4 color = color_black;
-				color.a = lerp3(0.0f, 1.0f, 0.0f, pause_menu_t);
+				float w1 = 0;
+				float w2 = window.game_width;
+				float w3 = window.game_width;
 
-				Rectf r = {pos.x + 128, pos.y + 19, (float)window.game_width, 13};
-				draw_rectangle(r, color);
+				Rectf r = {};
+				r.y = y + 19;
+				r.w = lerp3(w1, w2, w3, pause_menu_t);
+				r.h = 13;
+
+				draw_rectangle(r, color_black);
 			}
 
+			// logo
 			{
+				float a1 = 0;
+				float a2 = 1;
+				float a3 = 1;
+
 				vec4 color = color_white;
-				color.a = lerp3(0.0f, 1.0f, 0.0f, pause_menu_t);
+				color.a = lerp3(a1, a2, a3, pause_menu_t);
+
+				vec2 pos = {0, y};
 				draw_sprite(get_sprite(spr_pause_menu_logo), 0, pos, {1, 1}, 0, color);
 			}
 		}
 
+		// sidebar
 		{
 			float x1 = window.game_width;
 			float x2 = window.game_width - 128;
@@ -3982,24 +4027,49 @@ void Game::draw(float delta) {
 
 				pos.y += 32;
 			}
+		}
 
-			// @Volatile
-			pos.x = window.game_width - 128 + 44;
-			pos.y = 40;
+		// labels
+		{
+			vec2 pos;
+			pos.x = PAUSE_MENU_ITEMS_X;
+			pos.y = PAUSE_MENU_ITEMS_Y;
 
 			for (int i = 0; i < PAUSE_MENU_NUM_ITEMS; i++) {
-				vec4 color = color_white;
-				color.a = lerp3(0.0f, 1.0f, 0.0f, pause_menu_t);
-
-				draw_sprite(get_sprite(spr_pause_menu_labels), i, pos, {1, 1}, 0, color);
+				float t = pause_menu_t;
 
 				if (i == pause_menu_cursor) {
-					if ((SDL_GetTicks() - pause_last_pressed_time + 50) % 500 < 250) {
-						draw_sprite(get_sprite(spr_pause_menu_cursor), 0, pos + vec2{-6, 13});
+					// blink
+					if (pause_state == PAUSE_BLINK || pause_state == PAUSE_OUT) {
+						if (SDL_GetTicks() % 100 < 50) {
+							t = 0;
+						}
+					}
+				} else {
+					// fade out earlier
+					if (pause_state == PAUSE_BLINK) {
+						t = lerp(0.5f, 1.3f, pause_menu_timer / PAUSE_BLINK_TIME);
+						if (t > 1) t = 1;
+					} else if (pause_state == PAUSE_OUT) {
+						t = 0;
 					}
 				}
 
-				pos.y += 44;
+				vec4 color = color_white;
+				color.a = lerp3(0.0f, 1.0f, 0.0f, t);
+
+				draw_sprite(get_sprite(spr_pause_menu_labels), i, pos, {1, 1}, 0, color);
+
+				// draw cursor
+				if (i == pause_menu_cursor) {
+					if ((SDL_GetTicks() - pause_last_pressed_time + 50) % 500 < 250) {
+						vec4 color = color_white;
+						color.a = lerp3(0.0f, 1.0f, 0.0f, pause_menu_t);
+						draw_sprite(get_sprite(spr_pause_menu_cursor), 0, pos + vec2{-6, 13}, {1, 1}, 0, color);
+					}
+				}
+
+				pos.y += PAUSE_MENU_ITEMS_SEP_Y;
 			}
 		}
 	}

@@ -22,7 +22,9 @@ enum InputKey : u32 {
 	INPUT_UI_CONFIRM    = 1 << 11,
 	INPUT_UI_CANCEL     = 1 << 12,
 
-	NUM_INPUTS          = 13,
+	INPUT_DEBUG         = 1 << 13,
+
+	NUM_INPUTS          = 14,
 
 	INPUT_JUMP          = INPUT_A | INPUT_B,
 };

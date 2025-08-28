@@ -580,6 +580,8 @@ struct Arena {
 	u8*    data;
 	size_t count;
 	size_t capacity;
+
+	size_t max_count;
 };
 
 inline u8* arena_push(Arena* arena, size_t size, size_t alignment = Arena::DEFAULT_ALIGNMENT) {
@@ -591,6 +593,8 @@ inline u8* arena_push(Arena* arena, size_t size, size_t alignment = Arena::DEFAU
 
 	u8* ptr = arena->data + offset;
 	arena->count = offset + size;
+
+	arena->max_count = max(arena->count, arena->max_count);
 
 	return ptr;
 }
@@ -619,33 +623,6 @@ struct Allocator {
 	void* userdata;
 };
 
-// Allocate *from* an allocator, not *an* allocator.
-inline u8* allocator_allocate(size_t size, Allocator allocator) {
-	return (u8*) allocator.proc(ALLOCATOR_MODE_ALLOCATE, size, 0, nullptr, allocator.userdata);
-}
-
-// Arguments are in this order to resemble `realloc`.
-inline u8* allocator_resize(void* old_ptr, size_t size, size_t old_size, Allocator allocator) {
-	return (u8*) allocator.proc(ALLOCATOR_MODE_RESIZE, size, old_size, old_ptr, allocator.userdata);
-}
-
-inline void allocator_free(void* old_ptr, size_t old_size, Allocator allocator) {
-	allocator.proc(ALLOCATOR_MODE_FREE, 0, old_size, old_ptr, allocator.userdata);
-}
-
-
-
-inline Arena allocate_arena(size_t capacity, Allocator allocator) {
-	Arena arena = {};
-	arena.data = allocator_allocate(capacity, allocator);
-	arena.capacity = capacity;
-
-	// Maybe store the allocator in the arena?
-
-	return arena;
-}
-
-
 
 inline void* libc_allocator_proc(AllocatorMode mode, size_t size, size_t old_size, void* old_ptr, void* userdata) {
 	switch (mode) {
@@ -673,6 +650,48 @@ inline Allocator get_libc_allocator() {
 	return a;
 }
 
+
+inline u8* aalloc(size_t size, Allocator allocator) {
+	if (allocator.proc == nullptr && allocator.userdata == nullptr) {
+		allocator = get_libc_allocator();
+	}
+
+	Assert(allocator.proc);
+
+	return (u8*) allocator.proc(ALLOCATOR_MODE_ALLOCATE, size, 0, nullptr, allocator.userdata);
+}
+
+inline u8* arealloc(void* old_ptr, size_t size, size_t old_size, Allocator allocator) {
+	if (allocator.proc == nullptr && allocator.userdata == nullptr) {
+		allocator = get_libc_allocator();
+	}
+
+	Assert(allocator.proc);
+
+	return (u8*) allocator.proc(ALLOCATOR_MODE_RESIZE, size, old_size, old_ptr, allocator.userdata);
+}
+
+inline void afree(void* old_ptr, size_t old_size, Allocator allocator) {
+	if (allocator.proc == nullptr && allocator.userdata == nullptr) {
+		allocator = get_libc_allocator();
+	}
+
+	Assert(allocator.proc);
+
+	allocator.proc(ALLOCATOR_MODE_FREE, 0, old_size, old_ptr, allocator.userdata);
+}
+
+
+
+inline Arena allocate_arena(size_t capacity, Allocator allocator) {
+	Arena arena = {};
+	arena.data = aalloc(capacity, allocator);
+	arena.capacity = capacity;
+
+	// Maybe store the allocator in the arena?
+
+	return arena;
+}
 
 
 inline void* arena_allocator_proc(AllocatorMode mode, size_t size, size_t old_size, void* old_ptr, void* userdata) {
@@ -769,7 +788,7 @@ struct bump_array {
 template <typename T>
 inline bump_array<T> allocate_bump_array(size_t capacity, Allocator allocator) {
 	bump_array<T> arr = {};
-	arr.data = (T*) allocator_allocate(capacity * sizeof(T), allocator);
+	arr.data = (T*) aalloc(capacity * sizeof(T), allocator);
 	arr.capacity = capacity;
 
 	return arr;
@@ -838,15 +857,15 @@ struct dynamic_array {
 	size_t count;
 	size_t capacity;
 
+	Allocator allocator;
+
 	T& operator[](size_t i) {
-		Assert(i >= 0    && "Index out of bounds.");
-		Assert(i < count && "Index out of bounds.");
+		Assert((i >= 0 && i < count) && "Index out of bounds.");
 		return data[i];
 	}
 
 	const T& operator[](size_t i) const {
-		Assert(i >= 0    && "Index out of bounds.");
-		Assert(i < count && "Index out of bounds.");
+		Assert((i >= 0 && i < count) && "Index out of bounds.");
 		return data[i];
 	}
 
@@ -868,7 +887,7 @@ inline void _array_grow(dynamic_array<T>* arr) {
 		new_capacity = arr->capacity + 1;
 	}
 
-	T* new_data = (T*) realloc(arr->data, new_capacity * sizeof(T));
+	T* new_data = (T*) arealloc(arr->data, new_capacity * sizeof(T), arr->capacity * sizeof(T), arr->allocator);
 	Assert(new_data);
 
 	arr->data = new_data;
@@ -1011,6 +1030,19 @@ inline bool starts_with(array<T> arr, array<T> prefix) {
 
 	arr.count = prefix.count;
 	return arr == prefix;
+}
+
+
+
+template <typename T>
+inline T* array_add_many(bump_array<T>* arr, array<T> values) {
+	Assert(arr->count + values.count <= arr->capacity);
+
+	T* result = &arr->data[arr->count];
+	memcpy(result, values.data, sizeof(values[0]) * values.count);
+	arr->count += values.count;
+
+	return result;
 }
 
 

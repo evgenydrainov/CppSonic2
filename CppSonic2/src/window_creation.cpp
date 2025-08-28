@@ -73,10 +73,14 @@ void init_window_and_opengl(const char* title,
 	window.perf_frequency = SDL_GetPerformanceFrequency();
 	window.perf_frequency_double = (double)window.perf_frequency;
 
-	// SDL_SetHint("SDL_WINDOWS_DPI_AWARENESS", "permonitorv2");
+	// enable dpi scaling on Windows
 	SDL_SetHint("SDL_WINDOWS_DPI_SCALING", "1");
+
+	// needed for Android, see SDL_HINT_ORIENTATIONS
 	SDL_SetHint("SDL_IOS_ORIENTATIONS", "LandscapeLeft");
-	// SDL_SetHint("SDL_ANDROID_TRAP_BACK_BUTTON", "1");
+
+	// seems to be turned on by default
+	SDL_SetHint("SDL_ANDROID_TRAP_BACK_BUTTON", "1");
 
 	if (SDL_Init(SDL_INIT_VIDEO
 				 | SDL_INIT_GAMECONTROLLER) != 0) {

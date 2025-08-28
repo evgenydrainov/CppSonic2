@@ -145,13 +145,19 @@ void Program::late_draw(float delta) {
 							 "update: %fms\n"
 							 "draw: %fms\n"
 							 "draw calls: %d\n"
-							 "total triangles: %d\n",
+							 "total triangles: %d\n"
+							 "temp frame: " Size_Fmt "\n"
+							 "temp ever: " Size_Fmt "\n",
 							 window.frame_took * 1000.0,
 							 (window.frame_took - renderer.draw_took) * 1000.0,
 							 renderer.draw_took * 1000.0,
 							 renderer.draw_calls,
-							 renderer.total_triangles);
+							 renderer.total_triangles,
+							 Size_Arg(temp_memory_max_usage_this_frame),
+							 Size_Arg(temp_memory_max_usage_ever));
 		pos = draw_text_shadow(get_font(fnt_consolas_bold), str, pos);
+
+		pos.y += get_font(fnt_consolas_bold).line_height / 2;
 
 		if (program_mode == PROGRAM_GAME) {
 			Player* p = &game.player;

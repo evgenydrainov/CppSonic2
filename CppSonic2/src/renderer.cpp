@@ -649,7 +649,7 @@ static void push_vertices(RenderMode mode, const Texture& t, array<Vertex> verti
 
 	// TODO: what if there's not enough capacity?
 
-	For (it, vertices) array_add(&renderer.vertices, *it);
+	array_add_many(&renderer.vertices, vertices);
 }
 
 void draw_quad(const Texture& t, Vertex vertices[4]) {
@@ -739,7 +739,7 @@ void draw_texture_simple(const Texture& t, Rect src,
 		v2 = temp;
 	}
 
-	Vertex vertices[] = {
+	Vertex vertices[4] = {
 		{{x1, y1, 0.0f}, {}, color, {u1, v1}}, // LT
 		{{x2, y1, 0.0f}, {}, color, {u2, v1}}, // RT
 		{{x2, y2, 0.0f}, {}, color, {u2, v2}}, // RB

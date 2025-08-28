@@ -24,7 +24,12 @@
 
 static void reset_temporary_storage() {
 	Arena* temp_arena = get_temp_arena();
+
+	program.temp_memory_max_usage_this_frame = temp_arena->max_count;
+	program.temp_memory_max_usage_ever = max(program.temp_memory_max_usage_ever, program.temp_memory_max_usage_this_frame);
+
 	temp_arena->count = 0;
+	temp_arena->max_count = 0;
 }
 
 
