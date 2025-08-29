@@ -36,6 +36,22 @@ void Editor::init(int argc, char* argv[]) {
 			laptop_mode = atoi(LAPTOP_MODE);
 		}
 	}
+
+	// style
+	{
+		ImGuiStyle& style = ImGui::GetStyle();
+		style.WindowRounding = 3;
+		style.ChildRounding = 3;
+		style.FrameRounding = 3;
+		style.PopupRounding = 3;
+		style.GrabRounding = 3;
+		style.TabRounding = 3;
+
+		style.FrameBorderSize = 1;
+		style.TabBorderSize = 1;
+
+		style.TabBarOverlineSize = 0;
+	}
 }
 
 void Editor::deinit() {
