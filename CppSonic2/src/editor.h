@@ -126,9 +126,10 @@ struct TilesetEditor {
 	View tileset_view;
 	int selected_tile_index;
 
-	dynamic_array<SetTileHeight> set_tile_heights;
-
 	void update(float delta);
+	void update_mode_heights(float delta);
+	void update_mode_widths(float delta);
+	void update_mode_angles(float delta);
 };
 
 struct TilemapEditor {
@@ -249,9 +250,9 @@ struct Editor {
 	void try_undo();
 	void try_redo();
 	void action_add(const Action& action);
-	void action_add_or_merge(const Action& action);
+	void action_add_or_merge(Action* action);
 	void action_add_and_perform(const Action& action);
-	void action_merge_add_and_perform(const Action& action);
+	void action_merge_add_and_perform(Action* action);
 	void action_perform(const Action& action);
 	void action_revert(const Action& action);
 	bool try_run_game();

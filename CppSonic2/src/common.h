@@ -896,6 +896,8 @@ inline void _array_grow(dynamic_array<T>* arr) {
 
 template <typename T>
 inline T* array_add(dynamic_array<T>* arr, const T& val) {
+	Assert(arr->count <= arr->capacity && "invalid array");
+
 	if (arr->count == arr->capacity) {
 		_array_grow(arr);
 	}

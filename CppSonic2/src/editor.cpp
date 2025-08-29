@@ -233,9 +233,9 @@ static void pan_and_zoom(View& view,
 
 		Assert(renderer.vertices.count == 0);
 
-		set_view_mat({1});
-		set_proj_mat({1});
-		set_model_mat({1});
+		set_view_mat(get_identity());
+		set_proj_mat(get_identity());
+		set_model_mat(get_identity());
 	};
 
 	// draw background
@@ -525,7 +525,7 @@ static void ObjUndoWidget(const F& do_widget,
 			memcpy(action.set_object_field.data_from, field_ptr, sizeof(T));
 			memcpy(action.set_object_field.data_to, &copy, sizeof(T));
 
-			editor.action_merge_add_and_perform(action);
+			editor.action_merge_add_and_perform(&action);
 		}
 	}
 }
@@ -1190,39 +1190,134 @@ void Editor::action_add(const Action& action) {
 	update_window_caption();
 }
 
-void Editor::action_add_or_merge(const Action& action) {
+static bool can_merge(Action* dest, const Action& src) {
+	if (dest->cannot_merge || src.cannot_merge) {
+		return false;
+	}
+
+	if (dest->type == src.type) {
+		switch (dest->type) {
+			case ACTION_SET_OBJECT_FIELD: {
+				if (dest->set_object_field.object_index != src.set_object_field.object_index) {
+					return false;
+				}
+
+				if (dest->set_object_field.field_offset != src.set_object_field.field_offset) {
+					return false;
+				}
+
+				if (dest->set_object_field.field_size != src.set_object_field.field_size) {
+					return false;
+				}
+
+				if (memcmp(dest->set_object_field.data_to, src.set_object_field.data_from, dest->set_object_field.field_size) != 0) {
+					return false;
+				}
+
+				return true;
+			}
+
+			case ACTION_SET_TILE_HEIGHT: {
+				return true;
+			}
+
+			case ACTION_SET_TILE_WIDTH: {
+				return true;
+			}
+
+			case ACTION_SET_TILE_ANGLE: {
+				if (dest->set_tile_angle.tile_index != src.set_tile_angle.tile_index) {
+					return false;
+				}
+
+				if (dest->set_tile_angle.angle_to != src.set_tile_angle.angle_from) {
+					return false;
+				}
+
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+static bool try_merge_action(Action* dest, const Action& src) {
+	if (!can_merge(dest, src)) {
+		return false;
+	}
+
+	switch (dest->type) {
+		case ACTION_SET_OBJECT_FIELD: {
+			memcpy(dest->set_object_field.data_to, src.set_object_field.data_to, dest->set_object_field.field_size);
+			break;
+		}
+
+		case ACTION_SET_TILE_HEIGHT: {
+			For (it, src.set_tile_height.sets) {
+				SetTileHeight* found = nullptr;
+				For (it2, dest->set_tile_height.sets) {
+					if (it2->tile_index == it->tile_index && it2->in_tile_pos_x == it->in_tile_pos_x) {
+						found = it2;
+						break;
+					}
+				}
+
+				if (found) {
+					// TODO: do we have to check that found->height_to == it->height_from ?
+
+					found->height_to = it->height_to;
+				} else {
+					array_add(&dest->set_tile_height.sets, *it);
+				}
+			}
+			break;
+		}
+
+		case ACTION_SET_TILE_WIDTH: {
+			For (it, src.set_tile_width.sets) {
+				SetTileWidth* found = nullptr;
+				For (it2, dest->set_tile_width.sets) {
+					if (it2->tile_index == it->tile_index && it2->in_tile_pos_y == it->in_tile_pos_y) {
+						found = it2;
+						break;
+					}
+				}
+
+				if (found) {
+					// TODO: do we have to check that found->width_to == it->width_from ?
+
+					found->width_to = it->width_to;
+				} else {
+					array_add(&dest->set_tile_width.sets, *it);
+				}
+			}
+			break;
+		}
+
+		case ACTION_SET_TILE_ANGLE: {
+			dest->set_tile_angle.angle_to = src.set_tile_angle.angle_to;
+			break;
+		}
+	}
+
+	return true;
+}
+
+void Editor::action_add_or_merge(Action* action) {
 	Assert(is_level_open);
 
 	bool merged = false;
 
 	if (actions.count > 0) {
-		Action* action2 = &actions[actions.count - 1];
-
-		if (action.type == action2->type) {
-			if (!action.cannot_merge && !action2->cannot_merge) {
-				switch (action.type) {
-					case ACTION_SET_OBJECT_FIELD: {
-						bool can_merge = true;
-						can_merge &= action.set_object_field.object_index == action2->set_object_field.object_index;
-						can_merge &= action.set_object_field.field_offset == action2->set_object_field.field_offset;
-						can_merge &= action.set_object_field.field_size == action2->set_object_field.field_size;
-
-						can_merge &= memcmp(action2->set_object_field.data_to, action.set_object_field.data_from, action.set_object_field.field_size) == 0;
-
-						if (can_merge) {
-							memcpy(action2->set_object_field.data_to, action.set_object_field.data_to, action.set_object_field.field_size);
-
-							merged = true;
-						}
-						break;
-					}
-				}
-			}
-		}
+		Action* dest = &actions[actions.count - 1];
+		merged = try_merge_action(dest, *action);
 	}
 
-	if (!merged) {
-		action_add(action);
+	if (merged) {
+		free_action(action);
+	} else {
+		action_add(*action);
 	}
 
 	update_window_caption();
@@ -1231,15 +1326,15 @@ void Editor::action_add_or_merge(const Action& action) {
 void Editor::action_add_and_perform(const Action& action) {
 	Assert(is_level_open);
 
-	action_add(action);
 	action_perform(action);
+	action_add(action);
 }
 
-void Editor::action_merge_add_and_perform(const Action& action) {
+void Editor::action_merge_add_and_perform(Action* action) {
 	Assert(is_level_open);
 
+	action_perform(*action);
 	action_add_or_merge(action);
-	action_perform(action);
 }
 
 void Editor::action_perform(const Action& action) {
@@ -1430,8 +1525,6 @@ void free_action(Action* action) {
 }
 
 void TilesetEditor::update(float delta) {
-	static bool dont_update_selected_tile_index;
-
 	auto tileset_editor_window = [&]() {
 		ImGui::Begin("Tileset Editor##tileset_editor");
 		defer { ImGui::End(); };
@@ -1544,253 +1637,19 @@ void TilesetEditor::update(float delta) {
 
 					int tile_index = tile_pos.x + tile_pos.y * (editor.tileset_texture.width / 16);
 
-					if (!dont_update_selected_tile_index) {
-						selected_tile_index = tile_index;
-					}
+					selected_tile_index = tile_index;
 				}
 			}
 		}
-
-		bool set_tile_heights_dragging = false;
 
 		if (mode == MODE_HEIGHTS) {
-			if (tool == TOOL_BRUSH) {
-				if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-					set_tile_heights_dragging = true;
-
-					if (pos_in_rect(ImGui::GetMousePos(), tileset_view.thing_p0, tileset_view.thing_p1)) {
-						ivec2 tile_pos = view_get_tile_pos(tileset_view,
-														   {16, 16},
-														   {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
-														   ImGui::GetMousePos());
-
-						ivec2 in_tile_pos = view_get_in_tile_pos(tileset_view,
-																 {16, 16},
-																 {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
-																 ImGui::GetMousePos());
-
-						int tile_index = tile_pos.x + tile_pos.y * (editor.tileset_texture.width / 16);
-
-						auto heights = get_tile_heights(editor.ts, tile_index);
-						int height_from = heights[in_tile_pos.x];
-						heights[in_tile_pos.x] = 16 - in_tile_pos.y;
-
-						gen_heightmap_texture(&editor.heightmap, editor.ts, editor.tileset_texture);
-
-						SetTileHeight* found = nullptr;
-						For (it, set_tile_heights) {
-							if (it->tile_index == tile_index && it->in_tile_pos_x == in_tile_pos.x) {
-								found = it;
-								break;
-							}
-						}
-
-						if (found) {
-							found->height_to = heights[in_tile_pos.x];
-						} else {
-							SetTileHeight set = {};
-							set.tile_index = tile_index;
-							set.in_tile_pos_x = in_tile_pos.x;
-							set.height_from = height_from;
-							set.height_to = heights[in_tile_pos.x];
-
-							array_add(&set_tile_heights, set);
-						}
-					}
-				}
-			} else if (tool == TOOL_AUTO) {
-				if (ImGui::IsItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-					ivec2 tile_pos = view_get_tile_pos(tileset_view,
-													   {16, 16},
-													   {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
-													   ImGui::GetMousePos());
-
-					int tile_index = tile_pos.x + tile_pos.y * (editor.tileset_texture.width / 16);
-
-					Action action = {};
-					action.type = ACTION_SET_TILE_HEIGHT;
-
-					for (int x = 0; x < 16; x++) {
-						int height = 0;
-
-						int pixel_x = tile_pos.x * 16 + x;
-						int pixel_y = tile_pos.y * 16 + 15;
-						vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
-						if (pixel.a == 0) {
-							// flipped height
-							for (int y = 0; y < 16; y++) {
-								int pixel_x = tile_pos.x * 16 + x;
-								int pixel_y = tile_pos.y * 16 + y;
-								vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
-								if (pixel.a != 0) {
-									height = 0xFF - y;
-								} else {
-									break;
-								}
-							}
-						} else {
-							// normal height
-							for (int y = 15; y >= 0; y--) {
-								int pixel_x = tile_pos.x * 16 + x;
-								int pixel_y = tile_pos.y * 16 + y;
-								vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
-								if (pixel.a != 0) {
-									height = 16 - y;
-								} else {
-									break;
-								}
-							}
-						}
-
-						SetTileHeight set = {};
-						set.tile_index = tile_index;
-						set.in_tile_pos_x = x;
-						set.height_from = get_tile_heights(editor.ts, tile_index)[x];
-						set.height_to = height;
-
-						array_add(&action.set_tile_height.sets, set);
-					}
-
-					editor.action_add_and_perform(action);
-				}
-			}
+			update_mode_heights(delta);
 		} else if (mode == MODE_WIDTHS) {
-			if (tool == TOOL_AUTO) {
-				if (ImGui::IsItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-					ivec2 tile_pos = view_get_tile_pos(tileset_view,
-													   {16, 16},
-													   {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
-													   ImGui::GetMousePos());
-
-					int tile_index = tile_pos.x + tile_pos.y * (editor.tileset_texture.width / 16);
-
-					Action action = {};
-					action.type = ACTION_SET_TILE_WIDTH;
-
-					for (int y = 0; y < 16; y++) {
-						int width = 0;
-
-						int pixel_x = tile_pos.x * 16 + 15;
-						int pixel_y = tile_pos.y * 16 + y;
-						vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
-						if (pixel.a == 0) {
-							// flipped width
-							for (int x = 0; x < 16; x++) {
-								int pixel_x = tile_pos.x * 16 + x;
-								int pixel_y = tile_pos.y * 16 + y;
-								vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
-								if (pixel.a != 0) {
-									width = 0xFF - x;
-								} else {
-									break;
-								}
-							}
-						} else {
-							// normal width
-							for (int x = 15; x >= 0; x--) {
-								int pixel_x = tile_pos.x * 16 + x;
-								int pixel_y = tile_pos.y * 16 + y;
-								vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
-								if (pixel.a != 0) {
-									width = 16 - x;
-								} else {
-									break;
-								}
-							}
-						}
-
-						SetTileWidth set = {};
-						set.tile_index = tile_index;
-						set.in_tile_pos_y = y;
-						set.width_from = get_tile_widths(editor.ts, tile_index)[y];
-						set.width_to = width;
-
-						array_add(&action.set_tile_width.sets, set);
-					}
-
-					editor.action_add_and_perform(action);
-				}
-			}
+			update_mode_widths(delta);
 		} else if (mode == MODE_ANGLES) {
-			if (tool == TOOL_BRUSH) {
-				static bool dragging;
-				static vec2 start_pos;
-
-				vec2 pos = view_get_pos(tileset_view, ImGui::GetMousePos());
-
-				if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-					if (!dragging) {
-						start_pos = pos;
-						dragging = true;
-					}
-
-					vec2 arrow_p0 = start_pos;
-					vec2 arrow_p1 = pos;
-					if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
-						arrow_p0.x = roundf_to(arrow_p0.x, 8);
-						arrow_p0.y = roundf_to(arrow_p0.y, 8);
-						
-						arrow_p1.x = roundf_to(arrow_p1.x, 8);
-						arrow_p1.y = roundf_to(arrow_p1.y, 8);
-					}
-
-					ImDrawList* draw_list = ImGui::GetWindowDrawList();
-					AddArrow(draw_list,
-							 tileset_view.thing_p0 + arrow_p0 * tileset_view.zoom,
-							 tileset_view.thing_p0 + arrow_p1 * tileset_view.zoom,
-							 IM_COL32_WHITE, 0.5, tileset_view.zoom);
-				} else {
-					if (dragging) {
-						if (point_distance(start_pos.x, start_pos.y, pos.x, pos.y) > 1) {
-							int tile_x = clamp((int)(start_pos.x / 16), 0, editor.tileset_texture.width  / 16 - 1);
-							int tile_y = clamp((int)(start_pos.y / 16), 0, editor.tileset_texture.height / 16 - 1);
-							int tile_index = tile_x + tile_y * (editor.tileset_texture.width / 16);
-
-							vec2 arrow_p0 = start_pos;
-							vec2 arrow_p1 = pos;
-							if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
-								arrow_p0.x = roundf_to(arrow_p0.x, 8);
-								arrow_p0.y = roundf_to(arrow_p0.y, 8);
-
-								arrow_p1.x = roundf_to(arrow_p1.x, 8);
-								arrow_p1.y = roundf_to(arrow_p1.y, 8);
-							}
-
-							float angle = point_direction(arrow_p0, arrow_p1);
-
-							Action action = {};
-							action.type = ACTION_SET_TILE_ANGLE;
-							action.set_tile_angle.tile_index = tile_index;
-							action.set_tile_angle.angle_from = editor.ts.angles[tile_index];
-							action.set_tile_angle.angle_to = angle;
-
-							editor.action_add_and_perform(action);
-						}
-
-						dragging = false;
-					}
-				}
-			}
-		}
-
-		if (!set_tile_heights_dragging) {
-			if (set_tile_heights.count > 0) {
-				Action action = {};
-				action.type = ACTION_SET_TILE_HEIGHT;
-
-				// copy array
-				For (it, set_tile_heights) {
-					array_add(&action.set_tile_height.sets, *it);
-				}
-
-				editor.action_add(action);
-
-				set_tile_heights.count = 0;
-			}
+			update_mode_angles(delta);
 		}
 	};
-
-	tileset_editor_window();
 
 	auto tile_properties_window = [&]() {
 		ImGui::Begin("Tile Properties##tileset_editor");
@@ -1803,13 +1662,8 @@ void TilesetEditor::update(float delta) {
 
 		ImGui::Text("Tile ID: %d", selected_tile_index);
 
-		dont_update_selected_tile_index = false;
-
 		float angle = editor.ts.angles[selected_tile_index];
-		ImGui::InputFloat("Angle", &angle, 0, 0, nullptr, ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_CharsDecimal);
-		if (ImGui::IsItemActive()) {
-			dont_update_selected_tile_index = true;
-		} else {
+		if (ImGui::InputFloat("Angle", &angle, 0, 0, nullptr, ImGuiInputTextFlags_CharsDecimal)) {
 			if (editor.ts.angles[selected_tile_index] != angle) {
 				Action action = {};
 				action.type = ACTION_SET_TILE_ANGLE;
@@ -1817,7 +1671,7 @@ void TilesetEditor::update(float delta) {
 				action.set_tile_angle.angle_from = editor.ts.angles[selected_tile_index];
 				action.set_tile_angle.angle_to = angle;
 
-				editor.action_add_and_perform(action);
+				editor.action_merge_add_and_perform(&action);
 			}
 		}
 
@@ -1828,10 +1682,7 @@ void TilesetEditor::update(float delta) {
 
 				char buf[32];
 				stbsp_snprintf(buf, sizeof(buf), "[%d]##heights", i);
-				ImGui::InputInt(buf, &height, 0, 0, ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_CharsDecimal);
-				if (ImGui::IsItemActive()) {
-					dont_update_selected_tile_index = true;
-				} else {
+				if (ImGui::InputInt(buf, &height, 0, 0, ImGuiInputTextFlags_CharsDecimal)) {
 					if (heights[i] != height) {
 						Action action = {};
 						action.type = ACTION_SET_TILE_HEIGHT;
@@ -1843,7 +1694,7 @@ void TilesetEditor::update(float delta) {
 						set.height_to = height;
 						array_add(&action.set_tile_height.sets, set);
 
-						editor.action_add_and_perform(action);
+						editor.action_merge_add_and_perform(&action);
 					}
 				}
 			}
@@ -1856,10 +1707,7 @@ void TilesetEditor::update(float delta) {
 
 				char buf[32];
 				stbsp_snprintf(buf, sizeof(buf), "[%d]##widths", i);
-				ImGui::InputInt(buf, &width, 0, 0, ImGuiInputTextFlags_NoUndoRedo | ImGuiInputTextFlags_CharsDecimal);
-				if (ImGui::IsItemActive()) {
-					dont_update_selected_tile_index = true;
-				} else {
+				if (ImGui::InputInt(buf, &width, 0, 0, ImGuiInputTextFlags_CharsDecimal)) {
 					if (widths[i] != width) {
 						Action action = {};
 						action.type = ACTION_SET_TILE_WIDTH;
@@ -1871,14 +1719,280 @@ void TilesetEditor::update(float delta) {
 						set.width_to = width;
 						array_add(&action.set_tile_width.sets, set);
 
-						editor.action_add_and_perform(action);
+						editor.action_merge_add_and_perform(&action);
 					}
 				}
 			}
 		}
 	};
 
+	// has to be in this order
 	tile_properties_window();
+	tileset_editor_window();
+}
+
+void TilesetEditor::update_mode_heights(float delta) {
+	if (tool == TOOL_BRUSH || tool == TOOL_ERASER) {
+		if (ImGui::IsItemActive() && (ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseDown(ImGuiMouseButton_Right))) {
+			if (pos_in_rect(ImGui::GetMousePos(), tileset_view.thing_p0, tileset_view.thing_p1)) {
+				ivec2 tile_pos = view_get_tile_pos(tileset_view,
+												   {16, 16},
+												   {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
+												   ImGui::GetMousePos());
+
+				ivec2 in_tile_pos = view_get_in_tile_pos(tileset_view,
+														 {16, 16},
+														 {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
+														 ImGui::GetMousePos());
+
+				int tile_index = tile_pos.x + tile_pos.y * (editor.tileset_texture.width / 16);
+
+				auto heights = get_tile_heights(editor.ts, tile_index);
+
+				SetTileHeight set = {};
+				set.height_from = heights[in_tile_pos.x];
+				if (tool == TOOL_ERASER) {
+					set.height_to = 0;
+				} else {
+					if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+						set.height_to = 0xF0 + (15 - in_tile_pos.y);
+					} else {
+						set.height_to = 16 - in_tile_pos.y;
+					}
+				}
+				set.tile_index = tile_index;
+				set.in_tile_pos_x = in_tile_pos.x;
+
+				Action action = {};
+				action.type = ACTION_SET_TILE_HEIGHT;
+				array_add(&action.set_tile_height.sets, set);
+
+				editor.action_merge_add_and_perform(&action);
+			}
+		}
+	} else if (tool == TOOL_AUTO) {
+		if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+			if (pos_in_rect(ImGui::GetMousePos(), tileset_view.thing_p0, tileset_view.thing_p1)) {
+				ivec2 tile_pos = view_get_tile_pos(tileset_view,
+												   {16, 16},
+												   {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
+												   ImGui::GetMousePos());
+
+				int tile_index = tile_pos.x + tile_pos.y * (editor.tileset_texture.width / 16);
+
+				Action action = {};
+				action.type = ACTION_SET_TILE_HEIGHT;
+
+				for (int x = 0; x < 16; x++) {
+					int height = 0;
+
+					int pixel_x = tile_pos.x * 16 + x;
+					int pixel_y = tile_pos.y * 16 + 15;
+					vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
+					if (pixel.a == 0) {
+						// flipped height
+						for (int y = 0; y < 16; y++) {
+							int pixel_x = tile_pos.x * 16 + x;
+							int pixel_y = tile_pos.y * 16 + y;
+							vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
+							if (pixel.a != 0) {
+								height = 0xFF - y;
+							} else {
+								break;
+							}
+						}
+					} else {
+						// normal height
+						for (int y = 15; y >= 0; y--) {
+							int pixel_x = tile_pos.x * 16 + x;
+							int pixel_y = tile_pos.y * 16 + y;
+							vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
+							if (pixel.a != 0) {
+								height = 16 - y;
+							} else {
+								break;
+							}
+						}
+					}
+
+					SetTileHeight set = {};
+					set.tile_index = tile_index;
+					set.in_tile_pos_x = x;
+					set.height_from = get_tile_heights(editor.ts, tile_index)[x];
+					set.height_to = height;
+
+					array_add(&action.set_tile_height.sets, set);
+				}
+
+				editor.action_merge_add_and_perform(&action);
+
+				// some visual feedback
+				vec2 p0 = tileset_view.thing_p0 + vec2{tile_pos.x*16, tile_pos.y*16} * tileset_view.zoom;
+				vec2 p1 = p0 + vec2{16, 16} * tileset_view.zoom;
+				ImGui::GetWindowDrawList()->AddRect(p0, p1, IM_COL32(255, 0, 0, 255), 0, 0, tileset_view.zoom);
+			}
+		}
+	}
+}
+
+void TilesetEditor::update_mode_widths(float delta) {
+	if (tool == TOOL_BRUSH || tool == TOOL_ERASER) {
+		if (ImGui::IsItemActive() && (ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseDown(ImGuiMouseButton_Right))) {
+			if (pos_in_rect(ImGui::GetMousePos(), tileset_view.thing_p0, tileset_view.thing_p1)) {
+				ivec2 tile_pos = view_get_tile_pos(tileset_view,
+												   {16, 16},
+												   {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
+												   ImGui::GetMousePos());
+
+				ivec2 in_tile_pos = view_get_in_tile_pos(tileset_view,
+														 {16, 16},
+														 {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
+														 ImGui::GetMousePos());
+
+				int tile_index = tile_pos.x + tile_pos.y * (editor.tileset_texture.width / 16);
+
+				auto widths = get_tile_widths(editor.ts, tile_index);
+
+				SetTileWidth set = {};
+				set.width_from = widths[in_tile_pos.y];
+				if (tool == TOOL_ERASER) {
+					set.width_to = 0;
+				} else {
+					if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+						set.width_to = 0xF0 + (15 - in_tile_pos.x);
+					} else {
+						set.width_to = 16 - in_tile_pos.x;
+					}
+				}
+				set.tile_index = tile_index;
+				set.in_tile_pos_y = in_tile_pos.y;
+
+				Action action = {};
+				action.type = ACTION_SET_TILE_WIDTH;
+				array_add(&action.set_tile_width.sets, set);
+
+				editor.action_merge_add_and_perform(&action);
+			}
+		}
+	} else if (tool == TOOL_AUTO) {
+		if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+			if (pos_in_rect(ImGui::GetMousePos(), tileset_view.thing_p0, tileset_view.thing_p1)) {
+				ivec2 tile_pos = view_get_tile_pos(tileset_view,
+												   {16, 16},
+												   {editor.tileset_texture.width / 16, editor.tileset_texture.height / 16},
+												   ImGui::GetMousePos());
+
+				int tile_index = tile_pos.x + tile_pos.y * (editor.tileset_texture.width / 16);
+
+				Action action = {};
+				action.type = ACTION_SET_TILE_WIDTH;
+
+				for (int y = 0; y < 16; y++) {
+					int width = 0;
+
+					int pixel_x = tile_pos.x * 16 + 15;
+					int pixel_y = tile_pos.y * 16 + y;
+					vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
+					if (pixel.a == 0) {
+						// flipped width
+						for (int x = 0; x < 16; x++) {
+							int pixel_x = tile_pos.x * 16 + x;
+							int pixel_y = tile_pos.y * 16 + y;
+							vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
+							if (pixel.a != 0) {
+								width = 0xFF - x;
+							} else {
+								break;
+							}
+						}
+					} else {
+						// normal width
+						for (int x = 15; x >= 0; x--) {
+							int pixel_x = tile_pos.x * 16 + x;
+							int pixel_y = tile_pos.y * 16 + y;
+							vec4 pixel = surface_get_pixel(editor.tileset_surface, pixel_x, pixel_y);
+							if (pixel.a != 0) {
+								width = 16 - x;
+							} else {
+								break;
+							}
+						}
+					}
+
+					SetTileWidth set = {};
+					set.tile_index = tile_index;
+					set.in_tile_pos_y = y;
+					set.width_from = get_tile_widths(editor.ts, tile_index)[y];
+					set.width_to = width;
+
+					array_add(&action.set_tile_width.sets, set);
+				}
+
+				editor.action_merge_add_and_perform(&action);
+
+				// some visual feedback
+				vec2 p0 = tileset_view.thing_p0 + vec2{tile_pos.x*16, tile_pos.y*16} * tileset_view.zoom;
+				vec2 p1 = p0 + vec2{16, 16} * tileset_view.zoom;
+				ImGui::GetWindowDrawList()->AddRect(p0, p1, IM_COL32(255, 0, 0, 255), 0, 0, tileset_view.zoom);
+			}
+		}
+	}
+}
+
+void TilesetEditor::update_mode_angles(float delta) {
+	if (tool == TOOL_BRUSH) {
+		static bool dragging;
+		static vec2 start_pos;
+
+		vec2 pos = view_get_pos(tileset_view, ImGui::GetMousePos());
+
+		if (ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+			if (!dragging) {
+				start_pos = pos;
+				dragging = true;
+			}
+
+			vec2 arrow_p0 = start_pos;
+			vec2 arrow_p1 = pos;
+			if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+				arrow_p0 = round(arrow_p0 / 8.0f) * 8.0f;
+				arrow_p1 = round(arrow_p1 / 8.0f) * 8.0f;
+			}
+
+			ImDrawList* draw_list = ImGui::GetWindowDrawList();
+			AddArrow(draw_list,
+					 tileset_view.thing_p0 + arrow_p0 * tileset_view.zoom,
+					 tileset_view.thing_p0 + arrow_p1 * tileset_view.zoom,
+					 IM_COL32_WHITE, 0.5, tileset_view.zoom);
+		} else {
+			if (dragging) {
+				if (point_distance(start_pos.x, start_pos.y, pos.x, pos.y) > 1) {
+					int tile_x = clamp((int)(start_pos.x / 16), 0, editor.tileset_texture.width  / 16 - 1);
+					int tile_y = clamp((int)(start_pos.y / 16), 0, editor.tileset_texture.height / 16 - 1);
+					int tile_index = tile_x + tile_y * (editor.tileset_texture.width / 16);
+
+					vec2 arrow_p0 = start_pos;
+					vec2 arrow_p1 = pos;
+					if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+						arrow_p0 = round(arrow_p0 / 8.0f) * 8.0f;
+						arrow_p1 = round(arrow_p1 / 8.0f) * 8.0f;
+					}
+
+					float angle = point_direction(arrow_p0, arrow_p1);
+
+					Action action = {};
+					action.type = ACTION_SET_TILE_ANGLE;
+					action.set_tile_angle.tile_index = tile_index;
+					action.set_tile_angle.angle_from = editor.ts.angles[tile_index];
+					action.set_tile_angle.angle_to = angle;
+
+					editor.action_add_and_perform(action);
+				}
+
+				dragging = false;
+			}
+		}
+	}
 }
 
 void TilemapEditor::update(float delta) {
