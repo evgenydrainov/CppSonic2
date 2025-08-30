@@ -152,7 +152,18 @@ void init_window_and_opengl(const char* title,
 #ifdef _DEBUG
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
 #endif
+
+	// disable depth buffer
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
+
+	{
+		// https://github.com/libsdl-org/SDL/issues/7462
+
+		SDL_GL_SetAttribute(SDL_GL_RED_SIZE,   8);
+		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE,  8);
+		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+	}
 
 
 	window.handle = SDL_CreateWindow(title,
@@ -177,6 +188,22 @@ void init_window_and_opengl(const char* title,
 
 	window.gl_context = SDL_GL_CreateContext(window.handle);
 	SDL_GL_MakeCurrent(window.handle, window.gl_context);
+
+	{
+		int red_size;
+		int green_size;
+		int blue_size;
+		int alpha_size;
+		int depth_size;
+
+		SDL_GL_GetAttribute(SDL_GL_RED_SIZE,   &red_size);
+		SDL_GL_GetAttribute(SDL_GL_GREEN_SIZE, &green_size);
+		SDL_GL_GetAttribute(SDL_GL_BLUE_SIZE,  &blue_size);
+		SDL_GL_GetAttribute(SDL_GL_ALPHA_SIZE, &alpha_size);
+		SDL_GL_GetAttribute(SDL_GL_DEPTH_SIZE, &depth_size);
+
+		log_info("Got Format %d%d%d%d (depth %d)", red_size, green_size, blue_size, alpha_size, depth_size);
+	}
 
 	{
 #if defined(__ANDROID__) || defined(__EMSCRIPTEN__)
