@@ -77,6 +77,8 @@ struct Player {
 	float change_mode_timer;
 	float dont_change_mode_timer;
 
+	float look_timer;
+
 	u32 input;
 	u32 input_press;
 	u32 input_release;
@@ -296,6 +298,7 @@ struct Game {
 	vec2 camera_pos;
 	vec2 camera_pos_real;
 	float camera_lock;
+	float camera_look_offset;
 
 	Tileset ts;
 	Texture tileset_texture;

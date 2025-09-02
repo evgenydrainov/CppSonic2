@@ -939,7 +939,17 @@ static void ground_sensor_collision(Player* p) {
 		}
 	}
 
-	SensorResult res = (res_a.dist < res_b.dist) ? res_a : res_b;
+	SensorResult res;
+	if (res_a.dist == res_b.dist) {
+		// if same distance, pick the sensor that stands on unangled tile
+		if (get_tile_angle(game.ts, res_a.tile.index) == -1) {
+			res = res_a;
+		} else {
+			res = res_b;
+		}
+	} else {
+		res = (res_a.dist < res_b.dist) ? res_a : res_b;
+	}
 
 	if (res.dist > check_dist) {
 		p->state = STATE_AIR;
@@ -1652,8 +1662,15 @@ static void player_collide_with_solid_objects(Player* p) {
 
 			if (x_distance != 0) {
 				// if player is moving towards the object
-				if ((x_distance > 0 && p->speed.x > 0)
-					|| (x_distance < 0 && p->speed.x < 0))
+				bool should_collide = ((x_distance > 0 && p->speed.x > 0)
+									   || (x_distance < 0 && p->speed.x < 0));
+
+				// special case for spikes
+				if (it->type == OBJ_SPIKE && (it->spike.direction == DIR_LEFT || it->spike.direction == DIR_RIGHT)) {
+					should_collide = true;
+				}
+
+				if (should_collide)
 				{
 					Direction dir = (x_distance > 0) ? DIR_RIGHT : DIR_LEFT;
 
@@ -2120,6 +2137,22 @@ static void player_state_ground(Player* p, float delta) {
 
 			t -= 4;
 		}
+	}
+
+	if (p->anim == anim_look_up) {
+		p->look_timer += delta;
+
+		if (p->look_timer > 120) {
+			Approach(&game.camera_look_offset, -110.0f, 2.0f * delta);
+		}
+	} else if (p->anim == anim_crouch) {
+		p->look_timer += delta;
+
+		if (p->look_timer > 120) {
+			Approach(&game.camera_look_offset, 110.0f, 2.0f * delta);
+		}
+	} else {
+		p->look_timer = 0;
 	}
 }
 
@@ -2597,10 +2630,20 @@ void Game::update_camera(float delta) {
 		Clamp(&camera_pos_real.x, 0.0f, (float) (tm.width  * 16 - window.game_width));
 		Clamp(&camera_pos_real.y, 0.0f, (float) (tm.height * 16 - window.game_height));
 
-		camera_pos = floor(camera_pos_real);
+		// set camera pos
+		camera_pos = camera_pos_real + vec2{0, camera_look_offset};
+
+		Clamp(&camera_pos.x, 0.0f, (float) (tm.width  * 16 - window.game_width));
+		Clamp(&camera_pos.y, 0.0f, (float) (tm.height * 16 - window.game_height));
+
+		camera_pos = floor(camera_pos);
 	}
 
 	camera_lock = fmaxf(camera_lock - delta, 0);
+
+	if (p->look_timer == 0) {
+		Approach(&camera_look_offset, 0.0f, 2.0f * delta);
+	}
 }
 
 void Game::update_gameplay(float delta) {
