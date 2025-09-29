@@ -2403,19 +2403,15 @@ static void player_update(Player* p, float delta) {
 			const float deadzone = 0.3f;
 
 			float leftx = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTX);
-			if (leftx < -deadzone) {
-				p->input |= INPUT_MOVE_LEFT;
-			}
-			if (leftx > deadzone) {
-				p->input |= INPUT_MOVE_RIGHT;
-			}
-
 			float lefty = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTY);
-			if (lefty < -deadzone) {
-				p->input |= INPUT_MOVE_UP;
-			}
-			if (lefty > deadzone) {
-				p->input |= INPUT_MOVE_DOWN;
+
+			float len = point_distance(0, 0, leftx, lefty);
+			float dir = angle_wrap(point_direction(0, 0, leftx, lefty));
+
+			if (len > deadzone) {
+				int cardinal = wrap((int)((dir + 45.0f) / 90.0f), 4);
+
+				p->input |= (1 << cardinal);
 			}
 		}
 
