@@ -44,7 +44,7 @@ void Title_Screen::update(float delta) {
 	if (press) {
 		program.set_program_mode(PROGRAM_GAME);
 
-		Mix_FadeOutMusic(1000);
+		// Mix_FadeOutMusic(1000);
 	}
 }
 

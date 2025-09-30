@@ -104,12 +104,18 @@ static int game_main(int argc, char* argv[]) {
 	init_mixer();
 	defer { deinit_mixer(); };
 
+	log_info("INITTED MIXER");
+
 	load_global_assets();
 	load_assets_for_game();
 	defer { free_all_assets(); };
 
+	log_info("LOADED ASSETS");
+
 	init_renderer();
 	defer { deinit_renderer(); };
+
+	log_info("INITTED RENDERER");
 
 	program.init(argc, argv);
 	defer { program.deinit(); };

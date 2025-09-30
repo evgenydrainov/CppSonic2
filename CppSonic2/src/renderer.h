@@ -8,7 +8,9 @@
 * Call break_batch() before making raw OpenGL calls.
 */
 
-#if defined(__ANDROID__) || defined(__EMSCRIPTEN__)
+#if defined(__VITA__)
+constexpr size_t BATCH_MAX_QUADS    = 1'000;
+#elif defined(__ANDROID__) || defined(__EMSCRIPTEN__)
 constexpr size_t BATCH_MAX_QUADS    = 1'000;
 #else
 constexpr size_t BATCH_MAX_QUADS    = 10'000;

@@ -108,14 +108,16 @@ inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(Log_Type type, SDL_PRINTF_FOR
 		}
 	}
 
-	switch (type) {
-		case LOG_INFO:  printf("INFO: ");  break;
-		case LOG_WARN:  printf("\033[93mWARN\033[0m: ");  break;
-		case LOG_ERROR: printf("\033[91mERROR\033[0m: "); break;
-	}
+	// switch (type) {
+	// 	case LOG_INFO:  printf("INFO: ");  break;
+	// 	case LOG_WARN:  printf("\033[93mWARN\033[0m: ");  break;
+	// 	case LOG_ERROR: printf("\033[91mERROR\033[0m: "); break;
+	// }
 
-	// SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, to_sdl_priority(type), "%s", buf);
-	printf("%s\n", buf);
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, to_sdl_priority(type), "%s", buf);
+	// printf("%s\n", buf);
+
+	// SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Info", buf, nullptr);
 
 	if (buf != stack_buf) {
 		free(buf);
@@ -219,7 +221,7 @@ public:
 #define GENERATE_STRING(x) #x,
 
 #define DEFINE_NAMED_ENUM(Type, List)                           \
-	enum Type { List(GENERATE_ENUM) };                          \
+	enum Type : int { List(GENERATE_ENUM) };                          \
 	inline const char* Get##Type##Name(Type val) {              \
 		static const char* names[] = { List(GENERATE_STRING) }; \
 		if (val >= 0 && val < ArrayLength(names)) {             \
@@ -232,7 +234,7 @@ public:
 #define GENERATE_ENUM_CASE(name, value) case name: return #name;
 
 #define DEFINE_NAMED_ENUM_WITH_VALUES(Type, List)  \
-	enum Type { List(GENERATE_ENUM_WITH_VALUES) }; \
+	enum Type : int { List(GENERATE_ENUM_WITH_VALUES) }; \
 	inline const char* Get##Type##Name(Type val) { \
 		switch (val) {                             \
 			List(GENERATE_ENUM_CASE)               \

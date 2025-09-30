@@ -1,10 +1,27 @@
 cmake_minimum_required(VERSION 3.20)
+
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+  if(DEFINED ENV{VITASDK})
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VITASDK}/share/vita.toolchain.cmake" CACHE PATH "toolchain file")
+  else()
+    message(FATAL_ERROR "Please define VITASDK to point to your SDK path!")
+  endif()
+endif()
+
 project(CppSonic2)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_FLAGS "-Wno-c++11-narrowing")
+include("${VITASDK}/share/vita.cmake" REQUIRED)
+
+find_package(SDL2 REQUIRED)
+
+set(VITA_APP_NAME "Sonic VHS")
+set(VITA_TITLEID  "SONICVHS0")
+set(VITA_VERSION  "01.00")
+
+# set(CMAKE_CXX_STANDARD 17)
+# set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# set(CMAKE_CXX_EXTENSIONS OFF)
+# set(CMAKE_CXX_FLAGS "-Wno-c++11-narrowing")
 
 add_compile_definitions($<$<CONFIG:Debug>:_DEBUG>)
 add_compile_definitions($<$<NOT:$<CONFIG:Debug>>:NDEBUG>)
@@ -16,19 +33,19 @@ include_directories(${PROJECT_NAME} ../external/glad/include)
 include_directories(${PROJECT_NAME} ../external/glm/include)
 include_directories(${PROJECT_NAME} ../external/stb/include)
 
-find_package(PkgConfig REQUIRED)
+# find_package(PkgConfig REQUIRED)
 
-pkg_check_modules(SDL2 REQUIRED sdl2)
-pkg_check_modules(SDL2_MIXER REQUIRED SDL2_mixer)
-pkg_check_modules(FREETYPE REQUIRED freetype2)
+# pkg_check_modules(SDL2 REQUIRED sdl2)
+# pkg_check_modules(SDL2_MIXER REQUIRED SDL2_mixer)
+# pkg_check_modules(FREETYPE REQUIRED freetype2)
 
 MESSAGE(STATUS "INFO: SDL2_INCLUDE_DIRS is ${SDL2_INCLUDE_DIRS}")
 MESSAGE(STATUS "INFO: SDL2_MIXER_INCLUDE_DIRS is ${SDL2_MIXER_INCLUDE_DIRS}")
 MESSAGE(STATUS "INFO: FREETYPE_INCLUDE_DIRS is ${FREETYPE_INCLUDE_DIRS}")
 
-include_directories(${PROJECT_NAME} ${SDL2_INCLUDE_DIRS})
-include_directories(${PROJECT_NAME} ${SDL2_MIXER_INCLUDE_DIRS})
-include_directories(${PROJECT_NAME} ${FREETYPE_INCLUDE_DIRS})
+# include_directories(${PROJECT_NAME} ${SDL2_INCLUDE_DIRS})
+# include_directories(${PROJECT_NAME} ${SDL2_MIXER_INCLUDE_DIRS})
+# include_directories(${PROJECT_NAME} ${FREETYPE_INCLUDE_DIRS})
 
 set(SOURCES
 	src/renderer.cpp
@@ -52,34 +69,61 @@ set(SOURCES
 	src/title_screen.cpp
 	src/input.cpp
 	src/input_bindings.cpp
+	src/util.cpp
 	src/imgui/imgui_single_file.cpp
 	src/nfd/nfd_zenity.cpp
 	src/nfd/nfd_common.cpp)
 
-add_executable(${PROJECT_NAME} ${SOURCES})
+add_executable(${PROJECT_NAME}.elf ${SOURCES})
 
 MESSAGE(STATUS "INFO: SDL2_CFLAGS_OTHER is ${SDL2_CFLAGS_OTHER}")
 MESSAGE(STATUS "INFO: SDL2_MIXER_CFLAGS_OTHER is ${SDL2_MIXER_CFLAGS_OTHER}")
 MESSAGE(STATUS "INFO: FREETYPE_CFLAGS_OTHER is ${FREETYPE_CFLAGS_OTHER}")
 
-target_compile_options(${PROJECT_NAME} PRIVATE ${SDL2_CFLAGS_OTHER})
-target_compile_options(${PROJECT_NAME} PRIVATE ${SDL2_MIXER_CFLAGS_OTHER})
-target_compile_options(${PROJECT_NAME} PRIVATE ${FREETYPE_CFLAGS_OTHER})
+# target_compile_options(${PROJECT_NAME} PRIVATE ${SDL2_CFLAGS_OTHER})
+# target_compile_options(${PROJECT_NAME} PRIVATE ${SDL2_MIXER_CFLAGS_OTHER})
+# target_compile_options(${PROJECT_NAME} PRIVATE ${FREETYPE_CFLAGS_OTHER})
 
 MESSAGE(STATUS "INFO: SDL2_LIBRARY_DIRS is ${SDL2_LIBRARY_DIRS}")
 MESSAGE(STATUS "INFO: SDL2_MIXER_LIBRARY_DIRS is ${SDL2_MIXER_LIBRARY_DIRS}")
 MESSAGE(STATUS "INFO: FREETYPE_LIBRARY_DIRS is ${FREETYPE_LIBRARY_DIRS}")
 
-target_link_directories(${PROJECT_NAME} PRIVATE ${SDL2_LIBRARY_DIRS})
-target_link_directories(${PROJECT_NAME} PRIVATE ${SDL2_MIXER_LIBRARY_DIRS})
-target_link_directories(${PROJECT_NAME} PRIVATE ${FREETYPE_LIBRARY_DIRS})
+# target_link_directories(${PROJECT_NAME} PRIVATE ${SDL2_LIBRARY_DIRS})
+# target_link_directories(${PROJECT_NAME} PRIVATE ${SDL2_MIXER_LIBRARY_DIRS})
+# target_link_directories(${PROJECT_NAME} PRIVATE ${FREETYPE_LIBRARY_DIRS})
 
 MESSAGE(STATUS "INFO: SDL2_LIBRARIES is ${SDL2_LIBRARIES}")
 MESSAGE(STATUS "INFO: SDL2_MIXER_LIBRARIES is ${SDL2_MIXER_LIBRARIES}")
 MESSAGE(STATUS "INFO: FREETYPE_LIBRARIES is ${FREETYPE_LIBRARIES}")
 
-target_link_libraries(${PROJECT_NAME} ${SDL2_LIBRARIES})
-target_link_libraries(${PROJECT_NAME} ${SDL2_MIXER_LIBRARIES})
-target_link_libraries(${PROJECT_NAME} ${FREETYPE_LIBRARIES})
+# target_link_libraries(${PROJECT_NAME} ${SDL2_LIBRARIES})
+# target_link_libraries(${PROJECT_NAME} ${SDL2_MIXER_LIBRARIES})
+# target_link_libraries(${PROJECT_NAME} ${FREETYPE_LIBRARIES})
 
-target_precompile_headers(${PROJECT_NAME} PRIVATE src/stdafx.h)
+target_link_libraries(${PROJECT_NAME}.elf
+	SDL2::SDL2 SceIme_stub libGLESv2_stub libIMGEGL_stub
+	# SDL2_mixer::SDL2_mixer-static
+	# FLAC ogg vorbis vorbisenc vorbisfile vorbisidec
+)
+
+# target_precompile_headers(${PROJECT_NAME} PRIVATE src/stdafx.h)
+
+vita_create_self(${PROJECT_NAME}.self
+	${PROJECT_NAME}.elf
+	UNSAFE
+	UNCOMPRESSED
+	NOASLR
+)
+
+vita_create_vpk(${PROJECT_NAME}.vpk ${VITA_TITLEID} ${PROJECT_NAME}.self
+  VERSION ${VITA_VERSION}
+  NAME ${VITA_APP_NAME}
+  FILE sce_sys sce_sys
+  FILE module module
+  FILE textures textures
+  FILE sounds sounds
+  FILE shaders shaders
+  FILE music music
+  FILE levels levels
+  FILE fonts fonts
+)

@@ -7,13 +7,13 @@ Renderer renderer = {};
 
 
 static char texture_vert_shader_src[] =
-R"(layout(location = 0) in vec3 in_Position;
-layout(location = 1) in vec3 in_Normal;
-layout(location = 2) in vec4 in_Color;
-layout(location = 3) in vec2 in_TexCoord;
+R"(attribute vec3 in_Position;
+attribute vec3 in_Normal;
+attribute vec4 in_Color;
+attribute vec2 in_TexCoord;
 
-out vec4 v_Color;
-out vec2 v_TexCoord;
+varying vec4 v_Color;
+varying vec2 v_TexCoord;
 
 uniform mat4 u_MVP;
 
@@ -28,32 +28,28 @@ void main() {
 
 
 static char texture_frag_shader_src[] =
-R"(layout(location = 0) out vec4 FragColor;
-
-in vec4 v_Color;
-in vec2 v_TexCoord;
+R"(varying vec4 v_Color;
+varying vec2 v_TexCoord;
 
 uniform sampler2D u_Texture;
 
 void main() {
-	vec4 color = texture(u_Texture, v_TexCoord);
+	vec4 color = texture2D(u_Texture, v_TexCoord);
 
-	FragColor = color * v_Color;
+	gl_FragColor = color * v_Color;
 }
 )";
 
 
 
 static char circle_frag_shader_src[] =
-R"(layout(location = 0) out vec4 FragColor;
-
-in vec4 v_Color;
-in vec2 v_TexCoord;
+R"(varying vec4 v_Color;
+varying vec2 v_TexCoord;
 
 uniform sampler2D u_Texture;
 
 void main() {
-	vec4 color = texture(u_Texture, v_TexCoord);
+	vec4 color = texture2D(u_Texture, v_TexCoord);
 
 	vec2 coord = v_TexCoord * 2.0 - 1.0;
 
@@ -61,7 +57,7 @@ void main() {
 		discard;
 	}
 
-	FragColor = color * v_Color;
+	gl_FragColor = color * v_Color;
 }
 )";
 
@@ -78,10 +74,8 @@ R"(/*
 	that are scaled by non-integer factors.
 */
 
-layout(location = 0) out vec4 FragColor;
-
-in vec4 v_Color;
-in vec2 v_TexCoord;
+varying vec4 v_Color;
+varying vec2 v_TexCoord;
 
 uniform sampler2D u_Texture;
 
@@ -104,17 +98,15 @@ void main() {
 
 	vec2 mod_texel = texel_floored + f;
 
-	vec4 color = texture(u_Texture, mod_texel / u_SourceSize);
-	FragColor = color * v_Color;
+	vec4 color = texture2D(u_Texture, mod_texel / u_SourceSize);
+	gl_FragColor = color * v_Color;
 }
 )";
 
 
 static char hq4x_frag_shader_src[] =
-R"(layout(location = 0) out vec4 FragColor;
-
-in vec4 v_Color;
-in vec2 v_TexCoord;
+R"(varying vec4 v_Color;
+varying vec2 v_TexCoord;
 
 uniform sampler2D u_Texture;
 
@@ -122,35 +114,39 @@ uniform vec2 u_TexelSize;
 
 void main()
 {
-	vec2 dg1 = u_TexelSize * 0.5;
-	vec2 dg2 = vec2(-dg1.x, dg1.y);
-	vec2 sd1 = dg1 * 0.5;
-	vec2 sd2 = dg2 * 0.5;
+	// vec2 dg1 = u_TexelSize * 0.5;
+	// vec2 dg2 = vec2(-dg1.x, dg1.y);
+	// vec2 sd1 = dg1 * 0.5;
+	// vec2 sd2 = dg2 * 0.5;
 	
-	vec4 c  = texture(u_Texture, v_TexCoord);
-	vec4 i1 = texture(u_Texture, v_TexCoord - sd1);
-	vec4 i2 = texture(u_Texture, v_TexCoord - sd2);
-	vec4 i3 = texture(u_Texture, v_TexCoord + sd1);
-	vec4 i4 = texture(u_Texture, v_TexCoord + sd2);
-	vec4 o1 = texture(u_Texture, v_TexCoord - dg1);
-	vec4 o3 = texture(u_Texture, v_TexCoord + dg1);
-	vec4 o2 = texture(u_Texture, v_TexCoord - dg2);
-	vec4 o4 = texture(u_Texture, v_TexCoord + dg2);
+	// vec4 c  = texture2D(u_Texture, v_TexCoord);
+	// vec4 i1 = texture2D(u_Texture, v_TexCoord - sd1);
+	// vec4 i2 = texture2D(u_Texture, v_TexCoord - sd2);
+	// vec4 i3 = texture2D(u_Texture, v_TexCoord + sd1);
+	// vec4 i4 = texture2D(u_Texture, v_TexCoord + sd2);
+	// vec4 o1 = texture2D(u_Texture, v_TexCoord - dg1);
+	// vec4 o3 = texture2D(u_Texture, v_TexCoord + dg1);
+	// vec4 o2 = texture2D(u_Texture, v_TexCoord - dg2);
+	// vec4 o4 = texture2D(u_Texture, v_TexCoord + dg2);
 	
-	float ko1 = dot(abs(o1 - c), vec4(1.0));
-	float ko2 = dot(abs(o2 - c), vec4(1.0));
-	float ko3 = dot(abs(o3 - c), vec4(1.0));
-	float ko4 = dot(abs(o4 - c), vec4(1.0));
+	// float ko1 = dot(abs(o1 - c), vec4(1.0));
+	// float ko2 = dot(abs(o2 - c), vec4(1.0));
+	// float ko3 = dot(abs(o3 - c), vec4(1.0));
+	// float ko4 = dot(abs(o4 - c), vec4(1.0));
 	
-	float k1 = min(dot(abs(i1 - i3), vec4(1.0)), max(ko1, ko3));
-	float k2 = min(dot(abs(i2 - i4), vec4(1.0)), max(ko2, ko4));
+	// float k1 = min(dot(abs(i1 - i3), vec4(1.0)), max(ko1, ko3));
+	// float k2 = min(dot(abs(i2 - i4), vec4(1.0)), max(ko2, ko4));
 	
-	float w1 = k2; if (ko3 < ko1) w1 *= ko3 / ko1;
-	float w2 = k1; if (ko4 < ko2) w2 *= ko4 / ko2;
-	float w3 = k2; if (ko1 < ko3) w3 *= ko1 / ko3;
-	float w4 = k1; if (ko2 < ko4) w4 *= ko2 / ko4;
+	// float w1 = k2; if (ko3 < ko1) w1 *= ko3 / ko1;
+	// float w2 = k1; if (ko4 < ko2) w2 *= ko4 / ko2;
+	// float w3 = k2; if (ko1 < ko3) w3 *= ko1 / ko3;
+	// float w4 = k1; if (ko2 < ko4) w4 *= ko2 / ko4;
 	
-	FragColor = (w1 * o1 + w2 * o2 + w3 * o3 + w4 * o4 + 0.001 * c) / (w1 + w2 + w3 + w4 + 0.001) * v_Color;
+	// gl_FragColor = (w1 * o1 + w2 * o2 + w3 * o3 + w4 * o4 + 0.001 * c) / (w1 + w2 + w3 + w4 + 0.001) * v_Color;
+
+	vec4 color = texture2D(u_Texture, v_TexCoord);
+
+	gl_FragColor = color * v_Color;
 }
 )";
 
@@ -266,6 +262,8 @@ void set_vertex_attribs() {
 }
 
 void init_renderer() {
+	log_info("HERE 1");
+
 	// 
 	// Initialize.
 	// 
@@ -316,28 +314,39 @@ void init_renderer() {
 		renderer.framebuffer = load_framebuffer(window.game_width, window.game_height, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_RGB, false);
 	}
 
+	log_info("HERE 2");
+
 	// 
 	// Load shaders.
 	// 
 	{
+		log_info("compiling texture_vert");
 		u32 texture_vert_shader = compile_shader(GL_VERTEX_SHADER, texture_vert_shader_src, "texture_vert");
 		defer { glDeleteShader(texture_vert_shader); };
 
+		log_info("compiling texture_frag");
 		u32 texture_frag_shader = compile_shader(GL_FRAGMENT_SHADER, texture_frag_shader_src, "texture_frag");
 		defer { glDeleteShader(texture_frag_shader); };
 
+		log_info("compiling circle_frag");
 		u32 circle_frag_shader = compile_shader(GL_FRAGMENT_SHADER, circle_frag_shader_src, "circle_frag");
 		defer { glDeleteShader(circle_frag_shader); };
 
+		log_info("compiling sharp_bilinear_frag");
 		u32 sharp_bilinear_frag_shader = compile_shader(GL_FRAGMENT_SHADER, sharp_bilinear_frag_shader_src, "sharp_bilinear_frag");
 		defer { glDeleteShader(sharp_bilinear_frag_shader); };
 
+		log_info("compiling hq4x_frag");
 		u32 hq4x_frag_shader = compile_shader(GL_FRAGMENT_SHADER, hq4x_frag_shader_src, "hq4x_frag");
 		defer { glDeleteShader(hq4x_frag_shader); };
 
+		log_info("linking texture_shader");
 		renderer.texture_shader.id        = link_program(texture_vert_shader, texture_frag_shader,        "texture_shader");
+		log_info("linking circle_shader");
 		renderer.circle_shader.id         = link_program(texture_vert_shader, circle_frag_shader,         "circle_shader");
+		log_info("linking sharp_bilinear_shader");
 		renderer.sharp_bilinear_shader.id = link_program(texture_vert_shader, sharp_bilinear_frag_shader, "sharp_bilinear_shader");
+		log_info("linking hq4x_shader");
 		renderer.hq4x_shader.id           = link_program(texture_vert_shader, hq4x_frag_shader,           "hq4x_shader");
 
 		renderer.current_shader = renderer.texture_shader.id;

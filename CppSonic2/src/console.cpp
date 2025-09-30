@@ -55,6 +55,22 @@ bool Console::handle_event(const SDL_Event& ev) {
 			break;
 		}
 
+		#ifdef __VITA__
+		case SDL_CONTROLLERBUTTONDOWN: {
+			SDL_GameControllerButton button = (SDL_GameControllerButton) ev.cbutton.button;
+			if (button == SDL_CONTROLLER_BUTTON_LEFTSHOULDER) {
+				if (is_open) {
+					is_open = false;
+				} else {
+					is_open = true;
+					SDL_StartTextInput();
+				}
+				return true;
+			}
+			break;
+		}
+		#endif
+
 		case SDL_TEXTINPUT: {
 			char ch = ev.text.text[0];
 

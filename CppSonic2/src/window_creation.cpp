@@ -61,13 +61,15 @@ static void GLAPIENTRY gl_debug_callback(GLenum source,
 }
 #endif
 
-
-
+extern "C" {
+int _newlib_heap_size_user   = 100 * 1024 * 1024;
+unsigned int sceLibcHeapSize = 50 * 1024 * 1024;
+}
 
 void init_window_and_opengl(const char* title,
 							int width, int height, int init_window_scale,
 							bool prefer_vsync, bool prefer_borderless_fullscreen) {
-	// SDL_LogSetAllPriority(SDL_LOG_PRIORITY_VERBOSE);
+	SDL_LogSetAllPriority(SDL_LOG_PRIORITY_VERBOSE);
 
 	window.perf_counter_when_started = SDL_GetPerformanceCounter();
 	window.perf_frequency = SDL_GetPerformanceFrequency();
@@ -113,7 +115,8 @@ void init_window_and_opengl(const char* title,
 
 	u32 window_flags = (SDL_WINDOW_OPENGL
 						| SDL_WINDOW_RESIZABLE
-						| SDL_WINDOW_ALLOW_HIGHDPI /*for Mac*/);
+						| 0 /*for Mac*/
+					| SDL_WINDOW_SHOWN);
 
 #ifdef __ANDROID__
 	window_flags |= SDL_WINDOW_FULLSCREEN;
@@ -144,31 +147,33 @@ void init_window_and_opengl(const char* title,
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 #else
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1); // double buffering
 #endif
 
 #ifdef _DEBUG
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
+	// SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
+	#error hello
 #endif
 
 	// disable depth buffer
-	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
+	// SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
 
 	{
 		// https://github.com/libsdl-org/SDL/issues/7462
 
-		SDL_GL_SetAttribute(SDL_GL_RED_SIZE,   8);
-		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE,  8);
-		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+		// SDL_GL_SetAttribute(SDL_GL_RED_SIZE,   8);
+		// SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+		// SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE,  8);
+		// SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
 	}
 
 
 	window.handle = SDL_CreateWindow(title,
 									 SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-									 width * init_window_scale, height * init_window_scale,
+									 960, 544,
 									 window_flags);
 	window.game_width  = width;
 	window.game_height = height;
@@ -176,13 +181,6 @@ void init_window_and_opengl(const char* title,
 	if (!window.handle) {
 		panic_and_abort("Couldn't create window: %s", SDL_GetError());
 	}
-
-	// 
-	// A little workaround for Linux Mint Cinnamon.
-	// 
-#if defined(_DEBUG) && defined(__unix__)
-	SDL_RaiseWindow(window.handle);
-#endif
 
 	SDL_SetWindowMinimumSize(window.handle, width, height);
 
@@ -205,23 +203,23 @@ void init_window_and_opengl(const char* title,
 		log_info("Got Format %d%d%d%d (depth %d)", red_size, green_size, blue_size, alpha_size, depth_size);
 	}
 
-	{
-#if defined(__ANDROID__) || defined(__EMSCRIPTEN__)
-		auto load = gladLoadGLES2;
-#else
-		auto load = gladLoadGL;
-#endif
+// 	{
+// #if defined(__ANDROID__) || defined(__EMSCRIPTEN__)
+// 		auto load = gladLoadGLES2;
+// #else
+// 		auto load = gladLoadGL;
+// #endif
 
-		int version = load([](const char* name) {
-			return (GLADapiproc) SDL_GL_GetProcAddress(name);
-		});
+// 		int version = load([](const char* name) {
+// 			return (GLADapiproc) SDL_GL_GetProcAddress(name);
+// 		});
 
-		log_info("Loaded GL %d.%d", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
+// 		log_info("Loaded GL %d.%d", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
 
-		if (GLAD_VERSION_MAJOR(version) < 3) {
-			panic_and_abort("Couldn't load OpenGL. Got version %d.%d", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
-		}
-	}
+// 		if (GLAD_VERSION_MAJOR(version) < 3) {
+// 			panic_and_abort("Couldn't load OpenGL. Got version %d.%d", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
+// 		}
+// 	}
 
 
 #ifdef _DEBUG

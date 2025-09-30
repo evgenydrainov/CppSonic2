@@ -4708,6 +4708,11 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 		return false;
 	};
 
+	log_info("sizeof(ObjType) is %d", (int)sizeof(ObjType));
+	log_info("sizeof(vec2) is %d", (int)sizeof(vec2));
+	log_info("sizeof(int) is %d", (int)sizeof(int));
+	log_info("sizeof(float) is %d", (int)sizeof(float));
+
 	for (u32 i = 0; i < num_objects; i++) {
 		Object o = {};
 

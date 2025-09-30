@@ -10,15 +10,15 @@ u32 compile_shader(GLenum type, string source, const char* debug_name) {
 #elif defined(__EMSCRIPTEN__)
 	string version_string = "#version 300 es\n";
 #else
-	string version_string = "#version 330 core\n";
+	string version_string = "";
 #endif
 
 	string precision_string = "#ifdef GL_ES\n"
 		"precision highp float;\n"
 		"#endif\n";
 
-	const char* sources[] = {version_string.data, precision_string.data, source.data};
-	int lengths[] = {version_string.count, precision_string.count, source.count};
+	const char* sources[] = {precision_string.data, source.data};
+	int lengths[] = {precision_string.count, source.count};
 	glShaderSource(shader, ArrayLength(sources), sources, lengths);
 
 	glCompileShader(shader);
@@ -41,6 +41,11 @@ u32 link_program(u32 vertex_shader, u32 fragment_shader, const char* debug_name)
 
 	glAttachShader(program, vertex_shader);
 	glAttachShader(program, fragment_shader);
+
+	glBindAttribLocation(program, 0, "in_Position");
+	glBindAttribLocation(program, 1, "in_Normal");
+	glBindAttribLocation(program, 2, "in_Color");
+	glBindAttribLocation(program, 3, "in_TexCoord");
 
 	glLinkProgram(program);
 	// TODO: glValidateProgram(program);
