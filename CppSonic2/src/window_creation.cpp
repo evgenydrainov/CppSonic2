@@ -419,7 +419,9 @@ void swap_buffers() {
 			SDL_Delay((u32)(sleep_time * 1000.0));
 
 			// spinlock
-			while (get_time() < window.frame_end_time) {}
+			while (get_time() < window.frame_end_time) {
+				SDL_CPUPauseInstruction();
+			}
 		}
 	}
 }
