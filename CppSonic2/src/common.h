@@ -218,8 +218,8 @@ public:
 #define GENERATE_ENUM(x) x,
 #define GENERATE_STRING(x) #x,
 
-#define DEFINE_NAMED_ENUM(Type, List)                           \
-	enum Type { List(GENERATE_ENUM) };                          \
+#define DEFINE_NAMED_ENUM(Type, T, List)                        \
+	enum Type : T { List(GENERATE_ENUM) };                      \
 	inline const char* Get##Type##Name(Type val) {              \
 		static const char* names[] = { List(GENERATE_STRING) }; \
 		if (val >= 0 && val < ArrayLength(names)) {             \
@@ -231,13 +231,13 @@ public:
 #define GENERATE_ENUM_WITH_VALUES(name, value) name = value,
 #define GENERATE_ENUM_CASE(name, value) case name: return #name;
 
-#define DEFINE_NAMED_ENUM_WITH_VALUES(Type, List)  \
-	enum Type { List(GENERATE_ENUM_WITH_VALUES) }; \
-	inline const char* Get##Type##Name(Type val) { \
-		switch (val) {                             \
-			List(GENERATE_ENUM_CASE)               \
-		}                                          \
-		return "unknown";                          \
+#define DEFINE_NAMED_ENUM_WITH_VALUES(Type, T, List)   \
+	enum Type : T { List(GENERATE_ENUM_WITH_VALUES) }; \
+	inline const char* Get##Type##Name(Type val) {     \
+		switch (val) {                                 \
+			List(GENERATE_ENUM_CASE)                   \
+		}                                              \
+		return "unknown";                              \
 	}
 
 // 

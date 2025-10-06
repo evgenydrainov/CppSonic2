@@ -52,6 +52,8 @@ enum {
 	spr_sonic_push,
 	spr_sonic_rise,
 	spr_sonic_hurt,
+	spr_sonic_die,
+	spr_sonic_drown,
 
 	spr_spindash_smoke,
 	spr_ring,
@@ -139,6 +141,7 @@ enum {
 	snd_destroy_monitor,
 	snd_spring_bounce,
 	snd_lose_rings,
+	snd_die,
 
 	NUM_SOUNDS,
 };

@@ -1346,19 +1346,33 @@ static void player_drop_rings(Player* p, int amount) {
 	}
 }
 
+static void player_die(Player* p) {
+	p->state = STATE_DEAD;
+	p->speed.x = 0;
+	p->speed.y = -7;
+	p->next_anim = anim_die;
+	p->death_timer = 0;
+
+	play_sound(get_sound(snd_die));
+}
+
 static void player_get_hit(Player* p, int side) {
-	p->state = STATE_AIR;
-	p->speed.x = side * 2;
-	p->speed.y = -4;
-	p->jumped = false;
-	p->next_anim = anim_hurt;
-	p->invulnerable = 120;
-	p->ignore_rings = 64;
+	if (game.player_rings == 0) {
+		player_die(p);
+	} else {
+		p->state = STATE_AIR;
+		p->speed.x = side * 2;
+		p->speed.y = -4;
+		p->jumped = false;
+		p->next_anim = anim_hurt;
+		p->invulnerable = 120;
+		p->ignore_rings = 64;
 
-	player_drop_rings(p, game.player_rings);
-	game.player_rings = 0;
+		player_drop_rings(p, game.player_rings);
+		game.player_rings = 0;
 
-	play_sound(get_sound(snd_lose_rings));
+		play_sound(get_sound(snd_lose_rings));
+	}
 }
 
 static bool player_can_attack(Player* p) {
@@ -2223,6 +2237,8 @@ static void player_state_roll(Player* p, float delta) {
 	}
 }
 
+constexpr float PLAYER_GRAVITY = 0.21875f;
+
 static void player_state_air(Player* p, float delta) {
 	int input_h = 0;
 	// control_lock is ignored
@@ -2253,10 +2269,9 @@ static void player_state_air(Player* p, float delta) {
 	}
 
 	// Apply gravity.
-	const float GRAVITY = 0.21875f;
-	const float HIT_FORCE = 0.1875f;
+	constexpr float HIT_FORCE = 0.1875f;
 
-	float gravity = (p->anim == anim_hurt) ? HIT_FORCE : GRAVITY;
+	float gravity = (p->anim == anim_hurt) ? HIT_FORCE : PLAYER_GRAVITY;
 	p->speed.y += gravity * delta;
 
 	auto physics_step = [&](float delta) {
@@ -2328,6 +2343,59 @@ static void get_mobile_controls(vec2* dpad_pos,
 	*debug_rect = {16, 8, 95, 43};
 }
 
+static void player_update_input_state(Player* p) {
+	p->input = 0;
+	p->input_press = 0;
+	p->input_release = 0;
+
+	p->input |= input.state;
+	p->input_press |= input.state_press;
+	p->input_release |= input.state_release;
+
+	// handle thumbstick
+	// NOTE: this won't appear in input_press and input_release
+	{
+		const float deadzone = 0.3f;
+
+		float leftx = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTX);
+		float lefty = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTY);
+
+		float len = point_distance(0, 0, leftx, lefty);
+		float dir = angle_wrap(point_direction(0, 0, leftx, lefty));
+
+		if (len > deadzone) {
+			int cardinal = wrap((int)((dir + 45.0f) / 90.0f), 4);
+
+			p->input |= (1 << cardinal);
+		}
+	}
+
+#if defined(__ANDROID__) || defined(PRETEND_MOBILE)
+	p->input |= game.mobile_input_state;
+	p->input_press |= game.mobile_input_state_press;
+	p->input_release |= game.mobile_input_state_release;
+#endif
+}
+
+static void player_state_dead(Player* p, float delta) {
+	p->speed.y += PLAYER_GRAVITY;
+
+	p->pos += p->speed;
+
+	p->death_timer += delta;
+
+	if (program.player_lives > 0) {
+		if (p->death_timer >= 162) {
+			program.player_lives--;
+			program.set_program_mode(PROGRAM_GAME);
+		}
+	} else {
+		if (p->death_timer >= 102) {
+			// show game over screen
+		}
+	}
+}
+
 static void player_update(Player* p, float delta) {
 	// clear flags
 	if (p->state != STATE_AIR) {
@@ -2341,88 +2409,7 @@ static void player_update(Player* p, float delta) {
 	p->prev_mode   = player_get_mode(p);
 	p->prev_radius = player_get_radius(p);
 
-	// set input state
-	{
-		u32 prev = p->input;
-		p->input = 0;
-
-		// Keyboard
-
-		if (is_key_held(SDL_SCANCODE_RIGHT)) {
-			p->input |= INPUT_MOVE_RIGHT;
-		}
-
-		if (is_key_held(SDL_SCANCODE_UP)) {
-			p->input |= INPUT_MOVE_UP;
-		}
-
-		if (is_key_held(SDL_SCANCODE_LEFT)) {
-			p->input |= INPUT_MOVE_LEFT;
-		}
-
-		if (is_key_held(SDL_SCANCODE_DOWN)) {
-			p->input |= INPUT_MOVE_DOWN;
-		}
-
-		if (is_key_held(SDL_SCANCODE_Z)) {
-			p->input |= INPUT_A;
-		}
-
-		if (is_key_held(SDL_SCANCODE_X)) {
-			p->input |= INPUT_B;
-		}
-
-		// Controller
-
-		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) {
-			p->input |= INPUT_MOVE_RIGHT;
-		}
-
-		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_DPAD_UP)) {
-			p->input |= INPUT_MOVE_UP;
-		}
-
-		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_DPAD_LEFT)) {
-			p->input |= INPUT_MOVE_LEFT;
-		}
-
-		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_DPAD_DOWN)) {
-			p->input |= INPUT_MOVE_DOWN;
-		}
-
-		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_A)) {
-			p->input |= INPUT_A;
-		}
-
-		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_B)) {
-			p->input |= INPUT_B;
-		}
-
-		// Controller Axis
-		{
-			const float deadzone = 0.3f;
-
-			float leftx = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTX);
-			float lefty = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTY);
-
-			float len = point_distance(0, 0, leftx, lefty);
-			float dir = angle_wrap(point_direction(0, 0, leftx, lefty));
-
-			if (len > deadzone) {
-				int cardinal = wrap((int)((dir + 45.0f) / 90.0f), 4);
-
-				p->input |= (1 << cardinal);
-			}
-		}
-
-		// Touch
-#if defined(__ANDROID__) || defined(PRETEND_MOBILE)
-		p->input |= game.mobile_input_state;
-#endif
-
-		p->input_press   = p->input & (~prev);
-		p->input_release = (~p->input) & prev;
-	}
+	player_update_input_state(p);
 
 	switch (p->state) {
 		case STATE_GROUND: {
@@ -2437,6 +2424,11 @@ static void player_update(Player* p, float delta) {
 
 		case STATE_AIR: {
 			player_state_air(p, delta);
+			break;
+		}
+
+		case STATE_DEAD: {
+			player_state_dead(p, delta);
 			break;
 		}
 
@@ -2519,9 +2511,7 @@ static void player_update(Player* p, float delta) {
 	{
 		bool pressed = false;
 
-		pressed |= is_key_pressed(SDL_SCANCODE_A);
-
-		pressed |= is_controller_button_pressed(SDL_CONTROLLER_BUTTON_Y);
+		pressed |= is_input_pressed(INPUT_DEBUG);
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
 		if (game.mobile_input_state_press & INPUT_DEBUG) {
@@ -2558,7 +2548,7 @@ void Game::init(int argc, char* argv[]) {
 	camera_pos_real.y = player.pos.y - window.game_height / 2;
 
 	// update camera so that it's in the right place when the level starts up
-	update_camera(0);
+	camera_update(0);
 
 	player.prev_mode = player_get_mode(&player);
 	player.prev_radius = player_get_radius(&player);
@@ -2584,13 +2574,17 @@ void Game::deinit() {
 	deinit_particles();
 }
 
-void Game::update_camera(float delta) {
+void Game::camera_update(float delta) {
 	// update camera
 
 	// NOTE: this function can be called with delta=0
 
 	Player* p = &player;
 	vec2 radius = p->prev_radius;
+
+	if (p->state == STATE_DEAD) {
+		return;
+	}
 
 	if (camera_lock == 0.0f) {
 		float cam_target_x = p->pos.x - window.game_width / 2;
@@ -2678,7 +2672,7 @@ void Game::update_gameplay(float delta) {
 	// update player
 	player_update(&player, delta);
 
-	update_camera(delta);
+	camera_update(delta);
 
 	player_time += delta;
 
@@ -2947,18 +2941,22 @@ void Game::update(float delta) {
 
 	bool should_update_gameplay = true;
 
+	if (program.transition_t != 0) {
+		should_update_gameplay = false;
+	}
+
 	if (titlecard_state == TITLECARD_IN
 		|| titlecard_state == TITLECARD_WAIT)
 	{
 		should_update_gameplay = false;
 
 #ifdef DEVELOPER
-		if (is_key_pressed(SDL_SCANCODE_A)) {
+		if (is_input_pressed(INPUT_DEBUG)) {
 			titlecard_state = TITLECARD_OUT;
 			titlecard_timer = 0;
 			titlecard_t = 0.5f;
 
-			// update gameplay so that player can go into debug mode
+			// don't skip this frame so that player can go into debug mode
 			should_update_gameplay = true;
 		}
 #endif
@@ -3034,32 +3032,35 @@ void Game::update_pause_menu(float delta) {
 		return;
 	}
 
+	if (titlecard_state != TITLECARD_FINISHED) {
+		return;
+	}
+
 	switch (pause_state) {
 		case PAUSE_NOT_PAUSED: {
-			if (titlecard_state == TITLECARD_FINISHED) {
-				bool pressed = false;
+			bool pressed = false;
 
-				if (is_key_pressed(SDL_SCANCODE_ESCAPE) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_START)) {
-					pressed = true;
-				}
+			if (is_input_pressed(INPUT_PAUSE)) {
+				pressed = true;
+			}
 
-				// pause when lost window focus
-				/*if (!(SDL_GetWindowFlags(window.handle) & SDL_WINDOW_INPUT_FOCUS)) {
-					pressed = true;
-				}*/
+			// pause when lost window focus
+			/*if (!(SDL_GetWindowFlags(window.handle) & SDL_WINDOW_INPUT_FOCUS)) {
+				pressed = true;
+			}*/
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
-				if (mobile_input_state_press & INPUT_PAUSE) {
-					pressed = true;
-				}
+			if (mobile_input_state_press & INPUT_PAUSE) {
+				pressed = true;
+			}
 #endif
 
-				if (pressed) {
-					pause_state = PAUSE_IN;
-					pause_menu_timer = 0;
-					pause_menu_t = 0;
-					pause_menu_cursor = 0;
-				}
+			if (pressed) {
+				pause_state = PAUSE_IN;
+				pause_menu_timer = 0;
+				pause_menu_t = 0;
+				pause_menu_cursor = 0;
+				pause_cancelled = false;
 			}
 			break;
 		}
@@ -3077,34 +3078,33 @@ void Game::update_pause_menu(float delta) {
 		}
 
 		case PAUSE_PAUSED: {
-			bool resume = false;
-
-			if (is_key_pressed(SDL_SCANCODE_ESCAPE)
-				|| is_key_pressed(SDL_SCANCODE_X)
-				|| is_controller_button_pressed(SDL_CONTROLLER_BUTTON_START))
-			{
-				resume = true;
-			}
-
-			if (is_key_pressed(SDL_SCANCODE_UP) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_DPAD_UP)) {
+			if (is_input_pressed(INPUT_UI_UP)) {
 				if (pause_menu_cursor > 0) {
 					pause_menu_cursor--;
 					pause_last_pressed_time = SDL_GetTicks();
 				}
 			}
 
-			if (is_key_pressed(SDL_SCANCODE_DOWN) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_DPAD_DOWN)) {
+			if (is_input_pressed(INPUT_UI_DOWN)) {
 				if (pause_menu_cursor < PAUSE_MENU_NUM_ITEMS - 1) {
 					pause_menu_cursor++;
 					pause_last_pressed_time = SDL_GetTicks();
 				}
 			}
 
+			if (is_input_pressed(INPUT_PAUSE)
+				|| is_input_pressed(INPUT_UI_CANCEL))
+			{
+				pause_state = PAUSE_OUT;
+				pause_menu_timer = 0;
+				pause_menu_t = 0.5f;
+				pause_cancelled = true;
+				break;
+			}
+
 			bool pressed = false;
 
-			pressed |= is_key_pressed(SDL_SCANCODE_Z);
-				
-			pressed |= is_controller_button_pressed(SDL_CONTROLLER_BUTTON_A);
+			pressed |= is_input_pressed(INPUT_UI_CONFIRM);
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
 			{
@@ -3137,17 +3137,25 @@ void Game::update_pause_menu(float delta) {
 			if (pressed) {
 				switch (pause_menu_cursor) {
 					case 0: { // resume
-						resume = true;
+						pause_state = PAUSE_BLINK;
+						pause_menu_timer = 0;
+						pause_menu_t = 0.5f;
 						break;
 					}
 
 					case 1: { // restart
 						program.set_program_mode(PROGRAM_GAME);
+						pause_state = PAUSE_BLINK;
+						pause_menu_timer = 0;
+						pause_menu_t = 0.5f;
 						break;
 					}
 
 					case 2: { // exit
 						program.set_program_mode(PROGRAM_TITLE);
+						pause_state = PAUSE_BLINK;
+						pause_menu_timer = 0;
+						pause_menu_t = 0.5f;
 						break;
 					}
 
@@ -3156,13 +3164,6 @@ void Game::update_pause_menu(float delta) {
 						break;
 					}
 				}
-			}
-
-			if (resume) {
-				pause_state = PAUSE_BLINK;
-				pause_menu_timer = 0;
-				pause_menu_t = 0.5f;
-				pause_menu_cursor = 0;
 			}
 			break;
 		}
@@ -3960,7 +3961,7 @@ void Game::draw(float delta) {
 			pos.x += 25;
 			pos.y += 5;
 
-			string str = tprintf("%d", player_lives);
+			string str = tprintf("%d", program.player_lives);
 			draw_text(get_font(fnt_hud), str, pos);
 		}
 	}
@@ -3995,97 +3996,108 @@ void Game::draw(float delta) {
 	}
 #endif
 
+	draw_pause_menu(delta);
+}
+
+void Game::draw_pause_menu(float delta) {
 	// draw pause menu
-	if (pause_state != PAUSE_NOT_PAUSED) {
-		// white bg
-		{
-			float alpha1 = 0.4f;
-			float alpha2 = 0.4f;
-			float alpha3 = 0;
+
+	if (pause_state == PAUSE_NOT_PAUSED) {
+		return;
+	}
+
+	// white bg
+	{
+		float alpha1 = 0.4f;
+		float alpha2 = 0.4f;
+		float alpha3 = 0;
 			
+		vec4 color = color_white;
+		color.a = lerp3(alpha1, alpha2, alpha3, pause_menu_t);
+
+		float y1 = -window.game_height;
+		float y2 = 0;
+		float y3 = 0;
+
+		float y = lerp3(y1, y2, y3, pause_menu_t);
+
+		Rectf r = {0, y, (float)window.game_width, (float)window.game_height};
+		draw_rectangle(r, color);
+	}
+
+	// pause logo
+	{
+		float y1 = window.game_height - 32 - 25;
+		float y2 = window.game_height - 32 - 25;
+		float y3 = window.game_height;
+
+		float y = lerp3(y1, y2, y3, pause_menu_t);
+
+		// black line
+		{
+			float w1 = 0;
+			float w2 = window.game_width;
+			float w3 = window.game_width;
+
+			Rectf r = {};
+			r.y = y + 19;
+			r.w = lerp3(w1, w2, w3, pause_menu_t);
+			r.h = 13;
+
+			draw_rectangle(r, color_black);
+		}
+
+		// logo
+		{
+			float a1 = 0;
+			float a2 = 1;
+			float a3 = 1;
+
 			vec4 color = color_white;
-			color.a = lerp3(alpha1, alpha2, alpha3, pause_menu_t);
+			color.a = lerp3(a1, a2, a3, pause_menu_t);
 
-			float y1 = -window.game_height;
-			float y2 = 0;
-			float y3 = 0;
-
-			float y = lerp3(y1, y2, y3, pause_menu_t);
-
-			Rectf r = {0, y, (float)window.game_width, (float)window.game_height};
-			draw_rectangle(r, color);
+			vec2 pos = {0, y};
+			draw_sprite(get_sprite(spr_pause_menu_logo), 0, pos, {1, 1}, 0, color);
 		}
+	}
 
-		// pause logo
-		{
-			float y1 = window.game_height - 32 - 25;
-			float y2 = window.game_height - 32 - 25;
-			float y3 = window.game_height;
+	// sidebar
+	{
+		float x1 = window.game_width;
+		float x2 = window.game_width - 128;
+		float x3 = window.game_width;
 
-			float y = lerp3(y1, y2, y3, pause_menu_t);
+		vec2 pos = {};
+		pos.x = lerp3(x1, x2, x3, pause_menu_t);
 
-			// black line
-			{
-				float w1 = 0;
-				float w2 = window.game_width;
-				float w3 = window.game_width;
+		while (pos.y < window.game_height) {
+			draw_sprite(get_sprite(spr_pause_menu_bg), 0, pos);
 
-				Rectf r = {};
-				r.y = y + 19;
-				r.w = lerp3(w1, w2, w3, pause_menu_t);
-				r.h = 13;
-
-				draw_rectangle(r, color_black);
-			}
-
-			// logo
-			{
-				float a1 = 0;
-				float a2 = 1;
-				float a3 = 1;
-
-				vec4 color = color_white;
-				color.a = lerp3(a1, a2, a3, pause_menu_t);
-
-				vec2 pos = {0, y};
-				draw_sprite(get_sprite(spr_pause_menu_logo), 0, pos, {1, 1}, 0, color);
-			}
+			pos.y += 32;
 		}
+	}
 
-		// sidebar
-		{
-			float x1 = window.game_width;
-			float x2 = window.game_width - 128;
-			float x3 = window.game_width;
+	// labels
+	{
+		vec2 pos;
+		pos.x = PAUSE_MENU_ITEMS_X;
+		pos.y = PAUSE_MENU_ITEMS_Y;
 
-			vec2 pos = {};
-			pos.x = lerp3(x1, x2, x3, pause_menu_t);
+		for (int i = 0; i < PAUSE_MENU_NUM_ITEMS; i++) {
+			float t = pause_menu_t;
 
-			while (pos.y < window.game_height) {
-				draw_sprite(get_sprite(spr_pause_menu_bg), 0, pos);
-
-				pos.y += 32;
-			}
-		}
-
-		// labels
-		{
-			vec2 pos;
-			pos.x = PAUSE_MENU_ITEMS_X;
-			pos.y = PAUSE_MENU_ITEMS_Y;
-
-			for (int i = 0; i < PAUSE_MENU_NUM_ITEMS; i++) {
-				float t = pause_menu_t;
-
-				if (i == pause_menu_cursor) {
-					// blink
-					if (pause_state == PAUSE_BLINK || pause_state == PAUSE_OUT) {
-						if (SDL_GetTicks() % 100 < 50) {
-							t = 0;
-						}
+			// blink selected menu item
+			if (i == pause_menu_cursor) {
+				if (pause_state == PAUSE_BLINK) {
+					if (SDL_GetTicks() % 100 < 50) {
+						t = 0;
 					}
-				} else {
-					// fade out earlier
+				}
+			}
+
+			// fade out earlier for menu items that are not the selected one
+			if (!pause_cancelled) {
+				if (i != pause_menu_cursor) {
 					if (pause_state == PAUSE_BLINK) {
 						t = lerp(0.5f, 1.3f, pause_menu_timer / PAUSE_BLINK_TIME);
 						if (t > 1) t = 1;
@@ -4093,23 +4105,23 @@ void Game::draw(float delta) {
 						t = 0;
 					}
 				}
-
-				vec4 color = color_white;
-				color.a = lerp3(0.0f, 1.0f, 0.0f, t);
-
-				draw_sprite(get_sprite(spr_pause_menu_labels), i, pos, {1, 1}, 0, color);
-
-				// draw cursor
-				if (i == pause_menu_cursor) {
-					if ((SDL_GetTicks() - pause_last_pressed_time + 50) % 500 < 250) {
-						vec4 color = color_white;
-						color.a = lerp3(0.0f, 1.0f, 0.0f, pause_menu_t);
-						draw_sprite(get_sprite(spr_pause_menu_cursor), 0, pos + vec2{-6, 13}, {1, 1}, 0, color);
-					}
-				}
-
-				pos.y += PAUSE_MENU_ITEMS_SEP_Y;
 			}
+
+			vec4 color = color_white;
+			color.a = lerp3(0.0f, 1.0f, 0.0f, t);
+
+			draw_sprite(get_sprite(spr_pause_menu_labels), i, pos, {1, 1}, 0, color);
+
+			// draw cursor
+			if (i == pause_menu_cursor) {
+				if ((SDL_GetTicks() - pause_last_pressed_time + 50) % 500 < 250) {
+					vec4 color = color_white;
+					color.a = lerp3(0.0f, 1.0f, 0.0f, pause_menu_t);
+					draw_sprite(get_sprite(spr_pause_menu_cursor), 0, pos + vec2{-6, 13}, {1, 1}, 0, color);
+				}
+			}
+
+			pos.y += PAUSE_MENU_ITEMS_SEP_Y;
 		}
 	}
 }

@@ -9,18 +9,19 @@
 	X(STATE_GROUND) \
 	X(STATE_ROLL) \
 	X(STATE_AIR) \
+	X(STATE_DEAD) \
 	X(STATE_DEBUG)
 
-DEFINE_NAMED_ENUM(PlayerState, PLAYER_STATE_ENUM)
+DEFINE_NAMED_ENUM(PlayerState, u32, PLAYER_STATE_ENUM)
 
-enum PlayerMode {
+enum PlayerMode : u32 {
 	MODE_FLOOR,
 	MODE_RIGHT_WALL,
 	MODE_CEILING,
 	MODE_LEFT_WALL,
 };
 
-enum anim_index {
+enum anim_index : u32 {
 	anim_crouch,
 	anim_idle,
 	anim_look_up,
@@ -35,6 +36,8 @@ enum anim_index {
 	anim_push,
 	anim_rise,
 	anim_hurt,
+	anim_die,
+	anim_drown,
 
 	NUM_ANIMS,
 };
@@ -78,6 +81,7 @@ struct Player {
 	float dont_change_mode_timer;
 
 	float look_timer;
+	float death_timer;
 
 	u32 input;
 	u32 input_press;
@@ -103,7 +107,7 @@ struct Player {
 	X(OBJ_MOSQUI,                    14) \
 	X(OBJ_FLOWER,                    15)
 
-DEFINE_NAMED_ENUM_WITH_VALUES(ObjType, OBJ_TYPE_ENUM)
+DEFINE_NAMED_ENUM_WITH_VALUES(ObjType, u32, OBJ_TYPE_ENUM)
 
 typedef u32 instance_id;
 
@@ -139,7 +143,7 @@ enum {
 	\
 	X(NUM_MONITOR_ICONS)
 
-DEFINE_NAMED_ENUM(MonitorIcon, MONITOR_ICON_ENUM)
+DEFINE_NAMED_ENUM(MonitorIcon, u32, MONITOR_ICON_ENUM)
 
 // serialized
 #define SPRING_COLOR_ENUM(X) \
@@ -148,7 +152,7 @@ DEFINE_NAMED_ENUM(MonitorIcon, MONITOR_ICON_ENUM)
 	\
 	X(NUM_SPING_COLORS)
 
-DEFINE_NAMED_ENUM(SpringColor, SPRING_COLOR_ENUM)
+DEFINE_NAMED_ENUM(SpringColor, u32, SPRING_COLOR_ENUM)
 
 // serialized
 #define DIRECTION_ENUM(X) \
@@ -159,7 +163,7 @@ DEFINE_NAMED_ENUM(SpringColor, SPRING_COLOR_ENUM)
 	\
 	X(NUM_DIRS)
 
-DEFINE_NAMED_ENUM(Direction, DIRECTION_ENUM)
+DEFINE_NAMED_ENUM(Direction, u32, DIRECTION_ENUM)
 
 struct Object {
 	instance_id id;
@@ -289,7 +293,6 @@ struct Game {
 	int player_score;
 	float player_time;
 	int player_rings;
-	int player_lives = 3;
 
 	bump_array<Object> objects;
 
@@ -353,6 +356,7 @@ struct Game {
 	float pause_menu_t;
 	int pause_menu_cursor;
 	u32 pause_last_pressed_time;
+	bool pause_cancelled;
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
 	u32 mobile_input_state;
@@ -370,12 +374,13 @@ struct Game {
 	void deinit();
 
 	void update(float delta);
-	void update_camera(float delta);
+	void camera_update(float delta);
 	void update_gameplay(float delta);
 	void update_touch_input();
 	void update_pause_menu(float delta);
 
 	void draw(float delta);
+	void draw_pause_menu(float delta);
 
 	void load_level(const char* path);
 	Object* find_object(instance_id id);

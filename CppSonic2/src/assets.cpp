@@ -69,6 +69,8 @@ void load_assets_for_game() {
 		sprites[spr_sonic_push]     = create_sprite(t, 0, 11 * 59, 59, 59, 30, 30, 4);
 		sprites[spr_sonic_rise]     = create_sprite(t, 0, 12 * 59, 59, 59, 30, 30, 5);
 		sprites[spr_sonic_hurt]     = create_sprite(t, 0, 13 * 59, 59, 59, 30, 30);
+		sprites[spr_sonic_die]      = create_sprite(t, 0, 14 * 59, 59, 59, 30, 30);
+		sprites[spr_sonic_drown]    = create_sprite(t, 0, 15 * 59, 59, 59, 30, 30);
 	}
 
 	textures[tex_sonic_palette] = load_texture_from_file("textures/sonic_palette.png");
@@ -91,6 +93,7 @@ void load_assets_for_game() {
 	sounds[snd_destroy_monitor] = load_sound("sounds/destroy_monitor.wav");
 	sounds[snd_spring_bounce]   = load_sound("sounds/spring_bounce.wav");
 	sounds[snd_lose_rings]      = load_sound("sounds/lose_rings.wav");
+	sounds[snd_die]             = load_sound("sounds/die.wav");
 
 	{
 		textures[tex_title_medal] = load_texture_from_file("textures/title_medal.png");

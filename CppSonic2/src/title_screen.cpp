@@ -29,13 +29,7 @@ void Title_Screen::update(float delta) {
 
 	bool press = false;
 
-	press |= is_key_pressed(SDL_SCANCODE_Z);
-
-	press |= is_key_pressed(SDL_SCANCODE_RETURN);
-
-	press |= is_controller_button_pressed(SDL_CONTROLLER_BUTTON_A);
-
-	press |= is_controller_button_pressed(SDL_CONTROLLER_BUTTON_START);
+	press |= is_input_pressed(INPUT_UI_CONFIRM);
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
 	press |= is_mouse_button_held(SDL_BUTTON_LEFT);

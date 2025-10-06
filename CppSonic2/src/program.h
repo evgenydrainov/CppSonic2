@@ -13,6 +13,8 @@ enum Program_Mode {
 struct Program {
 	static constexpr float TRANSITION_SPEED = 1.0f / 60.0f;
 
+	int player_lives = 3;
+
 	Program_Mode program_mode;
 	Program_Mode next_program_mode;
 	float transition_t;
