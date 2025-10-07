@@ -12,16 +12,16 @@
 	X(STATE_DEAD) \
 	X(STATE_DEBUG)
 
-DEFINE_NAMED_ENUM(PlayerState, u32, PLAYER_STATE_ENUM)
+DEFINE_NAMED_ENUM(PlayerState, int, PLAYER_STATE_ENUM)
 
-enum PlayerMode : u32 {
+enum PlayerMode : int {
 	MODE_FLOOR,
 	MODE_RIGHT_WALL,
 	MODE_CEILING,
 	MODE_LEFT_WALL,
 };
 
-enum anim_index : u32 {
+enum anim_index : int {
 	anim_crouch,
 	anim_idle,
 	anim_look_up,
@@ -105,9 +105,10 @@ struct Player {
 	X(OBJ_LAYER_SWITCHER_HORIZONTAL, 12) \
 	X(OBJ_SPRING_DIAGONAL,           13) \
 	X(OBJ_MOSQUI,                    14) \
-	X(OBJ_FLOWER,                    15)
+	X(OBJ_FLOWER,                    15) \
+	X(OBJ_CAMERA_REGION,             16)
 
-DEFINE_NAMED_ENUM_WITH_VALUES(ObjType, u32, OBJ_TYPE_ENUM)
+DEFINE_NAMED_ENUM_WITH_VALUES(ObjType, int, OBJ_TYPE_ENUM)
 
 typedef u32 instance_id;
 
@@ -143,7 +144,7 @@ enum {
 	\
 	X(NUM_MONITOR_ICONS)
 
-DEFINE_NAMED_ENUM(MonitorIcon, u32, MONITOR_ICON_ENUM)
+DEFINE_NAMED_ENUM(MonitorIcon, int, MONITOR_ICON_ENUM)
 
 // serialized
 #define SPRING_COLOR_ENUM(X) \
@@ -152,7 +153,7 @@ DEFINE_NAMED_ENUM(MonitorIcon, u32, MONITOR_ICON_ENUM)
 	\
 	X(NUM_SPING_COLORS)
 
-DEFINE_NAMED_ENUM(SpringColor, u32, SPRING_COLOR_ENUM)
+DEFINE_NAMED_ENUM(SpringColor, int, SPRING_COLOR_ENUM)
 
 // serialized
 #define DIRECTION_ENUM(X) \

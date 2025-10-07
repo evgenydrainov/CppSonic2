@@ -1273,19 +1273,72 @@ static bool player_try_jump(Player* p) {
 	return true;
 }
 
+static Object* player_find_camera_region(Player* p) {
+	// TODO: optimize?
+	// if all OBJ_CAMERA_REGION objects are at the beginning of the array then it's probably fine
+	Object* region = nullptr;
+	For (it, game.objects) {
+		if (it->type == OBJ_CAMERA_REGION) {
+			float l = it->pos.x - it->radius.x;
+			float r = it->pos.x + it->radius.x;
+			float t = it->pos.y - it->radius.y;
+			float b = it->pos.y + it->radius.y;
+
+			if (l <= p->pos.x && p->pos.x < r && t <= p->pos.y && p->pos.y < b) {
+				region = it;
+				break;
+			}
+		}
+	}
+
+	return region;
+}
+
 static void player_keep_in_bounds(Player* p) {
 	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
 	vec2 radius = player_get_radius(p);
 
-	float left = radius.x + 2;
-	float top  = radius.y + 2;
-	float right  = game.tm.width  * 16 - 3 - radius.x;
-	float bottom = game.tm.height * 16 - 3 - radius.y;
+	auto keep_in_rect = [&](Rectf rect) {
+		float left   = rect.x;
+		// float top    = rect.y;
+		float right  = rect.x + rect.w;
+		float bottom = rect.y + rect.h;
 
-	if (p->pos.x < left)   {p->pos.x = left;  p->ground_speed = 0; p->speed.x = 0;}
-	if (p->pos.x > right)  {p->pos.x = right; p->ground_speed = 0; p->speed.x = 0;}
-	// if (p->pos.y < top)    {p->pos.y = top;}
-	if (p->pos.y > bottom) {p->pos.y = bottom;}
+		if (p->pos.x < left + radius.x + 3) {
+			p->pos.x = left + radius.x + 3;
+			p->ground_speed = 0;
+			p->speed.x = 0;
+		}
+
+		// no upper bound
+		/*if (p->pos.y < top + radius.y + 3)  {
+			p->pos.y = top + radius.y + 3;
+		}*/
+
+		if (p->pos.x > right - radius.x - 4) {
+			p->pos.x = right - radius.x - 4;
+			p->ground_speed = 0;
+			p->speed.x = 0;
+		}
+
+		if (p->pos.y > bottom - radius.x - 4) {
+			p->pos.y = bottom - radius.x - 4;
+		}
+	};
+
+	Rectf rect = {0, 0, game.tm.width*16, game.tm.height*16};
+	keep_in_rect(rect);
+
+	Object* region = player_find_camera_region(p);
+	if (region) {
+		Rectf rect;
+		rect.x = region->pos.x - region->radius.x;
+		rect.y = region->pos.y - region->radius.y;
+		rect.w = region->radius.x * 2;
+		rect.h = region->radius.y * 2;
+
+		keep_in_rect(rect);
+	}
 }
 
 static Direction opposite_dir(Direction dir) {
@@ -2629,6 +2682,17 @@ void Game::camera_update(float delta) {
 		Clamp(&camera_pos_real.x, 0.0f, (float) (tm.width  * 16 - window.game_width));
 		Clamp(&camera_pos_real.y, 0.0f, (float) (tm.height * 16 - window.game_height));
 
+		Object* region = player_find_camera_region(p);
+		if (region) {
+			float l = region->pos.x - region->radius.x;
+			float r = region->pos.x + region->radius.x;
+			float t = region->pos.y - region->radius.y;
+			float b = region->pos.y + region->radius.y;
+
+			Clamp(&camera_pos_real.x, l, r - window.game_width);
+			Clamp(&camera_pos_real.y, t, b - window.game_height);
+		}
+
 		// set camera pos
 		camera_pos = camera_pos_real + vec2{0, camera_look_offset};
 
@@ -3427,6 +3491,17 @@ void draw_objects(array<Object> objects,
 				float frame_index = it->frame_index;
 				if (out_of_bounds(get_sprite(sprite_index), it->pos)) break;
 				draw_sprite(get_sprite(sprite_index), frame_index, it->pos);
+				break;
+			}
+
+			case OBJ_CAMERA_REGION: {
+				if (!show_editor_objects) break;
+
+				float x = it->pos.x - it->radius.x;
+				float y = it->pos.y - it->radius.y;
+				float w = it->radius.x * 2;
+				float h = it->radius.y * 2;
+				draw_rectangle_outline_thick({x, y, w, h}, 2, get_color(0xf0761fff));
 				break;
 			}
 
@@ -4547,6 +4622,12 @@ void write_objects(array<Object> objects, const char* fname) {
 				break;
 			}
 
+			case OBJ_CAMERA_REGION: {
+				vec2 radius = o.radius;
+				SDL_RWwrite(f, &radius, sizeof radius, 1);
+				break;
+			}
+
 			default: {
 				Assert(false);
 				break;
@@ -4726,6 +4807,13 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 				}
 				return true;
 			}
+
+			case OBJ_CAMERA_REGION: {
+				vec2 radius;
+				SDL_RWread(f, &radius, sizeof radius, 1);
+				o->radius = radius;
+				return true;
+			}
 		}
 
 		return false;
@@ -4871,6 +4959,7 @@ const Sprite& get_object_sprite(ObjType type) {
 		case OBJ_MOVING_PLATFORM:           return get_sprite(spr_EEZ_platform1);
 		case OBJ_SPRING_DIAGONAL:           return get_sprite(spr_spring_diagonal_yellow);
 		case OBJ_MOSQUI:                    return get_sprite(spr_mosqui);
+		case OBJ_CAMERA_REGION:             return get_sprite(spr_camera_region);
 	}
 
 	Assert(!"invalid object type");
@@ -4883,6 +4972,7 @@ vec2 get_object_size(const Object& o) {
 		case OBJ_MONITOR:         return {30, 30};
 		case OBJ_SPRING_DIAGONAL: return {30, 30};
 		case OBJ_MOSQUI:          return {16, 16};
+		case OBJ_CAMERA_REGION:   return {-1, -1}; // don't pick this object in the editor
 
 		case OBJ_SPRING: {
 			vec2 size = {32, 16};
@@ -4900,7 +4990,9 @@ vec2 get_object_size(const Object& o) {
 		case OBJ_LAYER_FLIP_DEPRECATED:
 		case OBJ_MOVING_PLATFORM:
 		case OBJ_LAYER_SWITCHER_VERTICAL:
-		case OBJ_LAYER_SWITCHER_HORIZONTAL:  return o.radius * 2.0f;
+		case OBJ_LAYER_SWITCHER_HORIZONTAL: {
+			return o.radius * 2.0f;
+		}
 	}
 
 	const Sprite& s = get_object_sprite(o.type);

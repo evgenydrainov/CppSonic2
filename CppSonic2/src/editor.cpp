@@ -939,6 +939,17 @@ void Editor::update(float delta) {
 			if (ImGui::BeginMenu("Objects##2")) {
 				// if (ImGui::MenuItem("Delete All")) try_delete_all_objects();
 
+				bool enabled = objects_editor.object_index != -1;
+				if (ImGui::MenuItem("Move selected object to the beginning of the array", nullptr, false, enabled)) {
+					// TODO
+					/*Object o = objects[objects_editor.object_index];
+
+					array_remove(&objects, objects_editor.object_index);
+					array_insert(&objects, 0, o);
+
+					objects_editor.object_index = -1;*/
+				}
+
 				ImGui::EndMenu();
 			}
 		}
@@ -2901,6 +2912,11 @@ void ObjectsEditor::update(float delta) {
 						o.mplatform.time_multiplier = 1.0f / 32.0f;
 						break;
 					}
+
+					case OBJ_CAMERA_REGION: {
+						o.radius = {16, 16};
+						break;
+					}
 				}
 
 				Action action = {};
@@ -3028,6 +3044,7 @@ void ObjectsEditor::update(float delta) {
 		button(OBJ_LAYER_SWITCHER_VERTICAL);
 		button(OBJ_LAYER_SWITCHER_HORIZONTAL);
 		button(OBJ_MOSQUI);
+		button(OBJ_CAMERA_REGION);
 	};
 
 	object_types_window();
@@ -3159,6 +3176,11 @@ void ObjectsEditor::update(float delta) {
 
 			case OBJ_MOSQUI: {
 				ObjUndoDragFloat("Fly Distance", &o->mosqui.fly_distance, object_index);
+				break;
+			}
+
+			case OBJ_CAMERA_REGION: {
+				ObjUndoDragVec2("Radius", &o->radius, object_index);
 				break;
 			}
 		}

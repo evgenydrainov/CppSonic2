@@ -191,14 +191,15 @@ void load_assets_for_editor() {
 		textures[tex_editor_sprites] = load_texture_from_file("textures/editor_sprites.png");
 		const Texture& t = get_texture(tex_editor_sprites);
 
-		sprites[spr_layer_flip]                          = create_sprite(t,  0,  0, 16, 48,  8, 24);
-		sprites[spr_layer_set]                           = create_sprite(t, 16,  0, 16, 48,  8, 24);
-		sprites[spr_sonic_editor_preview]                = create_sprite(t, 32,  0, 32, 48, 16, 24);
-		sprites[spr_layer_switcher_vertical]             = create_sprite(t, 64,  0, 32, 32, 16, 16);
-		sprites[spr_layer_switcher_horizontal]           = create_sprite(t, 96,  0, 32, 32, 16, 16);
-		sprites[spr_layer_switcher_layer_letter]         = create_sprite(t, 64, 32,  5,  7,  0,  0, 2);
-		sprites[spr_layer_switcher_priority_letter]      = create_sprite(t, 64, 39,  5,  7,  0,  0, 2);
-		sprites[spr_layer_switcher_grounded_flag_letter] = create_sprite(t, 74, 32,  5,  7,  0,  0);
+		sprites[spr_layer_flip]                          = create_sprite(t,   0,  0, 16, 48,  8, 24);
+		sprites[spr_layer_set]                           = create_sprite(t,  16,  0, 16, 48,  8, 24);
+		sprites[spr_sonic_editor_preview]                = create_sprite(t,  32,  0, 32, 48, 16, 24);
+		sprites[spr_layer_switcher_vertical]             = create_sprite(t,  64,  0, 32, 32, 16, 16);
+		sprites[spr_layer_switcher_horizontal]           = create_sprite(t,  96,  0, 32, 32, 16, 16);
+		sprites[spr_layer_switcher_layer_letter]         = create_sprite(t,  64, 32,  5,  7,  0,  0, 2);
+		sprites[spr_layer_switcher_priority_letter]      = create_sprite(t,  64, 39,  5,  7,  0,  0, 2);
+		sprites[spr_layer_switcher_grounded_flag_letter] = create_sprite(t,  74, 32,  5,  7,  0,  0);
+		sprites[spr_camera_region]                       = create_sprite(t, 128,  0, 32, 32, 16, 16);
 	}
 }
 
