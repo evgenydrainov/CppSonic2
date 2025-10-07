@@ -67,6 +67,7 @@ enum {
 	spr_water_surface,
 	spr_mosqui,
 	spr_flower,
+	spr_score_popup,
 
 	// has to be in order
 	spr_spring_yellow,

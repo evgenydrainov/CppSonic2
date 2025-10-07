@@ -163,7 +163,7 @@ DEFINE_NAMED_ENUM(SpringColor, u32, SPRING_COLOR_ENUM)
 	\
 	X(NUM_DIRS)
 
-DEFINE_NAMED_ENUM(Direction, u32, DIRECTION_ENUM)
+DEFINE_NAMED_ENUM(Direction, int, DIRECTION_ENUM)
 
 struct Object {
 	instance_id id;
@@ -290,7 +290,6 @@ struct Tilemap {
 struct Game {
 	Player player;
 
-	int player_score;
 	float player_time;
 	int player_rings;
 

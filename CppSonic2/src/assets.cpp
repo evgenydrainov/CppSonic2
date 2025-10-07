@@ -27,6 +27,7 @@ void load_global_assets() {
 		sprites[spr_water_surface]  = create_sprite(t, 64,  32, 32, 16,  0,  8, 4);
 		sprites[spr_mosqui]         = create_sprite(t,  0, 384, 32, 32, 16, 16, 5);
 		sprites[spr_flower]         = create_sprite(t,  0, 416, 32, 64, 16, 48, 9);
+		sprites[spr_score_popup]    = create_sprite(t,  0, 480, 16, 16,  8,  8, 3);
 
 		sprites[spr_spring_yellow]  = create_sprite(t, 32, 112, 32, 32, 16, 24);
 		sprites[spr_spring_red]     = create_sprite(t, 32, 144, 32, 32, 16, 24);

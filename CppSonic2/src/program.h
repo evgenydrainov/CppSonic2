@@ -14,6 +14,7 @@ struct Program {
 	static constexpr float TRANSITION_SPEED = 1.0f / 60.0f;
 
 	int player_lives = 3;
+	int player_score;
 
 	Program_Mode program_mode;
 	Program_Mode next_program_mode;

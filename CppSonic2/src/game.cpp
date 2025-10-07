@@ -1854,7 +1854,6 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 					p.pos = it->pos;
 					p.sprite_index = spr_explosion;
 					p.lifespan = 30;
-
 					add_particle(p);
 
 					play_sound(get_sound(snd_destroy_monitor));
@@ -1864,8 +1863,18 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 					flower.type = OBJ_FLOWER;
 					flower.pos = it->pos;
 					flower.flower.timer = 30;
-
 					array_add(&game.objects, flower);
+
+					program.player_score += 100;
+
+					Particle score_popup = {};
+					score_popup.pos = it->pos;
+					score_popup.sprite_index = spr_score_popup;
+					score_popup.frame_index = 1;
+					score_popup.lifespan = 32;
+					score_popup.spd = 1; // TODO: original game had different movement
+					score_popup.dir = 90;
+					add_particle(score_popup);
 				} else {
 					if (player_can_get_hit(p)) {
 						float side = signf(p->pos.x - it->pos.x);
@@ -2956,6 +2965,8 @@ void Game::update(float delta) {
 			titlecard_timer = 0;
 			titlecard_t = 0.5f;
 
+			program.transition_t = 0;
+
 			// don't skip this frame so that player can go into debug mode
 			should_update_gameplay = true;
 		}
@@ -3914,7 +3925,7 @@ void Game::draw(float delta) {
 				if (player.state == STATE_DEBUG) {
 					str = tprintf("%8d", (int)player.pos.x);
 				} else {
-					str = tprintf("%d", player_score);
+					str = tprintf("%d", program.player_score);
 				}
 
 				draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
