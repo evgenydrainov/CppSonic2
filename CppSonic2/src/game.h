@@ -82,6 +82,7 @@ struct Player {
 
 	float look_timer;
 	float death_timer;
+	int death_state;
 
 	u32 input;
 	u32 input_press;
@@ -357,6 +358,8 @@ struct Game {
 	int pause_menu_cursor;
 	u32 pause_last_pressed_time;
 	bool pause_cancelled;
+
+	bool show_game_over_screen;
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
 	u32 mobile_input_state;

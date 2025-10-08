@@ -1405,6 +1405,8 @@ static void player_die(Player* p) {
 	p->speed.y = -7;
 	p->next_anim = anim_die;
 	p->death_timer = 0;
+	p->death_state = 0;
+	p->priority = 2;
 
 	play_sound(get_sound(snd_die));
 }
@@ -1563,7 +1565,7 @@ static bool player_reaction_spike(Player* p, Object* obj, Direction dir) {
 		return false;
 	}
 
-	float side = signf(p->pos.x - obj->pos.x);
+	int side = sign_int(p->pos.x - obj->pos.x);
 	if (side == 0) side = 1;
 	player_get_hit(p, side);
 
@@ -1930,7 +1932,7 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 					add_particle(score_popup);
 				} else {
 					if (player_can_get_hit(p)) {
-						float side = signf(p->pos.x - it->pos.x);
+						int side = sign_int(p->pos.x - it->pos.x);
 						if (side == 0) side = 1;
 						player_get_hit(p, side);
 					}
@@ -2440,22 +2442,50 @@ static void player_update_input_state(Player* p) {
 }
 
 static void player_state_dead(Player* p, float delta) {
-	p->speed.y += PLAYER_GRAVITY;
+	p->speed.y += PLAYER_GRAVITY * delta;
 
-	p->pos += p->speed;
+	p->pos += p->speed * delta;
 
-	p->death_timer += delta;
+	player_keep_in_bounds(p);
 
-	if (program.player_lives > 0) {
-		if (p->death_timer >= 162) {
-			program.player_lives--;
-			program.set_program_mode(PROGRAM_GAME);
+	switch (p->death_state) {
+		case 0: {
+			if (p->death_timer >= 102) {
+				program.player_lives--;
+				p->death_state = 1;
+				p->death_timer = 0;
+			}
+			break;
 		}
-	} else {
-		if (p->death_timer >= 102) {
-			// show game over screen
+
+		case 1: {
+			if (program.player_lives > 0) {
+				if (p->death_timer >= 60) {
+					program.set_program_mode(PROGRAM_GAME);
+					p->death_state = -1;
+					p->death_timer = 0;
+				}
+			} else {
+				game.show_game_over_screen = true;
+				p->death_state = 2;
+				p->death_timer = 0;
+
+				play_music("music/Game_Over.mp3", 0);
+			}
+			break;
+		}
+
+		case 2: {
+			if (p->death_timer >= 686) {
+				program.set_program_mode(PROGRAM_TITLE);
+				p->death_state = -1;
+				// keep death_timer for animation
+			}
+			break;
 		}
 	}
+
+	p->death_timer += delta;
 }
 
 static void player_update(Player* p, float delta) {
@@ -3796,6 +3826,8 @@ void Game::draw(float delta) {
 		}
 	}
 
+	if (player.priority == 2) player_draw(&player);
+
 	// draw object hitboxes
 	if (show_hitboxes) {
 		For (it, objects) {
@@ -3909,6 +3941,20 @@ void Game::draw(float delta) {
 
 	// :ui
 	set_view_mat(get_identity());
+
+	// draw game over screen
+	if (show_game_over_screen) {
+		float t = 26 - fminf(player.death_timer, 26);
+
+		vec2 pos;
+		pos.x = window.game_width/2 - 40 - t*16;
+		pos.y = window.game_height/2;
+		draw_sprite(get_sprite(spr_game_over_text), 0, pos);
+
+		pos.x = window.game_width/2 + 40 + t*16;
+		pos.y = window.game_height/2;
+		draw_sprite(get_sprite(spr_game_over_text), 1, pos);
+	}
 
 	// draw titlecard
 	if (titlecard_state != TITLECARD_FINISHED) {
@@ -4175,7 +4221,7 @@ void Game::draw_pause_menu(float delta) {
 			// blink selected menu item
 			if (i == pause_menu_cursor) {
 				if (pause_state == PAUSE_BLINK) {
-					if (SDL_GetTicks() % 100 < 50) {
+					if (SDL_GetTicks() % 120 < 60) {
 						t = 0;
 					}
 				}

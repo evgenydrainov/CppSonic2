@@ -14,5 +14,5 @@ Mix_Chunk* load_sound(const char* fname);
 void play_sound(Mix_Chunk* chunk, bool stop_all_instances = true);
 void stop_sound(Mix_Chunk* chunk);
 
-void play_music(const char* fname);
+void play_music(const char* fname, int loops = -1);
 void stop_music();

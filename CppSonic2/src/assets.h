@@ -68,6 +68,7 @@ enum {
 	spr_mosqui,
 	spr_flower,
 	spr_score_popup,
+	spr_game_over_text,
 
 	// has to be in order
 	spr_spring_yellow,
