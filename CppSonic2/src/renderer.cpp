@@ -369,8 +369,17 @@ void render_begin_frame(vec4 clear_color) {
 	renderer.curr_max_batch       = 0;
 	renderer.curr_total_triangles = 0;
 
-	glBindFramebuffer(GL_FRAMEBUFFER, renderer.framebuffer.id);
-	glViewport(0, 0, renderer.framebuffer.texture.width, renderer.framebuffer.texture.height);
+	if (renderer.framebuffer.id != 0) {
+		glBindFramebuffer(GL_FRAMEBUFFER, renderer.framebuffer.id);
+		glViewport(0, 0, renderer.framebuffer.texture.width, renderer.framebuffer.texture.height);
+	} else {
+		int backbuffer_width;
+		int backbuffer_height;
+		SDL_GL_GetDrawableSize(window.handle, &backbuffer_width, &backbuffer_height);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(0, 0, backbuffer_width, backbuffer_height);
+	}
 
 	if (clear_color.a > 0) {
 		glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a);
@@ -378,7 +387,7 @@ void render_begin_frame(vec4 clear_color) {
 	}
 
 	// setup default matrices
-	renderer.proj_mat = get_ortho(0, renderer.framebuffer.texture.width, renderer.framebuffer.texture.height, 0);
+	renderer.proj_mat = get_ortho(0, window.game_width, window.game_height, 0);
 	renderer.view_mat = get_identity();
 	renderer.model_mat = get_identity();
 }
@@ -393,23 +402,23 @@ void render_end_frame() {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glViewport(0, 0, backbuffer_width, backbuffer_height);
 
-	glClearColor(0, 0, 0, 1);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 	renderer.proj_mat = get_ortho(0, backbuffer_width, backbuffer_height, 0);
 	renderer.view_mat = get_identity();
 	renderer.model_mat = get_identity();
 
-	{
+	if (renderer.framebuffer.id != 0) {
+		glClearColor(0, 0, 0, 1);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 		u32 program = renderer.sharp_bilinear_shader.id;
 		set_shader(program);
 
-		float xscale = backbuffer_width  / (float)window.game_width;
-		float yscale = backbuffer_height / (float)window.game_height;
+		float xscale = backbuffer_width  / (float)renderer.framebuffer.texture.width;
+		float yscale = backbuffer_height / (float)renderer.framebuffer.texture.height;
 		float scale = fminf(xscale, yscale);
 
-		renderer.game_texture_rect.w = (int) (window.game_width  * scale);
-		renderer.game_texture_rect.h = (int) (window.game_height * scale);
+		renderer.game_texture_rect.w = (int) (renderer.framebuffer.texture.width  * scale);
+		renderer.game_texture_rect.h = (int) (renderer.framebuffer.texture.height * scale);
 		renderer.game_texture_rect.x = (backbuffer_width  - renderer.game_texture_rect.w) / 2;
 		renderer.game_texture_rect.y = (backbuffer_height - renderer.game_texture_rect.h) / 2;
 
@@ -418,7 +427,7 @@ void render_end_frame() {
 
 		{
 			int u_SourceSize = glGetUniformLocation(program, "u_SourceSize");
-			glUniform2f(u_SourceSize, (float)window.game_width, (float)window.game_height);
+			glUniform2f(u_SourceSize, (float)renderer.framebuffer.texture.width, (float)renderer.framebuffer.texture.height);
 		}
 
 		{
