@@ -420,7 +420,9 @@ void swap_buffers() {
 
 			// spinlock
 			while (get_time() < window.frame_end_time) {
-				SDL_CPUPauseInstruction();
+				#ifdef SDL_CPUPauseInstruction
+					SDL_CPUPauseInstruction();
+				#endif
 			}
 		}
 	}
