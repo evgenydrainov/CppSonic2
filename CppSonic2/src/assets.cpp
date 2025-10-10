@@ -27,21 +27,21 @@ void load_global_assets() {
 		sprites[spr_water_surface]         = create_sprite(t,  64,  32,  32,  16,   0,   8,   4);
 		sprites[spr_mosqui]                = create_sprite(t,   0, 384,  32,  32,  16,  16,   5);
 		sprites[spr_flower]                = create_sprite(t,   0, 416,  32,  64,  16,  48,   9);
-		sprites[spr_score_popup]           = create_sprite(t,   0, 480,  16,  16,   8,   8,   3);
+		sprites[spr_score_popup]           = create_sprite(t,   0, 480,  16,  16,   8,   8,   5);
 		sprites[spr_game_over_text]        = create_sprite(t,   0, 496,  64,  16,  32,   8,   2);
-		sprites[spr_sign_post]             = create_sprite(t,   0, 512,  48,  48,  24,  24,   7);
-		sprites[spr_text_sonic]            = create_sprite(t,   0, 560,  72,  14,   0,   0);
-		sprites[spr_text_got]              = create_sprite(t,  80, 560,  47,  14,   0,   0);
-		sprites[spr_text_through]          = create_sprite(t, 128, 560, 111,  14,   0,   0);
-		sprites[spr_text_zone]             = create_sprite(t, 240, 560,  53,  14,   0,   0);
-		sprites[spr_text_zone_number]      = create_sprite(t, 304, 560,  16,  16,   0,   0,   3);
-		sprites[spr_invincibility_sparkle] = create_sprite(t,   0, 576,  48,  48,  24,  24,   2);
+		sprites[spr_sign_post]             = create_sprite(t,   0, 512,  48,  56,  24,  28,   7);
+		sprites[spr_text_sonic]            = create_sprite(t,   0, 576,  72,  14,   0,   0);
+		sprites[spr_text_got]              = create_sprite(t,  80, 576,  47,  14,   0,   0);
+		sprites[spr_text_through]          = create_sprite(t, 128, 576, 111,  14,   0,   0);
+		sprites[spr_text_zone]             = create_sprite(t, 240, 576,  53,  14,   0,   0);
+		sprites[spr_text_zone_number]      = create_sprite(t, 304, 576,  16,  16,   0,   0,   3);
+		sprites[spr_invincibility_sparkle] = create_sprite(t,   0, 592,  48,  48,  24,  24,   2);
 
-		sprites[spr_spring_yellow]  = create_sprite(t, 32, 112, 32, 32, 16, 24);
-		sprites[spr_spring_red]     = create_sprite(t, 32, 144, 32, 32, 16, 24);
+		sprites[spr_spring_yellow]  = create_sprite(t,  32, 112, 32, 40, 16, 32);
+		sprites[spr_spring_red]     = create_sprite(t, 128, 112, 32, 40, 16, 32);
 
-		sprites[spr_spring_bounce_yellow]  = create_sprite(t,  0, 112, 32, 32, 16, 24, 3, 3, 1.0f / 3.0f);
-		sprites[spr_spring_bounce_red]     = create_sprite(t,  0, 144, 32, 32, 16, 24, 3, 3, 1.0f / 3.0f);
+		sprites[spr_spring_bounce_yellow]  = create_sprite(t,  0, 112, 32, 40, 16, 32, 3, 3, 1.0f / 3.0f);
+		sprites[spr_spring_bounce_red]     = create_sprite(t, 96, 112, 32, 40, 16, 32, 3, 3, 1.0f / 3.0f);
 
 		sprites[spr_spring_diagonal_yellow]  = create_sprite(t, 80, 272, 32, 32, 16, 16);
 		sprites[spr_spring_diagonal_red]     = create_sprite(t, 80, 336, 32, 32, 16, 16);
