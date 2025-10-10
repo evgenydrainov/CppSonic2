@@ -36,6 +36,7 @@ void load_global_assets() {
 		sprites[spr_text_zone]             = create_sprite(t, 240, 576,  53,  14,   0,   0);
 		sprites[spr_text_zone_number]      = create_sprite(t, 304, 576,  16,  16,   0,   0,   3);
 		sprites[spr_invincibility_sparkle] = create_sprite(t,   0, 592,  48,  48,  24,  24,   2);
+		sprites[spr_shield]                = create_sprite(t,  96, 592,  48,  48,  24,  24,   3);
 
 		sprites[spr_spring_yellow]  = create_sprite(t,  32, 112, 32, 40, 16, 32);
 		sprites[spr_spring_red]     = create_sprite(t, 128, 112, 32, 40, 16, 32);

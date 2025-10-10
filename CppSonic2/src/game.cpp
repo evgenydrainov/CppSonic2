@@ -1416,9 +1416,7 @@ static void player_die(Player* p) {
 }
 
 static void player_get_hit(Player* p, int side) {
-	if (game.player_rings == 0) {
-		player_die(p);
-	} else {
+	if (game.player_rings != 0 || p->has_shield) {
 		p->state = STATE_AIR;
 		p->speed.x = side * 2;
 		p->speed.y = -4;
@@ -1427,10 +1425,16 @@ static void player_get_hit(Player* p, int side) {
 		p->invulnerable = 120;
 		p->ignore_rings = 64;
 
-		player_drop_rings(p, game.player_rings);
-		game.player_rings = 0;
+		if (p->has_shield) {
+			p->has_shield = false;
+		} else {
+			player_drop_rings(p, game.player_rings);
+			game.player_rings = 0;
 
-		play_sound(get_sound(snd_lose_rings));
+			play_sound(get_sound(snd_lose_rings));
+		}
+	} else {
+		player_die(p);
 	}
 }
 
@@ -2831,6 +2835,11 @@ void Game::update_gameplay(float delta) {
 								break;
 							}
 
+							case MONITOR_ICON_SHIELD: {
+								player.has_shield = true;
+								break;
+							}
+
 							case MONITOR_ICON_INVINCIBILITY: {
 								player.invincibility = 1200;
 								break;
@@ -3795,9 +3804,7 @@ static void player_draw(Player* p) {
 		int frame_index = SDL_GetTicks() / (16.66 * 2);
 		frame_index %= s.frames.count;
 
-		vec2 pos = floor(p->pos);
-
-		draw_sprite(s, frame_index, pos, {p->facing, 1});
+		draw_sprite(s, frame_index, floor(p->pos), {p->facing, 1});
 	}
 }
 
@@ -4005,6 +4012,16 @@ void Game::draw(float delta) {
 				draw_sprite(s, frame_index, it->pos, {1,1}, 0, color_white, flip);
 				break;
 			}
+		}
+	}
+
+	if (player.has_shield) {
+		int frame = time_frames;
+		if (frame % 4 >= 2) {
+			const Sprite& s = get_sprite(spr_shield);
+			frame /= 4;
+			frame %= s.frames.count;
+			draw_sprite(s, frame, floor(player.pos));
 		}
 	}
 

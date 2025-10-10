@@ -69,6 +69,8 @@ struct Player {
 
 	float invincibility; // from monitor
 
+	bool has_shield;
+
 	bool jumped;
 	bool peelout;
 	bool pushing;

@@ -76,6 +76,7 @@ enum {
 	spr_text_zone,
 	spr_text_zone_number,
 	spr_invincibility_sparkle,
+	spr_shield,
 
 	// has to be in order
 	spr_spring_yellow,
