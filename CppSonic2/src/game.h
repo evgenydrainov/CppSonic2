@@ -64,8 +64,10 @@ struct Player {
 
 	float spinrev;
 	float control_lock;
-	float invulnerable;
+	float invulnerable; // after taking damage
 	float ignore_rings;
+
+	float invincibility; // from monitor
 
 	bool jumped;
 	bool peelout;
@@ -108,7 +110,8 @@ struct Player {
 	X(OBJ_MOSQUI,                    14) \
 	X(OBJ_FLOWER,                    15) \
 	X(OBJ_CAMERA_REGION,             16) \
-	X(OBJ_SIGN_POST,                 17)
+	X(OBJ_SIGN_POST,                 17) \
+	X(OBJ_INVINCIBILITY_SPARKLE,     18)
 
 DEFINE_NAMED_ENUM_WITH_VALUES(ObjType, int, OBJ_TYPE_ENUM)
 
@@ -239,6 +242,10 @@ struct Object {
 		struct {
 			float timer;
 		} signpost; // OBJ_SIGN_POST
+
+		struct {
+			float timer;
+		} sparkle; // OBJ_INVINCIBILITY_SPARKLE
 	};
 };
 

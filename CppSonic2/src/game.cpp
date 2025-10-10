@@ -1436,19 +1436,14 @@ static void player_get_hit(Player* p, int side) {
 
 static bool player_can_attack(Player* p) {
 	return (p->anim == anim_roll
-			|| p->anim == anim_spindash);
+			|| p->anim == anim_spindash
+			|| p->invincibility > 0);
 }
 
 static bool player_can_get_hit(Player* p) {
-	if (p->invulnerable > 0) {
-		return false;
-	}
-
-	if (p->anim == anim_hurt) {
-		return false;
-	}
-
-	return true;
+	return (p->invulnerable == 0
+			&& p->invincibility == 0
+			&& p->anim != anim_hurt);
 }
 
 static bool player_reaction_monitor(Player* p, Object* obj, Direction dir) {
@@ -2561,10 +2556,10 @@ static void player_update(Player* p, float delta) {
 		Approach(&p->invulnerable, 0.0f, delta);
 	}
 
-	Approach(&p->ignore_rings, 0.0f, delta);
-
-	Approach(&p->change_mode_timer, 0.0f, delta);
+	Approach(&p->ignore_rings,           0.0f, delta);
+	Approach(&p->change_mode_timer,      0.0f, delta);
 	Approach(&p->dont_change_mode_timer, 0.0f, delta);
+	Approach(&p->invincibility,          0.0f, delta);
 
 	auto anim_get_frame_count = [](anim_index anim) -> int {
 		const Sprite& s = anim_get_sprite(anim);
@@ -2627,6 +2622,20 @@ static void player_update(Player* p, float delta) {
 		}
 	}
 #endif
+
+	if (p->invincibility > 0) {
+		static float t = 0;
+		while (t >= 8) {
+			Object o = {};
+			o.id = game.next_id++;
+			o.type = OBJ_INVINCIBILITY_SPARKLE;
+			o.pos = p->pos;
+			array_add(&game.objects, o);
+
+			t -= 8;
+		}
+		t += delta;
+	}
 }
 
 void Game::init(int argc, char* argv[]) {
@@ -2822,7 +2831,10 @@ void Game::update_gameplay(float delta) {
 								break;
 							}
 
-							// TODO
+							case MONITOR_ICON_INVINCIBILITY: {
+								player.invincibility = 1200;
+								break;
+							}
 						}
 
 						it->flags |= FLAG_MONITOR_ICON_GOT_REWARD;
@@ -2965,6 +2977,15 @@ void Game::update_gameplay(float delta) {
 
 					it->signpost.timer += delta;
 				}
+				break;
+			}
+
+			case OBJ_INVINCIBILITY_SPARKLE: {
+				if (it->sparkle.timer >= 24) {
+					it->flags |= FLAG_INSTANCE_DEAD;
+				}
+
+				it->sparkle.timer += delta;
 				break;
 			}
 		}
@@ -3702,6 +3723,11 @@ void draw_objects(array<Object> objects,
 				break;
 			}
 
+			case OBJ_INVINCIBILITY_SPARKLE: {
+				// don't draw
+				break;
+			}
+
 			default: {
 				const Sprite& s = get_object_sprite(it->type);
 				if (out_of_bounds(s, it->pos)) break;
@@ -3954,6 +3980,33 @@ void Game::draw(float delta) {
 
 	// draw particles
 	draw_particles(delta);
+
+	For (it, objects) {
+		switch (it->type) {
+			case OBJ_INVINCIBILITY_SPARKLE: {
+				const Sprite& s = get_object_sprite(it->type);
+
+				int anim_frame = (int)(it->sparkle.timer * 0.5f) % 4;
+				int frame_index = anim_frame % 2;
+
+				glm::bvec2 flip = {};
+				if (anim_frame >= 2) flip.x = true;
+
+				if (it->sparkle.timer >= 16) {
+					if ((int)it->sparkle.timer % 4 >= 2) {
+						break;
+					}
+				} else if (it->sparkle.timer >= 8) {
+					if ((int)it->sparkle.timer % 2 >= 1) {
+						break;
+					}
+				}
+
+				draw_sprite(s, frame_index, it->pos, {1,1}, 0, color_white, flip);
+				break;
+			}
+		}
+	}
 
 	// draw water
 	{
@@ -5234,6 +5287,7 @@ const Sprite& get_object_sprite(ObjType type) {
 		case OBJ_MOSQUI:                    return get_sprite(spr_mosqui);
 		case OBJ_CAMERA_REGION:             return get_sprite(spr_camera_region);
 		case OBJ_SIGN_POST:                 return get_sprite(spr_sign_post);
+		case OBJ_INVINCIBILITY_SPARKLE:     return get_sprite(spr_invincibility_sparkle);
 	}
 
 	Assert(!"invalid object type");
