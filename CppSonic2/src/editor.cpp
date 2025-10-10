@@ -3045,6 +3045,7 @@ void ObjectsEditor::update(float delta) {
 		button(OBJ_LAYER_SWITCHER_HORIZONTAL);
 		button(OBJ_MOSQUI);
 		button(OBJ_CAMERA_REGION);
+		button(OBJ_SIGN_POST);
 	};
 
 	object_types_window();

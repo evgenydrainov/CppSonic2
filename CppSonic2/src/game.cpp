@@ -1326,7 +1326,11 @@ static void player_keep_in_bounds(Player* p) {
 		}
 	};
 
-	Rectf rect = {0, 0, game.tm.width*16, game.tm.height*16};
+	Rectf rect;
+	rect.x = game.camera_sign_post_left;
+	rect.y = 0;
+	rect.w = game.tm.width  * 16 - rect.x;
+	rect.h = game.tm.height * 16 - rect.y;
 	keep_in_rect(rect);
 
 	Object* region = player_find_camera_region(p);
@@ -2682,6 +2686,8 @@ void Game::camera_update(float delta) {
 		float cam_target_x = p->pos.x - window.game_width / 2;
 		float cam_target_y = p->pos.y + radius.y - 19 - window.game_height / 2;
 
+		cam_target_x = fmaxf(cam_target_x, camera_sign_post_left);
+
 		if (camera_pos_real.x < cam_target_x - 8) {
 			Approach(&camera_pos_real.x, cam_target_x - 8, 16 * delta);
 		}
@@ -2777,7 +2783,9 @@ void Game::update_gameplay(float delta) {
 
 	camera_update(delta);
 
-	player_time += delta;
+	if (!level_cleared) {
+		player_time += delta;
+	}
 
 	// update objects
 	For (it, objects) {
@@ -2936,6 +2944,26 @@ void Game::update_gameplay(float delta) {
 
 						obj.pos.y += obj.speed.y * delta;
 					}
+				}
+				break;
+			}
+
+			case OBJ_SIGN_POST: {
+				if (player.pos.x >= it->pos.x) {
+					if (!level_cleared) {
+						camera_sign_post_left = player.pos.x - window.game_width / 2;
+						level_cleared = true;
+					}
+				}
+
+				if (level_cleared) {
+					if (it->signpost.timer >= 120) {
+						if (score_card.state == ScoreCard::NONE) {
+							score_card.show();
+						}
+					}
+
+					it->signpost.timer += delta;
 				}
 				break;
 			}
@@ -3120,10 +3148,131 @@ void Game::update(float delta) {
 
 	update_pause_menu(delta);
 
+	score_card.update(delta);
+
 	if (pause_state == PAUSE_NOT_PAUSED) {
 		time_frames += delta;
 		time_seconds = time_frames / 60.0f;
 	}
+}
+
+void ScoreCard::show() {
+	state = WAIT;
+	timer = 0;
+	message_offset = 26;
+	score_offset = 26;
+
+	time_bonus = 0;
+	ring_bonus = 0;
+	total_bonus = 0;
+
+	if (game.time_seconds < 30) {
+		time_bonus = 50'000;
+	} else if (game.time_seconds < 45) {
+		time_bonus = 10'000;
+	} else if (game.time_seconds < 60) {
+		time_bonus = 5'000;
+	} else if (game.time_seconds < 90) {
+		time_bonus = 4'000;
+	} else if (game.time_seconds < 120) {
+		time_bonus = 3'000;
+	} else if (game.time_seconds < 180) {
+		time_bonus = 2'000;
+	} else if (game.time_seconds < 240) {
+		time_bonus = 1'000;
+	} else if (game.time_seconds < 300) {
+		time_bonus = 500;
+	}
+
+	ring_bonus = game.player_rings * 10; // TODO: 50'000 if all rings collected
+}
+
+void ScoreCard::update(float delta) {
+	if (state == NONE) {
+		return;
+	}
+
+	switch (state) {
+		case WAIT: {
+			if (timer >= 60) {
+				state = MOVE_MESSAGE;
+				timer = 0;
+			}
+			break;
+		}
+
+		case MOVE_MESSAGE: {
+			if (timer >= 26) {
+				state = MOVE_SCORE;
+				timer = 0;
+				message_offset = 0;
+			}
+
+			Approach(&message_offset, 0.0f, delta);
+			break;
+		}
+
+		case MOVE_SCORE: {
+			if (timer >= 176) {
+				state = APPLY_SCORE;
+				timer = 0;
+				score_offset = 0;
+			}
+
+			Approach(&score_offset, 0.0f, delta);
+			break;
+		}
+
+		case APPLY_SCORE: {
+			while (timer >= 1) {
+				if (time_bonus > 0) {
+					int i = min(time_bonus, 100);
+					total_bonus += i;
+					program.player_score += i;
+					time_bonus -= i;
+				}
+
+				if (ring_bonus > 0) {
+					int i = min(ring_bonus, 100);
+					total_bonus += i;
+					program.player_score += i;
+					ring_bonus -= i;
+				}
+
+				timer -= 1;
+			}
+
+			{
+				static float t = 0;
+				while (t >= 4) {
+					// play sound
+					t -= 4;
+				}
+				t += delta;
+			}
+
+			if (time_bonus == 0 && ring_bonus == 0) {
+				state = WAIT_2;
+				timer = 0;
+			}
+			break;
+		}
+
+		case WAIT_2: {
+			if (timer >= 220) {
+				program.set_program_mode(PROGRAM_GAME);
+				state = DONE;
+			}
+			break;
+		}
+
+		case DONE: {
+			// do nothing
+			break;
+		}
+	}
+
+	timer += delta;
 }
 
 #define PAUSE_MENU_ITEMS_X (window.game_width - 128 + 44)
@@ -3532,6 +3681,24 @@ void draw_objects(array<Object> objects,
 				float w = it->radius.x * 2;
 				float h = it->radius.y * 2;
 				draw_rectangle_outline_thick({x, y, w, h}, 2, get_color(0xf0761fff));
+				break;
+			}
+
+			case OBJ_SIGN_POST: {
+				const Sprite& s = get_object_sprite(it->type);
+				if (out_of_bounds(s, it->pos)) break;
+
+				int frame_index;
+				if (it->signpost.timer >= 120) {
+					frame_index = 4;
+				} else {
+					int anim_frame = ((int)(it->signpost.timer * 0.5f)) % 8;
+
+					frame_index = anim_frame % 4;
+					if (anim_frame == 4) frame_index = 4;
+				}
+
+				draw_sprite(s, frame_index, it->pos);
 				break;
 			}
 
@@ -3956,6 +4123,8 @@ void Game::draw(float delta) {
 		draw_sprite(get_sprite(spr_game_over_text), 1, pos);
 	}
 
+	score_card.draw(delta);
+
 	// draw titlecard
 	if (titlecard_state != TITLECARD_FINISHED) {
 		const Texture& t = get_texture(tex_titlecard_line);
@@ -4129,6 +4298,62 @@ void Game::draw(float delta) {
 #endif
 
 	draw_pause_menu(delta);
+}
+
+void ScoreCard::draw(float delta) {
+	// draw score card
+
+	if (state == NONE) {
+		return;
+	}
+
+	float t  = message_offset;
+	float t2 = score_offset;
+
+	vec2 pos;
+	pos.x = window.game_width/2 - 68 - t*16;
+	pos.y = 58;
+	draw_sprite(get_sprite(spr_text_sonic), 0, pos);
+
+	pos.x = window.game_width/2 + 20 + t*16;
+	pos.y = 58;
+	draw_sprite(get_sprite(spr_text_got), 0, pos);
+
+	pos.x = window.game_width/2 - 100 - t*16;
+	pos.y = 82;
+	draw_sprite(get_sprite(spr_text_through), 0, pos);
+
+	pos.x = window.game_width/2 + 28 + t*16;
+	pos.y = 82;
+	draw_sprite(get_sprite(spr_text_zone), 0, pos);
+
+	pos.x = window.game_width/2 + 92 + t*16;
+	pos.y = 80;
+	draw_sprite(get_sprite(spr_text_zone_number), 0, pos);
+
+	pos.x = window.game_width/2 - 91 - t2*16;
+	pos.y = 113;
+	draw_text(get_font(fnt_hud), "score", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
+
+	pos.x = window.game_width/2 - 91 - t2*16;
+	pos.y = 137;
+	draw_text(get_font(fnt_hud), "ring bonus", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
+
+	pos.x = window.game_width/2 - 91 - t2*16;
+	pos.y = 161;
+	draw_text(get_font(fnt_hud), "time bonus", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
+
+	pos.x = window.game_width/2 + 80 + t2*16;
+	pos.y = 113;
+	draw_text(get_font(fnt_hud), tprintf("%d", total_bonus), pos, HALIGN_RIGHT);
+
+	pos.x = window.game_width/2 + 80 + t2*16;
+	pos.y = 137;
+	draw_text(get_font(fnt_hud), tprintf("%d", ring_bonus), pos, HALIGN_RIGHT);
+
+	pos.x = window.game_width/2 + 80 + t2*16;
+	pos.y = 161;
+	draw_text(get_font(fnt_hud), tprintf("%d", time_bonus), pos, HALIGN_RIGHT);
 }
 
 void Game::draw_pause_menu(float delta) {
@@ -4583,7 +4808,8 @@ void write_objects(array<Object> objects, const char* fname) {
 
 		switch (o.type) {
 			case OBJ_PLAYER_INIT_POS:
-			case OBJ_RING: {
+			case OBJ_RING:
+			case OBJ_SIGN_POST: {
 				break;
 			}
 
@@ -4739,7 +4965,8 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 
 		switch (o->type) {
 			case OBJ_PLAYER_INIT_POS:
-			case OBJ_RING: {
+			case OBJ_RING:
+			case OBJ_SIGN_POST: {
 				return true;
 			}
 
@@ -5006,6 +5233,7 @@ const Sprite& get_object_sprite(ObjType type) {
 		case OBJ_SPRING_DIAGONAL:           return get_sprite(spr_spring_diagonal_yellow);
 		case OBJ_MOSQUI:                    return get_sprite(spr_mosqui);
 		case OBJ_CAMERA_REGION:             return get_sprite(spr_camera_region);
+		case OBJ_SIGN_POST:                 return get_sprite(spr_sign_post);
 	}
 
 	Assert(!"invalid object type");

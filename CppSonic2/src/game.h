@@ -107,7 +107,8 @@ struct Player {
 	X(OBJ_SPRING_DIAGONAL,           13) \
 	X(OBJ_MOSQUI,                    14) \
 	X(OBJ_FLOWER,                    15) \
-	X(OBJ_CAMERA_REGION,             16)
+	X(OBJ_CAMERA_REGION,             16) \
+	X(OBJ_SIGN_POST,                 17)
 
 DEFINE_NAMED_ENUM_WITH_VALUES(ObjType, int, OBJ_TYPE_ENUM)
 
@@ -234,6 +235,10 @@ struct Object {
 		struct {
 			float timer;
 		} flower; // OBJ_FLOWER
+
+		struct {
+			float timer;
+		} signpost; // OBJ_SIGN_POST
 	};
 };
 
@@ -289,6 +294,31 @@ struct Tilemap {
 	array<Tile> tiles_d;
 };
 
+struct ScoreCard {
+	enum State : int {
+		NONE,
+		WAIT,
+		MOVE_MESSAGE,
+		MOVE_SCORE,
+		APPLY_SCORE,
+		WAIT_2,
+		DONE,
+	};
+
+	State state;
+	float timer;
+	float message_offset;
+	float score_offset;
+
+	int time_bonus;
+	int ring_bonus;
+	int total_bonus;
+
+	void update(float delta);
+	void draw(float delta);
+	void show();
+};
+
 struct Game {
 	Player player;
 
@@ -303,6 +333,9 @@ struct Game {
 	vec2 camera_pos_real;
 	float camera_lock;
 	float camera_look_offset;
+	float camera_sign_post_left;
+
+	bool level_cleared;
 
 	Tileset ts;
 	Texture tileset_texture;
@@ -347,7 +380,7 @@ struct Game {
 	static constexpr float PAUSE_BLINK_TIME = 30;
 
 #ifdef DEVELOPER
-	static constexpr int PAUSE_MENU_NUM_ITEMS = 4;
+	static constexpr int PAUSE_MENU_NUM_ITEMS = 3; // 4;
 #else
 	static constexpr int PAUSE_MENU_NUM_ITEMS = 3;
 #endif
@@ -360,6 +393,8 @@ struct Game {
 	bool pause_cancelled;
 
 	bool show_game_over_screen;
+
+	ScoreCard score_card;
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
 	u32 mobile_input_state;

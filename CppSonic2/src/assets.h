@@ -69,6 +69,12 @@ enum {
 	spr_flower,
 	spr_score_popup,
 	spr_game_over_text,
+	spr_sign_post,
+	spr_text_sonic,
+	spr_text_got,
+	spr_text_through,
+	spr_text_zone,
+	spr_text_zone_number,
 
 	// has to be in order
 	spr_spring_yellow,
