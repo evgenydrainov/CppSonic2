@@ -68,7 +68,7 @@ struct Player {
 	float ignore_rings;
 
 	float invincibility; // from monitor
-
+	float super_speed; // from monitor
 	bool has_shield;
 
 	bool jumped;

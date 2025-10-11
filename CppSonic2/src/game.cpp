@@ -137,11 +137,48 @@ void Game::load_level(const char* path) {
 	gen_widthmap_texture (&widthmap,  ts, tileset_texture);
 }
 
-constexpr float PLAYER_ACC = 0.046875f;
 constexpr float PLAYER_DEC = 0.5f;
-constexpr float PLAYER_FRICTION = 0.046875f;
-constexpr float PLAYER_TOP_SPEED = 6.0f;
 constexpr float PLAYER_PUSH_RADIUS = 10.0f;
+
+static float player_get_top_speed(Player* p) {
+	float result = 6.0f;
+	if (p->super_speed > 0) {
+		result *= 2;
+	}
+	return result;
+}
+
+static float player_get_acc(Player* p) {
+	float result = 0.046875f;
+	if (p->super_speed > 0) {
+		result *= 2;
+	}
+	return result;
+}
+
+static float player_get_friction(Player* p) {
+	float result = 0.046875f;
+	if (p->super_speed > 0) {
+		result *= 2;
+	}
+	return result;
+}
+
+static float player_get_air_acceleration(Player* p) {
+	float result = 0.09375f;
+	if (p->super_speed > 0) {
+		result *= 2;
+	}
+	return result;
+}
+
+static float player_get_roll_friction(Player* p) {
+	float result = 0.0234375f;
+	if (p->super_speed > 0) {
+		result *= 2;
+	}
+	return result;
+}
 
 static bool player_is_grounded(Player* p) {
 	return (p->state == STATE_GROUND
@@ -1218,7 +1255,6 @@ static bool player_try_slip(Player* p) {
 			p->state = STATE_AIR;
 			p->ground_speed = 0;
 			p->control_lock = 32;
-
 			return true;
 		}
 	}
@@ -1229,10 +1265,10 @@ static bool player_try_slip(Player* p) {
 		if (a >= 90 && a <= 270) {
 			p->state = STATE_AIR;
 			p->ground_speed = 0;
+			return true;
 		} else {
 			p->control_lock = 32;
 		}
-		return true;
 	}
 #endif
 
@@ -1964,6 +2000,10 @@ static void player_state_ground(Player* p, float delta) {
 	// Adjust Ground Speed based on current Ground Angle (Slope Factor).
 	apply_slope_factor(p, delta);
 
+	float friction  = player_get_friction(p);
+	float top_speed = player_get_top_speed(p);
+	float acc       = player_get_acc(p);
+
 	// Update Ground Speed based on directional input and apply friction/deceleration.
 	if (p->anim != anim_spindash
 		&& !p->peelout
@@ -1971,7 +2011,7 @@ static void player_state_ground(Player* p, float delta) {
 		&& p->anim != anim_look_up)
 	{
 		if (input_h == 0) {
-			Approach(&p->ground_speed, 0.0f, PLAYER_FRICTION * delta);
+			Approach(&p->ground_speed, 0.0f, friction * delta);
 		} else {
 			if (input_h == -sign_int(p->ground_speed)) {
 				p->ground_speed += input_h * PLAYER_DEC * delta;
@@ -1987,14 +2027,14 @@ static void player_state_ground(Player* p, float delta) {
 					}
 				}
 			} else {
-				if (fabsf(p->ground_speed) < PLAYER_TOP_SPEED) {
-					p->ground_speed += input_h * PLAYER_ACC * delta;
-					Clamp(&p->ground_speed, -PLAYER_TOP_SPEED, PLAYER_TOP_SPEED);
+				if (fabsf(p->ground_speed) < top_speed) {
+					p->ground_speed += input_h * acc * delta;
+					Clamp(&p->ground_speed, -top_speed, top_speed);
 				}
 			}
 		}
 	} else {
-		Approach(&p->ground_speed, 0.0f, PLAYER_FRICTION * delta);
+		Approach(&p->ground_speed, 0.0f, friction * delta);
 	}
 
 	auto physics_step = [&](float delta) {
@@ -2096,7 +2136,7 @@ static void player_state_ground(Player* p, float delta) {
 			} else {
 				if (fabsf(p->ground_speed) >= 12) {
 					p->next_anim = anim_peelout;
-				} else if (fabsf(p->ground_speed) >= PLAYER_TOP_SPEED) {
+				} else if (fabsf(p->ground_speed) >= 6) {
 					p->next_anim = anim_run;
 				} else {
 					p->next_anim = anim_walk;
@@ -2170,7 +2210,7 @@ static void player_state_ground(Player* p, float delta) {
 
 		if (fabsf(speed) >= 12) {
 			p->next_anim = anim_peelout;
-		} else if (fabsf(speed) >= PLAYER_TOP_SPEED) {
+		} else if (fabsf(speed) >= 6) {
 			p->next_anim = anim_run;
 		} else {
 			p->next_anim = anim_walk;
@@ -2201,10 +2241,7 @@ static void player_state_ground(Player* p, float delta) {
 	}
 
 	if (p->anim == anim_skid) {
-		// @Cleanup
 		static float t = 0;
-
-		t += delta;
 		while (t >= 4) {
 			Particle dust_particle = {};
 			dust_particle.sprite_index = spr_skid_dust;
@@ -2218,6 +2255,7 @@ static void player_state_ground(Player* p, float delta) {
 
 			t -= 4;
 		}
+		t += delta;
 	}
 
 	if (p->anim == anim_look_up) {
@@ -2247,7 +2285,7 @@ static void player_state_roll(Player* p, float delta) {
 	apply_slope_factor(p, delta);
 
 	// Update Ground Speed based on directional input and apply friction/deceleration.
-	const float roll_friction_speed = 0.0234375f;
+	const float roll_friction_speed = player_get_roll_friction(p);
 	const float roll_deceleration_speed = 0.125f;
 
 	Approach(&p->ground_speed, 0.0f, roll_friction_speed * delta);
@@ -2321,11 +2359,13 @@ static void player_state_air(Player* p, float delta) {
 
 	// Update X Speed based on directional input.
 	if (p->anim != anim_hurt) {
-		const float air_acceleration_speed = 0.09375f;
+		float air_acceleration_speed = player_get_air_acceleration(p);
+		float top_speed              = player_get_top_speed(p);
+
 		if (input_h != 0) {
-			if (fabsf(p->speed.x) < PLAYER_TOP_SPEED || input_h == -sign_int(p->speed.x)) {
+			if (fabsf(p->speed.x) < top_speed || input_h == -sign_int(p->speed.x)) {
 				p->speed.x += input_h * air_acceleration_speed * delta;
-				Clamp(&p->speed.x, -PLAYER_TOP_SPEED, PLAYER_TOP_SPEED);
+				Clamp(&p->speed.x, -top_speed, top_speed);
 			}
 		}
 
@@ -2564,6 +2604,7 @@ static void player_update(Player* p, float delta) {
 	Approach(&p->change_mode_timer,      0.0f, delta);
 	Approach(&p->dont_change_mode_timer, 0.0f, delta);
 	Approach(&p->invincibility,          0.0f, delta);
+	Approach(&p->super_speed,            0.0f, delta);
 
 	auto anim_get_frame_count = [](anim_index anim) -> int {
 		const Sprite& s = anim_get_sprite(anim);
@@ -2832,6 +2873,11 @@ void Game::update_gameplay(float delta) {
 							case MONITOR_ICON_SUPER_RING: {
 								player_rings += 10;
 								play_sound(get_sound(snd_ring));
+								break;
+							}
+
+							case MONITOR_ICON_POWER_SNEAKERS: {
+								player.super_speed = 1200;
 								break;
 							}
 
