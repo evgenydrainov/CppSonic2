@@ -153,6 +153,10 @@ enum {
 	snd_spring_bounce,
 	snd_lose_rings,
 	snd_die,
+	snd_life,
+	snd_blip,
+	snd_get_paid,
+	snd_sign_post,
 
 	NUM_SOUNDS,
 };

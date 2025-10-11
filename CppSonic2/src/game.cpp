@@ -1486,6 +1486,23 @@ static bool player_can_get_hit(Player* p) {
 			&& p->anim != anim_hurt);
 }
 
+static void player_get_life() {
+	program.player_lives++;
+	play_sound(get_sound(snd_life));
+}
+
+static void player_get_rings(int rings) {
+	while (rings > 0) {
+		game.player_rings++;
+		if (game.player_rings % 100 == 0) {
+			player_get_life();
+		}
+
+		rings--;
+	}
+	play_sound(get_sound(snd_ring));
+}
+
 static bool player_reaction_monitor(Player* p, Object* obj, Direction dir) {
 	if (p->anim != anim_roll) {
 		return false;
@@ -1910,7 +1927,7 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 			case OBJ_RING_DROPPED: {
 				if (p->ignore_rings > 0) break;
 
-				game.player_rings++;
+				player_get_rings(1);
 
 				Particle p = {};
 				p.pos = it->pos;
@@ -1920,8 +1937,6 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 				p.lifespan = (1.0f / s.anim_spd) * s.frames.count;
 
 				add_particle(p);
-
-				play_sound(get_sound(snd_ring));
 
 				it->flags |= FLAG_INSTANCE_DEAD;
 				break;
@@ -2871,8 +2886,7 @@ void Game::update_gameplay(float delta) {
 							}
 
 							case MONITOR_ICON_SUPER_RING: {
-								player_rings += 10;
-								play_sound(get_sound(snd_ring));
+								player_get_rings(10);
 								break;
 							}
 
@@ -2888,6 +2902,11 @@ void Game::update_gameplay(float delta) {
 
 							case MONITOR_ICON_INVINCIBILITY: {
 								player.invincibility = 1200;
+								break;
+							}
+
+							case MONITOR_ICON_1UP: {
+								player_get_life();
 								break;
 							}
 						}
@@ -3020,6 +3039,8 @@ void Game::update_gameplay(float delta) {
 					if (!level_cleared) {
 						camera_sign_post_left = player.pos.x - window.game_width / 2;
 						level_cleared = true;
+
+						play_sound(get_sound(snd_sign_post));
 					}
 				}
 
@@ -3321,7 +3342,8 @@ void ScoreCard::update(float delta) {
 			{
 				static float t = 0;
 				while (t >= 4) {
-					// play sound
+					play_sound(get_sound(snd_blip));
+
 					t -= 4;
 				}
 				t += delta;
@@ -3330,6 +3352,9 @@ void ScoreCard::update(float delta) {
 			if (time_bonus == 0 && ring_bonus == 0) {
 				state = WAIT_2;
 				timer = 0;
+
+				stop_sound(get_sound(snd_blip));
+				play_sound(get_sound(snd_get_paid));
 			}
 			break;
 		}

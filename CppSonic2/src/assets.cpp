@@ -104,6 +104,10 @@ void load_assets_for_game() {
 	sounds[snd_spring_bounce]   = load_sound("sounds/spring_bounce.wav");
 	sounds[snd_lose_rings]      = load_sound("sounds/lose_rings.wav");
 	sounds[snd_die]             = load_sound("sounds/die.wav");
+	sounds[snd_life]            = load_sound("sounds/life.wav");
+	sounds[snd_blip]            = load_sound("sounds/blip.wav");
+	sounds[snd_get_paid]        = load_sound("sounds/get_paid.wav");
+	sounds[snd_sign_post]       = load_sound("sounds/sign_post.wav");
 
 	{
 		textures[tex_title_medal] = load_texture_from_file("textures/title_medal.png");
