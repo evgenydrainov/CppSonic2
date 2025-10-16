@@ -4015,6 +4015,45 @@ void Game::draw(float delta) {
 
 	if (player.priority == 1) player_draw(&player);
 
+	// draw invincibility sparkles
+	For (it, game.objects) {
+		switch (it->type) {
+			case OBJ_INVINCIBILITY_SPARKLE: {
+				const Sprite& s = get_object_sprite(it->type);
+
+				int anim_frame = (int)(it->sparkle.timer * 0.5f) % 4;
+				int frame_index = anim_frame % 2;
+
+				glm::bvec2 flip = {};
+				if (anim_frame >= 2) flip.x = true;
+
+				if (it->sparkle.timer >= 16) {
+					if ((int)it->sparkle.timer % 4 >= 2) {
+						break;
+					}
+				} else if (it->sparkle.timer >= 8) {
+					if ((int)it->sparkle.timer % 2 >= 1) {
+						break;
+					}
+				}
+
+				draw_sprite(s, frame_index, it->pos, {1,1}, 0, color_white, flip);
+				break;
+			}
+		}
+	}
+
+	// draw player shield
+	if (player.has_shield) {
+		int frame = game.time_frames;
+		if (frame % 4 >= 2) {
+			const Sprite& s = get_sprite(spr_shield);
+			frame /= 4;
+			frame %= s.frames.count;
+			draw_sprite(s, frame, floor(player.pos));
+		}
+	}
+
 	// draw layer C
 	draw_tilemap_layer(tm, 2, tileset_texture, xfrom, yfrom, xto, yto, color_white);
 
@@ -4058,43 +4097,6 @@ void Game::draw(float delta) {
 
 	// draw particles
 	draw_particles(delta);
-
-	For (it, objects) {
-		switch (it->type) {
-			case OBJ_INVINCIBILITY_SPARKLE: {
-				const Sprite& s = get_object_sprite(it->type);
-
-				int anim_frame = (int)(it->sparkle.timer * 0.5f) % 4;
-				int frame_index = anim_frame % 2;
-
-				glm::bvec2 flip = {};
-				if (anim_frame >= 2) flip.x = true;
-
-				if (it->sparkle.timer >= 16) {
-					if ((int)it->sparkle.timer % 4 >= 2) {
-						break;
-					}
-				} else if (it->sparkle.timer >= 8) {
-					if ((int)it->sparkle.timer % 2 >= 1) {
-						break;
-					}
-				}
-
-				draw_sprite(s, frame_index, it->pos, {1,1}, 0, color_white, flip);
-				break;
-			}
-		}
-	}
-
-	if (player.has_shield) {
-		int frame = time_frames;
-		if (frame % 4 >= 2) {
-			const Sprite& s = get_sprite(spr_shield);
-			frame /= 4;
-			frame %= s.frames.count;
-			draw_sprite(s, frame, floor(player.pos));
-		}
-	}
 
 	// draw water
 	{
