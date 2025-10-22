@@ -31,6 +31,6 @@ Sprite create_sprite(const Texture& t,
 
 void draw_sprite(const Sprite& s, int frame_index, vec2 pos,
 				 vec2 scale = {1, 1}, float angle = 0,
-				 vec4 color = color_white, glm::bvec2 flip = {});
+				 vec4 color = color_white, bvec2 flip = {});
 
 float sprite_animate(const Sprite& s, float frame_index, float delta);

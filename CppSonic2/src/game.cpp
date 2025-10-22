@@ -4024,7 +4024,7 @@ void Game::draw(float delta) {
 				int anim_frame = (int)(it->sparkle.timer * 0.5f) % 4;
 				int frame_index = anim_frame % 2;
 
-				glm::bvec2 flip = {};
+				bvec2 flip = {};
 				if (anim_frame >= 2) flip.x = true;
 
 				if (it->sparkle.timer >= 16) {

@@ -667,7 +667,7 @@ void draw_quad(const Texture& t, Vertex vertices[4]) {
 
 void draw_texture(const Texture& t, Rect src,
 				  vec2 pos, vec2 scale,
-				  vec2 origin, float angle, vec4 color, glm::bvec2 flip) {
+				  vec2 origin, float angle, vec4 color, bvec2 flip) {
 
 	#ifdef RENDERER_DRAW_AT_FLOORED_POS
 		pos = floor(pos);
@@ -720,7 +720,7 @@ void draw_texture(const Texture& t, Rect src,
 }
 
 void draw_texture_simple(const Texture& t, Rect src,
-						 vec2 pos, vec2 origin, vec4 color, glm::bvec2 flip) {
+						 vec2 pos, vec2 origin, vec4 color, bvec2 flip) {
 	if (src.w == 0 && src.h == 0) {
 		src.w = t.width;
 		src.h = t.height;
@@ -760,7 +760,7 @@ void draw_texture_simple(const Texture& t, Rect src,
 
 void draw_texture_centered(const Texture& t,
 						   vec2 pos, vec2 scale,
-						   float angle, vec4 color, glm::bvec2 flip) {
+						   float angle, vec4 color, bvec2 flip) {
 	vec2 origin = {t.width / 2.0f, t.height / 2.0f};
 	draw_texture(t, {}, pos, scale, origin, angle, color, flip);
 }
