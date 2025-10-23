@@ -252,7 +252,7 @@ void init_window_and_opengl(const char* title,
 			should_enable_vsync = (SDL_atoi(USE_VSYNC) != 0);
 		}
 
-		SDL_GL_SetSwapInterval(should_enable_vsync ? 1 : 0);
+		set_vsync(should_enable_vsync);
 
 		window.prefer_borderless_fullscreen = prefer_borderless_fullscreen;
 
@@ -452,6 +452,11 @@ void set_fullscreen(bool fullscreen) {
 bool is_fullscreen() {
 	u32 flags = SDL_GetWindowFlags(window.handle);
 	return (flags & SDL_WINDOW_FULLSCREEN) != 0;
+}
+
+void set_vsync(bool vsync) {
+	int interval = vsync ? 1 : 0;
+	SDL_GL_SetSwapInterval(interval);
 }
 
 bool is_vsync_enabled() {
