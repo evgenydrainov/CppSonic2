@@ -84,7 +84,7 @@ void init_window_and_opengl(const char* title,
 
 	if (SDL_Init(SDL_INIT_VIDEO
 				 | SDL_INIT_GAMECONTROLLER) != 0) {
-		panic_and_abort("Couldn't initialize SDL: %s", SDL_GetError());
+		Panic("Couldn't initialize SDL: %s", SDL_GetError());
 	}
 
 	log_info("Platform: %s", SDL_GetPlatform());
@@ -174,7 +174,7 @@ void init_window_and_opengl(const char* title,
 	window.game_height = height;
 
 	if (!window.handle) {
-		panic_and_abort("Couldn't create window: %s", SDL_GetError());
+		Panic("Couldn't create window: %s", SDL_GetError());
 	}
 
 	// 
@@ -219,7 +219,7 @@ void init_window_and_opengl(const char* title,
 		log_info("Loaded GL %d.%d", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
 
 		if (GLAD_VERSION_MAJOR(version) < 3) {
-			panic_and_abort("Couldn't load OpenGL. Got version %d.%d", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
+			Panic("Couldn't load OpenGL. Got version %d.%d", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
 		}
 	}
 

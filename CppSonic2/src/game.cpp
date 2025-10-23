@@ -5419,11 +5419,11 @@ vec2 get_object_size(const Object& o) {
 
 template <typename T>
 static T* binary_search(array<T> arr, instance_id id) {
-	ssize_t left = 0;
-	ssize_t right = (ssize_t)arr.count - 1;
+	isize left = 0;
+	isize right = (isize)arr.count - 1;
 
 	while (left <= right) {
-		ssize_t middle = (left + right) / 2;
+		isize middle = (left + right) / 2;
 		if (arr[middle].id < id) {
 			left = middle + 1;
 		} else if (arr[middle].id > id) {

@@ -27,7 +27,13 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
-typedef ptrdiff_t ssize_t;
+typedef int8_t  i8;
+typedef int16_t i16;
+typedef int32_t i32;
+typedef int64_t i64;
+
+typedef size_t    usize;
+typedef ptrdiff_t isize;
 
 using glm::vec2;
 using glm::vec3;
@@ -89,7 +95,7 @@ inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(Log_Type type, SDL_PRINTF_FOR
 		return {};
 	};
 
-	// SDL_snprintf doesn't support %g.
+	// SDL_snprintf doesn't support %g
 	va_list va;
 	va_start(va, fmt);
 	int written = stbsp_vsnprintf(stack_buf, sizeof(stack_buf), fmt, va);
@@ -109,14 +115,17 @@ inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(Log_Type type, SDL_PRINTF_FOR
 		}
 	}
 
+#if 0
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, to_sdl_priority(type), "%s", buf);
+#else
 	switch (type) {
 		case LOG_INFO:  printf("INFO: ");  break;
 		case LOG_WARN:  printf("\033[93mWARN\033[0m: ");  break;
 		case LOG_ERROR: printf("\033[91mERROR\033[0m: "); break;
 	}
 
-	// SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, to_sdl_priority(type), "%s", buf);
 	printf("%s\n", buf);
+#endif
 
 	if (buf != stack_buf) {
 		free(buf);
@@ -127,7 +136,7 @@ inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(Log_Type type, SDL_PRINTF_FOR
 
 #ifdef NDEBUG
 	#ifdef ENABLE_ASSERTS_IN_RELEASE
-		#define Assert(expr) if (!(expr)) panic_and_abort("Assertion Failed: " #expr)
+		#define Assert(expr) if (!(expr)) Panic("assertion failed: " #expr)
 	#else
 		#define Assert(expr)
 	#endif
@@ -135,7 +144,7 @@ inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(Log_Type type, SDL_PRINTF_FOR
 	#define Assert(expr) if (!(expr)) { try_to_exit_fullscreen_properly(); SDL_TriggerBreakpoint(); }
 #endif
 
-#define panic_and_abort(fmt, ...) _panic_and_abort(__FILE__ ":" STRINGIFY(__LINE__) ": " fmt, ##__VA_ARGS__)
+#define Panic(fmt, ...) _Panic(__FILE__ ":" STRINGIFY(__LINE__) ": " fmt, ##__VA_ARGS__)
 
 SDL_Window* get_window_handle(); // defined in window_creation.h
 
@@ -152,7 +161,7 @@ inline void try_to_exit_fullscreen_properly() {
 	}
 }
 
-SDL_NORETURN inline void _panic_and_abort(const char* fmt, ...) {
+SDL_NORETURN inline void _Panic(const char* fmt, ...) {
 	char buf[512];
 
 	va_list va;
@@ -328,9 +337,7 @@ constexpr vec4 color_cornflower_blue = get_color(0x6495edff);
 // Cirno's Perfect Math Library
 // 
 
-#ifndef PI
-#define PI 3.14159265359f
-#endif
+constexpr float PI = 3.14159265359f;
 
 template <typename T>
 inline T min(T a, T b) {
@@ -568,36 +575,38 @@ inline void Approach(T* start, T end, T shift) { *start = approach(*start, end, 
 // Stolen from https://bytesbeneath.com/p/the-arena-custom-memory-allocators
 // 
 
-#define is_power_of_two(x) ((x) != 0 && ((x) & ((x) - 1)) == 0)
+constexpr size_t DEFAULT_ALIGNMENT = sizeof(void*);
 
-inline uintptr_t align_forward(uintptr_t ptr, size_t alignment) {
+inline bool is_power_of_two(size_t x) {
+	if (x == 0) {
+		return false;
+	}
+
+	return (x & (x-1)) == 0;
+}
+
+inline size_t align_forward(size_t ptr, size_t alignment) {
 	Assert(is_power_of_two(alignment));
 	return (ptr + (alignment - 1)) & ~(alignment - 1);
 }
 
 struct Arena {
-	static constexpr size_t DEFAULT_ALIGNMENT = sizeof(void*);
-
 	u8*    data;
 	size_t count;
 	size_t capacity;
-
 	size_t max_count;
 };
 
-inline u8* arena_push(Arena* arena, size_t size, size_t alignment = Arena::DEFAULT_ALIGNMENT) {
-	uintptr_t curr_ptr = (uintptr_t)arena->data + (uintptr_t)arena->count;
-	uintptr_t offset = align_forward(curr_ptr, alignment);
-	offset -= (uintptr_t)arena->data;
+inline u8* arena_push(Arena* arena, size_t size, size_t alignment = DEFAULT_ALIGNMENT) {
+	size_t pos = align_forward(arena->count, alignment);
+	u8* result = (u8*)arena->data + pos;
+	arena->count = pos + size;
 
-	Assert((offset + size) >= 0 && (offset + size) <= arena->capacity);
-
-	u8* ptr = arena->data + offset;
-	arena->count = offset + size;
+	Assert(arena->count <= arena->capacity);
 
 	arena->max_count = max(arena->count, arena->max_count);
 
-	return ptr;
+	return result;
 }
 
 inline void arena_pop(Arena* arena, size_t size) {
@@ -617,7 +626,12 @@ enum AllocatorMode {
 	ALLOCATOR_MODE_FREE,
 };
 
-typedef void* (*AllocatorProc)(AllocatorMode mode, size_t size, size_t old_size, void* old_ptr, void* userdata);
+typedef void* (*AllocatorProc)(AllocatorMode mode,
+							   size_t size,
+							   size_t old_size,
+							   void* old_ptr,
+							   size_t alignment,
+							   void* userdata);
 
 struct Allocator {
 	AllocatorProc proc;
@@ -625,7 +639,12 @@ struct Allocator {
 };
 
 
-inline void* libc_allocator_proc(AllocatorMode mode, size_t size, size_t old_size, void* old_ptr, void* userdata) {
+inline void* libc_allocator_proc(AllocatorMode mode,
+								 size_t size,
+								 size_t old_size,
+								 void* old_ptr,
+								 size_t alignment,
+								 void* userdata) {
 	switch (mode) {
 		case ALLOCATOR_MODE_ALLOCATE: {
 			return malloc(size);
@@ -652,24 +671,24 @@ inline Allocator get_libc_allocator() {
 }
 
 
-inline u8* aalloc(size_t size, Allocator allocator) {
+inline u8* aalloc(size_t size, size_t alignment, Allocator allocator) {
 	if (allocator.proc == nullptr && allocator.userdata == nullptr) {
 		allocator = get_libc_allocator();
 	}
 
 	Assert(allocator.proc);
 
-	return (u8*) allocator.proc(ALLOCATOR_MODE_ALLOCATE, size, 0, nullptr, allocator.userdata);
+	return (u8*) allocator.proc(ALLOCATOR_MODE_ALLOCATE, size, 0, nullptr, alignment, allocator.userdata);
 }
 
-inline u8* arealloc(void* old_ptr, size_t size, size_t old_size, Allocator allocator) {
+inline u8* arealloc(void* old_ptr, size_t size, size_t old_size, size_t alignment, Allocator allocator) {
 	if (allocator.proc == nullptr && allocator.userdata == nullptr) {
 		allocator = get_libc_allocator();
 	}
 
 	Assert(allocator.proc);
 
-	return (u8*) allocator.proc(ALLOCATOR_MODE_RESIZE, size, old_size, old_ptr, allocator.userdata);
+	return (u8*) allocator.proc(ALLOCATOR_MODE_RESIZE, size, old_size, old_ptr, alignment, allocator.userdata);
 }
 
 inline void afree(void* old_ptr, size_t old_size, Allocator allocator) {
@@ -679,33 +698,38 @@ inline void afree(void* old_ptr, size_t old_size, Allocator allocator) {
 
 	Assert(allocator.proc);
 
-	allocator.proc(ALLOCATOR_MODE_FREE, 0, old_size, old_ptr, allocator.userdata);
+	allocator.proc(ALLOCATOR_MODE_FREE, 0, old_size, old_ptr, 0, allocator.userdata);
 }
 
 
 
 inline Arena allocate_arena(size_t capacity, Allocator allocator) {
 	Arena arena = {};
-	arena.data = aalloc(capacity, allocator);
+	arena.data = aalloc(capacity, DEFAULT_ALIGNMENT, allocator);
 	arena.capacity = capacity;
 
-	// Maybe store the allocator in the arena?
+	// maybe store the allocator in the arena?
 
 	return arena;
 }
 
 
-inline void* arena_allocator_proc(AllocatorMode mode, size_t size, size_t old_size, void* old_ptr, void* userdata) {
+inline void* arena_allocator_proc(AllocatorMode mode,
+								  size_t size,
+								  size_t old_size,
+								  void* old_ptr,
+								  size_t alignment,
+								  void* userdata) {
 	Arena* arena = (Arena*) userdata;
 
 	switch (mode) {
 		case ALLOCATOR_MODE_ALLOCATE: {
-			return arena_push(arena, size);
+			return arena_push(arena, size, alignment);
 		}
 
 		case ALLOCATOR_MODE_RESIZE: {
 			if (old_ptr == nullptr) {
-				return arena_push(arena, size);
+				return arena_push(arena, size, alignment);
 			}
 
 			// if it's the last allocation then we can resize it
@@ -763,7 +787,7 @@ inline Allocator get_temp_allocator() {
 
 
 
-// No growing, triggers an assertion when runs out of capacity.
+// no growing, triggers an assertion when runs out of capacity
 template <typename T>
 struct bump_array {
 	T*     data;
@@ -771,14 +795,14 @@ struct bump_array {
 	size_t capacity;
 
 	T& operator[](size_t i) {
-		Assert(i >= 0    && "Index out of bounds."); // For when I switch to signed sizes.
-		Assert(i < count && "Index out of bounds.");
+		Assert(i >= 0    && "index out of bounds"); // for when I switch to signed sizes
+		Assert(i < count && "index out of bounds");
 		return data[i];
 	}
 
 	const T& operator[](size_t i) const {
-		Assert(i >= 0    && "Index out of bounds."); // For when I switch to signed sizes.
-		Assert(i < count && "Index out of bounds.");
+		Assert(i >= 0    && "index out of bounds"); // for when I switch to signed sizes
+		Assert(i < count && "index out of bounds");
 		return data[i];
 	}
 
@@ -789,7 +813,7 @@ struct bump_array {
 template <typename T>
 inline bump_array<T> allocate_bump_array(size_t capacity, Allocator allocator) {
 	bump_array<T> arr = {};
-	arr.data = (T*) aalloc(capacity * sizeof(T), allocator);
+	arr.data = (T*) aalloc(capacity * sizeof(T), DEFAULT_ALIGNMENT, allocator);
 	arr.capacity = capacity;
 
 	return arr;
@@ -861,12 +885,12 @@ struct dynamic_array {
 	Allocator allocator;
 
 	T& operator[](size_t i) {
-		Assert((i >= 0 && i < count) && "Index out of bounds.");
+		Assert((i >= 0 && i < count) && "index out of bounds");
 		return data[i];
 	}
 
 	const T& operator[](size_t i) const {
-		Assert((i >= 0 && i < count) && "Index out of bounds.");
+		Assert((i >= 0 && i < count) && "index out of bounds");
 		return data[i];
 	}
 
@@ -888,7 +912,7 @@ inline void _array_grow(dynamic_array<T>* arr) {
 		new_capacity = arr->capacity + 1;
 	}
 
-	T* new_data = (T*) arealloc(arr->data, new_capacity * sizeof(T), arr->capacity * sizeof(T), arr->allocator);
+	T* new_data = (T*) arealloc(arr->data, new_capacity * sizeof(T), arr->capacity * sizeof(T), DEFAULT_ALIGNMENT, arr->allocator);
 	Assert(new_data);
 
 	arr->data = new_data;
@@ -968,7 +992,7 @@ inline void array_free(dynamic_array<T>* arr) {
 
 
 
-// "Array view"
+// an array view, or a slice
 template <typename T>
 struct array {
 	T*     data;
@@ -1277,20 +1301,21 @@ inline bool string_contains(string str, char ch) {
 	return false;
 }
 
-template <size_t N>
-inline string SDL_PRINTF_VARARG_FUNC(2) Sprintf(char (&buf)[N], SDL_PRINTF_FORMAT_STRING const char* fmt, ...) {
+inline string SDL_PRINTF_VARARG_FUNC(2) bprintf(char* buf, size_t N, SDL_PRINTF_FORMAT_STRING const char* fmt, ...) {
+	// Assert(N < (size_t)INT_MAX);
+
 	va_list va;
 	va_start(va, fmt);
-
-	static_assert(N < (size_t)INT_MAX, "");
-
-	int result = stbsp_vsnprintf(buf, (int)N, fmt, va);
+	// the size of the full formatted string
+	size_t full_formatted_size = (size_t)stbsp_vsnprintf(buf, (int)N, fmt, va);
 	va_end(va);
 
-	Assert(result > 0);
-	size_t count = min((size_t)result, N - 1);
+	// Assert(full_formatted_size > 0);
 
-	return {buf, count};
+	// how many bytes we actually wrote, without the null terminator
+	size_t bytes_written = min(full_formatted_size, N - 1);
+
+	return {buf, bytes_written};
 }
 
 inline string SDL_PRINTF_VARARG_FUNC(1) tprintf(SDL_PRINTF_FORMAT_STRING const char* fmt, ...) {
@@ -1298,21 +1323,22 @@ inline string SDL_PRINTF_VARARG_FUNC(1) tprintf(SDL_PRINTF_FORMAT_STRING const c
 
 	char* buf = (char*) arena_push(temp_arena, 0);
 
-	Assert(temp_arena->capacity > temp_arena->count);
+	// Assert(temp_arena->capacity > temp_arena->count);
 	size_t N = temp_arena->capacity - temp_arena->count;
 
 	va_list va;
 	va_start(va, fmt);
-	size_t written = (size_t)stbsp_vsnprintf(buf, (int)N, fmt, va);
+	// the size of the full formatted string
+	size_t full_formatted_size = (size_t)stbsp_vsnprintf(buf, (int)N, fmt, va);
 	va_end(va);
 
-	size_t count = min(written, N - 1);
-	Assert(count == written && "out of memory");
+	// how many bytes we actually wrote, without the null terminator
+	size_t bytes_written = min(full_formatted_size, N - 1);
+	// Assert(bytes_written == full_formatted_size && "out of memory");
 
-	// account for null pointer and disable alignment
-	arena_push(temp_arena, count + 1, 1);
+	arena_push(temp_arena, bytes_written, 1); // no alignment
 
-	return {buf, count};
+	return {buf, bytes_written};
 }
 
 
