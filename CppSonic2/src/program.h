@@ -24,9 +24,6 @@ struct Program {
 
 	string level_filepath;
 
-	size_t temp_memory_max_usage_this_frame;
-	size_t temp_memory_max_usage_ever;
-
 	int argc;
 	char** argv;
 

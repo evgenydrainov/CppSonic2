@@ -773,10 +773,34 @@ inline Allocator get_arena_allocator(Arena* arena) {
 }
 
 
+extern size_t temp_memory_max_usage_this_frame;
+extern size_t temp_memory_max_usage_ever;
+
 Arena* get_temp_arena();
 
 inline Allocator get_temp_allocator() {
 	return get_arena_allocator(get_temp_arena());
+}
+
+inline void init_temporary_storage(size_t size) {
+	Arena* temp_arena = get_temp_arena();
+	*temp_arena = allocate_arena(size, get_libc_allocator());
+}
+
+inline void deinit_temporary_storage() {
+	Arena* temp_arena = get_temp_arena();
+	afree(temp_arena->data, temp_arena->capacity, get_libc_allocator());
+	*temp_arena = {};
+}
+
+inline void reset_temporary_storage() {
+	Arena* temp_arena = get_temp_arena();
+
+	temp_memory_max_usage_this_frame = temp_arena->max_count;
+	temp_memory_max_usage_ever = max(temp_memory_max_usage_ever, temp_memory_max_usage_this_frame);
+
+	temp_arena->count = 0;
+	temp_arena->max_count = 0;
 }
 
 
