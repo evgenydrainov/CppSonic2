@@ -1792,7 +1792,9 @@ static void player_collide_with_solid_objects(Player* p) {
 
 				// special case for spikes
 				if (it->type == OBJ_SPIKE && (it->spike.direction == DIR_LEFT || it->spike.direction == DIR_RIGHT)) {
-					should_collide = true;
+					if (p->speed.x == 0) {
+						should_collide = true;
+					}
 				}
 
 				if (should_collide)
