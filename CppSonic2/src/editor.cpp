@@ -1114,6 +1114,7 @@ void Editor::update(float delta) {
 		if (create_level_backup_timer <= 0) {
 			create_level_backup_timer += CREATE_LEVEL_BACKUP_TIME;
 			
+#if 0
 			auto level_name = current_level_dir.filename().u8string();
 
 			auto dir = current_level_dir / ".backups" / std::filesystem::u8path(level_name + "-" + get_timestamp_str());
@@ -1122,6 +1123,7 @@ void Editor::update(float delta) {
 			std::filesystem::create_directories(dir);
 
 			save_level_internal(dir);
+#endif
 		} else {
 			create_level_backup_timer -= delta;
 		}
