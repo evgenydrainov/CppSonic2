@@ -1029,15 +1029,17 @@ static void ground_sensor_collision(Player* p) {
 		}
 	};*/
 
-	// stick only to angled tiles while on a wall
-	/*if (p->ground_angle == 90 || p->ground_angle == 270) {
-		if (angle == -1) {
-			if (res.dist > 0) {
-				p->state = STATE_AIR;
-				return;
+	// don't stick to these tiles while on a wall
+	if (res.tile.special) {
+		if (p->ground_angle == 90 || p->ground_angle == 270) {
+			if (angle == -1) {
+				if (res.dist > 0) {
+					p->state = STATE_AIR;
+					return;
+				}
 			}
 		}
-	}*/
+	}
 
 	/*if (res.dist < -14) {
 		return;

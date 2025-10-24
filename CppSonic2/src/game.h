@@ -265,6 +265,7 @@ struct Tile {
 	unsigned int vflip : 1;
 	unsigned int top_solid : 1;
 	unsigned int lrb_solid : 1; // left right bottom
+	unsigned int special : 1;
 };
 
 static_assert(sizeof(Tile) == 4);

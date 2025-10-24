@@ -2135,7 +2135,7 @@ void TilemapEditor::update(float delta) {
 						for (int x = pos_from.x; x < pos_to.x; x++) {
 							Tile tile = get_tile(editor.tm, x, y, i);
 
-							if (tile.index == 0) {
+							if (tile.index == 0 && !tile.special) {
 								continue;
 							}
 
@@ -2146,6 +2146,10 @@ void TilemapEditor::update(float delta) {
 							src.h = 16;
 
 							draw_texture_simple(editor.tileset_texture, src, {x * 16.0f, y * 16.0f}, {}, color, {tile.hflip, tile.vflip});
+
+							if (tile.special) {
+								draw_text_shadow(get_font(fnt_cp437), "*", {x * 16.0f, y * 16.0f});
+							}
 						}
 					}
 
@@ -2242,10 +2246,14 @@ void TilemapEditor::update(float delta) {
 									pos.x = (mouse_pos.x + x) * 16;
 									pos.y = (mouse_pos.y + y) * 16;
 
-									if (tile.index == 0) { // can only happen in solidity_mode
+									if (tile.index == 0) {
 										draw_rectangle({pos.x, pos.y, 16, 16}, color);
 									} else {
 										draw_texture_simple(t, src, pos, {}, color, {tile.hflip, tile.vflip});
+									}
+
+									if (tile.special) {
+										draw_text_shadow(get_font(fnt_cp437), "*", pos);
 									}
 								}
 							}
@@ -2493,6 +2501,10 @@ void TilemapEditor::update(float delta) {
 
 			if (IsKeyPressedNoMod(ImGuiKey_L)) {
 				For (it, brush) it->lrb_solid ^= 1;
+			}
+
+			if (IsKeyPressedNoMod(ImGuiKey_Q)) {
+				For (it, brush) it->special ^= 1;
 			}
 		}
 

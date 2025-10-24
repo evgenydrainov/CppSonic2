@@ -135,6 +135,7 @@ enum {
 	fnt_ms_mincho,
 	fnt_consolas,
 	fnt_consolas_bold,
+	fnt_cp437,
 	fnt_menu,
 	fnt_hud,
 	fnt_titlecard,

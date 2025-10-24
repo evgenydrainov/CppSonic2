@@ -44,6 +44,10 @@ Font load_bmfont_file(const char* fnt_filepath, const char* png_filepath) {
 				return {};
 			}
 
+			if (size < 0) {
+				size = -size;
+			}
+
 			f.size = size;
 		}
 	}

@@ -11,6 +11,12 @@ static Mix_Chunk* sounds  [NUM_SOUNDS];
 static Shader     shaders [NUM_SHADERS];
 
 void load_global_assets() {
+	fonts[fnt_ms_gothic]     = load_bmfont_file("fonts/ms_gothic.fnt",      "fonts/ms_gothic_0.png");
+	fonts[fnt_ms_mincho]     = load_bmfont_file("fonts/ms_mincho.fnt",      "fonts/ms_mincho_0.png");
+	fonts[fnt_consolas]      = load_bmfont_file("fonts/consolas.fnt",       "fonts/consolas_0.png");
+	fonts[fnt_consolas_bold] = load_bmfont_file("fonts/consolas_bold.fnt",  "fonts/consolas_bold_0.png");
+	fonts[fnt_cp437]         = load_bmfont_file("fonts/cp437.fnt",          "fonts/cp437_0.png");
+	
 	{
 		textures[tex_global_objects] = load_texture_from_file("textures/global_objects.png");
 		const Texture& t = get_texture(tex_global_objects);
@@ -85,10 +91,6 @@ void load_assets_for_game() {
 
 	textures[tex_sonic_palette] = load_texture_from_file("textures/sonic_palette.png");
 
-	fonts[fnt_ms_gothic]     = load_bmfont_file("fonts/ms_gothic.fnt",      "fonts/ms_gothic_0.png");
-	fonts[fnt_ms_mincho]     = load_bmfont_file("fonts/ms_mincho.fnt",      "fonts/ms_mincho_0.png");
-	fonts[fnt_consolas]      = load_bmfont_file("fonts/consolas.fnt",       "fonts/consolas_0.png");
-	fonts[fnt_consolas_bold] = load_bmfont_file("fonts/consolas_bold.fnt",  "fonts/consolas_bold_0.png");
 	fonts[fnt_hud]           = load_bmfont_file("fonts/fnt_hud.fnt",        "fonts/fnt_hud.png");
 	fonts[fnt_titlecard]     = load_bmfont_file("fonts/fnt_titlecard.fnt",  "fonts/fnt_titlecard.png");
 
