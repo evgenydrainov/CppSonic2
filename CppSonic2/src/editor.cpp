@@ -1412,7 +1412,8 @@ void Editor::action_perform(const Action& action) {
 
 		case ACTION_ADD_OBJECT: {
 			array_add(&objects, action.add_object.object);
-			objects_editor.object_index = -1;
+			// objects_editor.object_index = -1;
+			objects_editor.object_index = objects.count - 1;
 			break;
 		}
 
@@ -3011,6 +3012,23 @@ void ObjectsEditor::update(float delta) {
 					dragging = false;
 					drag_offset = {};
 					pos = {};
+				}
+			}
+		}
+
+		// ctrl+d to duplicate object
+		{
+			if (object_index != -1) {
+				if (ImGui::IsKeyPressed(ImGuiKey_D) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+					Object o = editor.objects[object_index];
+					o.pos.x += 16;
+					o.pos.y += 16;
+
+					Action action = {};
+					action.type = ACTION_ADD_OBJECT;
+					action.add_object.object = o;
+
+					editor.action_add_and_perform(action);
 				}
 			}
 		}
