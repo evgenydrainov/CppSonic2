@@ -2007,7 +2007,7 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 	}
 }
 
-constexpr int NUM_PHYSICS_STEPS = 8;
+constexpr int NUM_PHYSICS_STEPS = 16;
 
 static void player_state_ground(Player* p, float delta) {
 	int input_h = 0;
