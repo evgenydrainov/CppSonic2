@@ -49,6 +49,10 @@ void Program::update(float delta) {
 		show_debug_info ^= true;
 	}
 
+	if (is_controller_button_pressed(SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) {
+		show_debug_info ^= true;
+	}
+
 	// change program mode
 	if (next_program_mode != PROGRAM_NONE) {
 		if (transition_t == 1) {
@@ -145,23 +149,15 @@ void Program::late_draw(float delta) {
 	if (program.show_debug_info) {
 		string str = tprintf("frame: %fms\n"
 							 "update: %fms\n"
-							 "draw: %fms\n"
-							 "draw calls: %d\n"
-							 "total triangles: %d\n"
-							 "temp frame: " Size_Fmt "\n"
-							 "temp ever: " Size_Fmt "\n",
+							 "draw: %fms\n",
 							 window.frame_took * 1000.0,
 							 (window.frame_took - renderer.draw_took) * 1000.0,
-							 renderer.draw_took * 1000.0,
-							 renderer.draw_calls,
-							 renderer.total_triangles,
-							 Size_Arg(temp_memory_max_usage_this_frame),
-							 Size_Arg(temp_memory_max_usage_ever));
+							 renderer.draw_took * 1000.0);
 		pos = draw_text_shadow(get_font(fnt_consolas_bold), str, pos);
 
 		pos.y += get_font(fnt_consolas_bold).line_height / 2;
 
-		if (program_mode == PROGRAM_GAME) {
+		if (0) {
 			Player* p = &game.player;
 
 			string str = tprintf("state: %s\n"
