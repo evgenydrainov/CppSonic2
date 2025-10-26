@@ -770,6 +770,7 @@ void Editor::close_level() {
 	free(objects.data);
 	objects = {};
 	objects_editor.object_index = -1;
+	// TODO: clear all the editors
 
 	free_texture(&heightmap);
 	free_texture(&widthmap);
@@ -1511,8 +1512,13 @@ bool Editor::try_run_game() {
 	}
 
 	// SDL converts argv to utf8, so `process_name` is utf8
-	auto str = current_level_dir.u8string();
-	const char *command_line[] = {process_name, "--game", str.c_str(), NULL};
+	auto level_dir = current_level_dir.u8string();
+
+#if 0
+	const char *command_line[] = {process_name, "--game", level_dir.c_str(), NULL};
+
+	// there's a bug where the game deadlocks when it fills the stdout pipe,
+	// if it's launched with subprocess.h
 
 	// @Utf8
 	// it seems like this library doesn't convert from utf8 to windows wide char
@@ -1523,6 +1529,11 @@ bool Editor::try_run_game() {
 	}
 
 	// do we need to `subprocess_destroy`?
+#else
+	char buf[512];
+	stbsp_snprintf(buf, sizeof buf, "%s --game %s", process_name, level_dir.c_str());
+	system(buf);
+#endif
 
 	return true;
 }
