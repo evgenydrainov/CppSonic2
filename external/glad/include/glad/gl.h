@@ -7,7 +7,7 @@
 
 	#define GL_RGB8                GL_RGB8_OES
 	#define GL_RGBA8               GL_RGBA8_OES
-	#define GL_DEPTH_COMPONENT32F  GL_DEPTH_COMPONENT32_OES
+	#define GL_DEPTH_COMPONENT24   GL_DEPTH_COMPONENT24_OES
 	#define glGenVertexArrays      glGenVertexArraysOES
 	#define glBindVertexArray      glBindVertexArrayOES
 	#define glDeleteVertexArrays   glDeleteVertexArraysOES

@@ -126,8 +126,8 @@ void stop_sound(Mix_Chunk* chunk) {
 void play_music(const char* fname, int loops) {
 	stop_music();
 
-	g_Music = Mix_LoadMUS(fname);
-	Mix_PlayMusic(g_Music, loops);
+	// g_Music = Mix_LoadMUS(fname);
+	// Mix_PlayMusic(g_Music, loops);
 }
 
 void stop_music() {
