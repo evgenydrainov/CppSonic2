@@ -1325,7 +1325,7 @@ inline bool string_contains(string str, char ch) {
 	return false;
 }
 
-inline string SDL_PRINTF_VARARG_FUNC(2) bprintf(char* buf, size_t N, SDL_PRINTF_FORMAT_STRING const char* fmt, ...) {
+inline string SDL_PRINTF_VARARG_FUNC(3) bprintf(char* buf, size_t N, SDL_PRINTF_FORMAT_STRING const char* fmt, ...) {
 	// Assert(N < (size_t)INT_MAX);
 
 	va_list va;
