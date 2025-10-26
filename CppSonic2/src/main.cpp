@@ -22,15 +22,11 @@
 #endif
 
 
-static void reset_temporary_storage() {
-	Arena* temp_arena = get_temp_arena();
+static Arena temp_arena;
+Arena* get_temp_arena() { return &temp_arena; }
 
-	program.temp_memory_max_usage_this_frame = temp_arena->max_count;
-	program.temp_memory_max_usage_ever = max(program.temp_memory_max_usage_ever, program.temp_memory_max_usage_this_frame);
-
-	temp_arena->count = 0;
-	temp_arena->max_count = 0;
-}
+size_t temp_memory_max_usage_this_frame;
+size_t temp_memory_max_usage_ever;
 
 
 static void do_one_frame() {
@@ -198,17 +194,12 @@ enum Launch_Mode {
 	LAUNCH_EDITOR,
 };
 
-static Arena temp_arena;
-
-Arena* get_temp_arena() {
-	return &temp_arena;
-}
 
 int main(int argc, char* argv[]) {
-	temp_arena = allocate_arena(Megabytes(1), get_libc_allocator());
-	defer { free(temp_arena.data); };
+	init_temporary_storage(Megabytes(1));
+	defer { deinit_temporary_storage(); };
 
-#if defined(_DEBUG) && defined(_WIN32)
+#if defined(_DEBUG)
 	run_tests();
 #endif
 

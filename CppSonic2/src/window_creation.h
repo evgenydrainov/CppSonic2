@@ -78,8 +78,9 @@ SDL_Window* get_window_handle(); // for common.h
 // Enabling fullscreen doesn't change your monitor's display mode (resolution and refresh rate). At least it shouldn't.
 // This means that it won't cause a flicker and rearrange all your windows.
 void set_fullscreen(bool fullscreen);
-
 bool is_fullscreen();
+
+void set_vsync(bool vsync);
 bool is_vsync_enabled();
 
 double get_time();

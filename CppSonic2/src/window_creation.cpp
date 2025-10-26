@@ -86,7 +86,7 @@ void init_window_and_opengl(const char* title,
 
 	if (SDL_Init(SDL_INIT_VIDEO
 				 | SDL_INIT_GAMECONTROLLER) != 0) {
-		panic_and_abort("Couldn't initialize SDL: %s", SDL_GetError());
+		Panic("Couldn't initialize SDL: %s", SDL_GetError());
 	}
 
 	log_info("Platform: %s", SDL_GetPlatform());
@@ -179,7 +179,7 @@ void init_window_and_opengl(const char* title,
 	window.game_height = height;
 
 	if (!window.handle) {
-		panic_and_abort("Couldn't create window: %s", SDL_GetError());
+		Panic("Couldn't create window: %s", SDL_GetError());
 	}
 
 	SDL_SetWindowMinimumSize(window.handle, width, height);
@@ -217,7 +217,7 @@ void init_window_and_opengl(const char* title,
 // 		log_info("Loaded GL %d.%d", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
 
 // 		if (GLAD_VERSION_MAJOR(version) < 3) {
-// 			panic_and_abort("Couldn't load OpenGL. Got version %d.%d", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
+// 			Panic("Couldn't load OpenGL. Got version %d.%d", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
 // 		}
 // 	}
 
@@ -250,7 +250,7 @@ void init_window_and_opengl(const char* title,
 			should_enable_vsync = (SDL_atoi(USE_VSYNC) != 0);
 		}
 
-		SDL_GL_SetSwapInterval(should_enable_vsync ? 1 : 0);
+		set_vsync(should_enable_vsync);
 
 		window.prefer_borderless_fullscreen = prefer_borderless_fullscreen;
 
@@ -417,7 +417,11 @@ void swap_buffers() {
 			SDL_Delay((u32)(sleep_time * 1000.0));
 
 			// spinlock
-			while (get_time() < window.frame_end_time) {}
+			while (get_time() < window.frame_end_time) {
+				#ifdef SDL_CPUPauseInstruction
+					SDL_CPUPauseInstruction();
+				#endif
+			}
 		}
 	}
 }
@@ -446,6 +450,11 @@ void set_fullscreen(bool fullscreen) {
 bool is_fullscreen() {
 	u32 flags = SDL_GetWindowFlags(window.handle);
 	return (flags & SDL_WINDOW_FULLSCREEN) != 0;
+}
+
+void set_vsync(bool vsync) {
+	int interval = vsync ? 1 : 0;
+	SDL_GL_SetSwapInterval(interval);
 }
 
 bool is_vsync_enabled() {

@@ -9,18 +9,19 @@
 	X(STATE_GROUND) \
 	X(STATE_ROLL) \
 	X(STATE_AIR) \
+	X(STATE_DEAD) \
 	X(STATE_DEBUG)
 
-DEFINE_NAMED_ENUM(PlayerState, PLAYER_STATE_ENUM)
+DEFINE_NAMED_ENUM(PlayerState, int, PLAYER_STATE_ENUM)
 
-enum PlayerMode {
+enum PlayerMode : int {
 	MODE_FLOOR,
 	MODE_RIGHT_WALL,
 	MODE_CEILING,
 	MODE_LEFT_WALL,
 };
 
-enum anim_index {
+enum anim_index : int {
 	anim_crouch,
 	anim_idle,
 	anim_look_up,
@@ -35,6 +36,8 @@ enum anim_index {
 	anim_push,
 	anim_rise,
 	anim_hurt,
+	anim_die,
+	anim_drown,
 
 	NUM_ANIMS,
 };
@@ -61,8 +64,12 @@ struct Player {
 
 	float spinrev;
 	float control_lock;
-	float invulnerable;
+	float invulnerable; // after taking damage
 	float ignore_rings;
+
+	float invincibility; // from monitor
+	float super_speed; // from monitor
+	bool has_shield;
 
 	bool jumped;
 	bool peelout;
@@ -78,6 +85,8 @@ struct Player {
 	float dont_change_mode_timer;
 
 	float look_timer;
+	float death_timer;
+	int death_state;
 
 	u32 input;
 	u32 input_press;
@@ -101,9 +110,12 @@ struct Player {
 	X(OBJ_LAYER_SWITCHER_HORIZONTAL, 12) \
 	X(OBJ_SPRING_DIAGONAL,           13) \
 	X(OBJ_MOSQUI,                    14) \
-	X(OBJ_FLOWER,                    15)
+	X(OBJ_FLOWER,                    15) \
+	X(OBJ_CAMERA_REGION,             16) \
+	X(OBJ_SIGN_POST,                 17) \
+	X(OBJ_INVINCIBILITY_SPARKLE,     18)
 
-DEFINE_NAMED_ENUM_WITH_VALUES(ObjType, OBJ_TYPE_ENUM)
+DEFINE_NAMED_ENUM_WITH_VALUES(ObjType, int, OBJ_TYPE_ENUM)
 
 typedef u32 instance_id;
 
@@ -139,7 +151,7 @@ enum {
 	\
 	X(NUM_MONITOR_ICONS)
 
-DEFINE_NAMED_ENUM(MonitorIcon, MONITOR_ICON_ENUM)
+DEFINE_NAMED_ENUM(MonitorIcon, int, MONITOR_ICON_ENUM)
 
 // serialized
 #define SPRING_COLOR_ENUM(X) \
@@ -148,7 +160,7 @@ DEFINE_NAMED_ENUM(MonitorIcon, MONITOR_ICON_ENUM)
 	\
 	X(NUM_SPING_COLORS)
 
-DEFINE_NAMED_ENUM(SpringColor, SPRING_COLOR_ENUM)
+DEFINE_NAMED_ENUM(SpringColor, int, SPRING_COLOR_ENUM)
 
 // serialized
 #define DIRECTION_ENUM(X) \
@@ -159,7 +171,7 @@ DEFINE_NAMED_ENUM(SpringColor, SPRING_COLOR_ENUM)
 	\
 	X(NUM_DIRS)
 
-DEFINE_NAMED_ENUM(Direction, DIRECTION_ENUM)
+DEFINE_NAMED_ENUM(Direction, int, DIRECTION_ENUM)
 
 struct Object {
 	instance_id id;
@@ -228,6 +240,14 @@ struct Object {
 		struct {
 			float timer;
 		} flower; // OBJ_FLOWER
+
+		struct {
+			float timer;
+		} signpost; // OBJ_SIGN_POST
+
+		struct {
+			float timer;
+		} sparkle; // OBJ_INVINCIBILITY_SPARKLE
 	};
 };
 
@@ -245,6 +265,7 @@ struct Tile {
 	unsigned int vflip : 1;
 	unsigned int top_solid : 1;
 	unsigned int lrb_solid : 1; // left right bottom
+	unsigned int special : 1;
 };
 
 static_assert(sizeof(Tile) == 4);
@@ -283,13 +304,36 @@ struct Tilemap {
 	array<Tile> tiles_d;
 };
 
+struct ScoreCard {
+	enum State : int {
+		NONE,
+		WAIT,
+		MOVE_MESSAGE,
+		MOVE_SCORE,
+		APPLY_SCORE,
+		WAIT_2,
+		DONE,
+	};
+
+	State state;
+	float timer;
+	float message_offset;
+	float score_offset;
+
+	int time_bonus;
+	int ring_bonus;
+	int total_bonus;
+
+	void update(float delta);
+	void draw(float delta);
+	void show();
+};
+
 struct Game {
 	Player player;
 
-	int player_score;
 	float player_time;
 	int player_rings;
-	int player_lives = 3;
 
 	bump_array<Object> objects;
 
@@ -299,6 +343,9 @@ struct Game {
 	vec2 camera_pos_real;
 	float camera_lock;
 	float camera_look_offset;
+	float camera_sign_post_left;
+
+	bool level_cleared;
 
 	Tileset ts;
 	Texture tileset_texture;
@@ -343,7 +390,7 @@ struct Game {
 	static constexpr float PAUSE_BLINK_TIME = 30;
 
 #ifdef DEVELOPER
-	static constexpr int PAUSE_MENU_NUM_ITEMS = 4;
+	static constexpr int PAUSE_MENU_NUM_ITEMS = 3; // 4;
 #else
 	static constexpr int PAUSE_MENU_NUM_ITEMS = 3;
 #endif
@@ -353,6 +400,11 @@ struct Game {
 	float pause_menu_t;
 	int pause_menu_cursor;
 	u32 pause_last_pressed_time;
+	bool pause_cancelled;
+
+	bool show_game_over_screen;
+
+	ScoreCard score_card;
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
 	u32 mobile_input_state;
@@ -370,12 +422,13 @@ struct Game {
 	void deinit();
 
 	void update(float delta);
-	void update_camera(float delta);
+	void camera_update(float delta);
 	void update_gameplay(float delta);
 	void update_touch_input();
 	void update_pause_menu(float delta);
 
 	void draw(float delta);
+	void draw_pause_menu(float delta);
 
 	void load_level(const char* path);
 	Object* find_object(instance_id id);

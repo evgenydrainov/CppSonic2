@@ -40,7 +40,7 @@ struct Selection {
 	X(ACTION_REMOVE_OBJECT) \
 	X(ACTION_SET_OBJECT_FIELD)
 
-DEFINE_NAMED_ENUM(ActionType, ACTION_TYPE_ENUM)
+DEFINE_NAMED_ENUM(ActionType, int, ACTION_TYPE_ENUM)
 
 struct SetTileHeight {
 	int tile_index;

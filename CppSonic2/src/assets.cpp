@@ -11,28 +11,44 @@ static Mix_Chunk* sounds  [NUM_SOUNDS];
 static Shader     shaders [NUM_SHADERS];
 
 void load_global_assets() {
+	fonts[fnt_ms_gothic]     = load_bmfont_file("fonts/ms_gothic.fnt",      "fonts/ms_gothic_0.png");
+	fonts[fnt_ms_mincho]     = load_bmfont_file("fonts/ms_mincho.fnt",      "fonts/ms_mincho_0.png");
+	fonts[fnt_consolas]      = load_bmfont_file("fonts/consolas.fnt",       "fonts/consolas_0.png");
+	fonts[fnt_consolas_bold] = load_bmfont_file("fonts/consolas_bold.fnt",  "fonts/consolas_bold_0.png");
+	fonts[fnt_cp437]         = load_bmfont_file("fonts/cp437.fnt",          "fonts/cp437_0.png");
+	
 	{
 		textures[tex_global_objects] = load_texture_from_file("textures/global_objects.png");
 		const Texture& t = get_texture(tex_global_objects);
 
-		sprites[spr_spindash_smoke] = create_sprite(t,  0,   0, 32, 32, 32, 11, 7);
-		sprites[spr_ring]           = create_sprite(t,  0,  32, 16, 16,  8,  8, 4);
-		sprites[spr_ring_disappear] = create_sprite(t,  0,  48, 16, 16,  8,  8, 4, 4, 1.0f / 6.0f);
-		sprites[spr_monitor]        = create_sprite(t,  0,  64, 32, 32, 16, 16, 2);
-		sprites[spr_monitor_broken] = create_sprite(t, 64,  64, 32, 32, 16, 16);
-		sprites[spr_monitor_icon]   = create_sprite(t,  0,  96, 16, 16,  8,  8, 10);
-		sprites[spr_explosion]      = create_sprite(t,  0, 176, 32, 32, 16, 16, 5, 5, 1.0f / 6.0f);
-		sprites[spr_skid_dust]      = create_sprite(t,  0, 208, 16, 16,  8,  8, 4, 4, 1.0f / 4.0f);
-		sprites[spr_spike]          = create_sprite(t,  0, 224, 32, 32, 16, 16);
-		sprites[spr_water_surface]  = create_sprite(t, 64,  32, 32, 16,  0,  8, 4);
-		sprites[spr_mosqui]         = create_sprite(t,  0, 384, 32, 32, 16, 16, 5);
-		sprites[spr_flower]         = create_sprite(t,  0, 416, 32, 64, 16, 48, 9);
+		sprites[spr_spindash_smoke]        = create_sprite(t,   0,   0,  32,  32,  32,  11,   7);
+		sprites[spr_ring]                  = create_sprite(t,   0,  32,  16,  16,   8,   8,   4);
+		sprites[spr_ring_disappear]        = create_sprite(t,   0,  48,  16,  16,   8,   8,   4,  4,  1.0f / 6.0f);
+		sprites[spr_monitor]               = create_sprite(t,   0,  64,  32,  32,  16,  16,   2);
+		sprites[spr_monitor_broken]        = create_sprite(t,  64,  64,  32,  32,  16,  16);
+		sprites[spr_monitor_icon]          = create_sprite(t,   0,  96,  16,  16,   8,   8,  10);
+		sprites[spr_explosion]             = create_sprite(t,   0, 176,  32,  32,  16,  16,   5,  5,  1.0f / 6.0f);
+		sprites[spr_skid_dust]             = create_sprite(t,   0, 208,  16,  16,   8,   8,   4,  4,  1.0f / 4.0f);
+		sprites[spr_spike]                 = create_sprite(t,   0, 224,  32,  32,  16,  16);
+		sprites[spr_water_surface]         = create_sprite(t,  64,  32,  32,  16,   0,   8,   4);
+		sprites[spr_mosqui]                = create_sprite(t,   0, 384,  32,  32,  16,  16,   5);
+		sprites[spr_flower]                = create_sprite(t,   0, 416,  32,  64,  16,  48,   9);
+		sprites[spr_score_popup]           = create_sprite(t,   0, 480,  16,  16,   8,   8,   5);
+		sprites[spr_game_over_text]        = create_sprite(t,   0, 496,  64,  16,  32,   8,   2);
+		sprites[spr_sign_post]             = create_sprite(t,   0, 512,  48,  56,  24,  28,   7);
+		sprites[spr_text_sonic]            = create_sprite(t,   0, 576,  72,  14,   0,   0);
+		sprites[spr_text_got]              = create_sprite(t,  80, 576,  47,  14,   0,   0);
+		sprites[spr_text_through]          = create_sprite(t, 128, 576, 111,  14,   0,   0);
+		sprites[spr_text_zone]             = create_sprite(t, 240, 576,  53,  14,   0,   0);
+		sprites[spr_text_zone_number]      = create_sprite(t, 304, 576,  16,  16,   0,   0,   3);
+		sprites[spr_invincibility_sparkle] = create_sprite(t,   0, 592,  48,  48,  24,  24,   2);
+		sprites[spr_shield]                = create_sprite(t,  96, 592,  48,  48,  24,  24,   3);
 
-		sprites[spr_spring_yellow]  = create_sprite(t, 32, 112, 32, 32, 16, 24);
-		sprites[spr_spring_red]     = create_sprite(t, 32, 144, 32, 32, 16, 24);
+		sprites[spr_spring_yellow]  = create_sprite(t,  32, 112, 32, 40, 16, 32);
+		sprites[spr_spring_red]     = create_sprite(t, 128, 112, 32, 40, 16, 32);
 
-		sprites[spr_spring_bounce_yellow]  = create_sprite(t,  0, 112, 32, 32, 16, 24, 3, 3, 1.0f / 3.0f);
-		sprites[spr_spring_bounce_red]     = create_sprite(t,  0, 144, 32, 32, 16, 24, 3, 3, 1.0f / 3.0f);
+		sprites[spr_spring_bounce_yellow]  = create_sprite(t,  0, 112, 32, 40, 16, 32, 3, 3, 1.0f / 3.0f);
+		sprites[spr_spring_bounce_red]     = create_sprite(t, 96, 112, 32, 40, 16, 32, 3, 3, 1.0f / 3.0f);
 
 		sprites[spr_spring_diagonal_yellow]  = create_sprite(t, 80, 272, 32, 32, 16, 16);
 		sprites[spr_spring_diagonal_red]     = create_sprite(t, 80, 336, 32, 32, 16, 16);
@@ -69,14 +85,12 @@ void load_assets_for_game() {
 		sprites[spr_sonic_push]     = create_sprite(t, 0, 11 * 59, 59, 59, 30, 30, 4);
 		sprites[spr_sonic_rise]     = create_sprite(t, 0, 12 * 59, 59, 59, 30, 30, 5);
 		sprites[spr_sonic_hurt]     = create_sprite(t, 0, 13 * 59, 59, 59, 30, 30);
+		sprites[spr_sonic_die]      = create_sprite(t, 0, 14 * 59, 59, 59, 30, 30);
+		sprites[spr_sonic_drown]    = create_sprite(t, 0, 15 * 59, 59, 59, 30, 30);
 	}
 
 	textures[tex_sonic_palette] = load_texture_from_file("textures/sonic_palette.png");
 
-	fonts[fnt_ms_gothic]     = load_bmfont_file("fonts/ms_gothic.fnt",      "fonts/ms_gothic_0.png");
-	fonts[fnt_ms_mincho]     = load_bmfont_file("fonts/ms_mincho.fnt",      "fonts/ms_mincho_0.png");
-	fonts[fnt_consolas]      = load_bmfont_file("fonts/consolas.fnt",       "fonts/consolas_0.png");
-	fonts[fnt_consolas_bold] = load_bmfont_file("fonts/consolas_bold.fnt",  "fonts/consolas_bold_0.png");
 	fonts[fnt_hud]           = load_bmfont_file("fonts/fnt_hud.fnt",        "fonts/fnt_hud.png");
 	fonts[fnt_titlecard]     = load_bmfont_file("fonts/fnt_titlecard.fnt",  "fonts/fnt_titlecard.png");
 
@@ -91,6 +105,11 @@ void load_assets_for_game() {
 	sounds[snd_destroy_monitor] = load_sound("sounds/destroy_monitor.wav");
 	sounds[snd_spring_bounce]   = load_sound("sounds/spring_bounce.wav");
 	sounds[snd_lose_rings]      = load_sound("sounds/lose_rings.wav");
+	sounds[snd_die]             = load_sound("sounds/die.wav");
+	sounds[snd_life]            = load_sound("sounds/life.wav");
+	sounds[snd_blip]            = load_sound("sounds/blip.wav");
+	sounds[snd_get_paid]        = load_sound("sounds/get_paid.wav");
+	sounds[snd_sign_post]       = load_sound("sounds/sign_post.wav");
 
 	{
 		textures[tex_title_medal] = load_texture_from_file("textures/title_medal.png");
@@ -187,14 +206,15 @@ void load_assets_for_editor() {
 		textures[tex_editor_sprites] = load_texture_from_file("textures/editor_sprites.png");
 		const Texture& t = get_texture(tex_editor_sprites);
 
-		sprites[spr_layer_flip]                          = create_sprite(t,  0,  0, 16, 48,  8, 24);
-		sprites[spr_layer_set]                           = create_sprite(t, 16,  0, 16, 48,  8, 24);
-		sprites[spr_sonic_editor_preview]                = create_sprite(t, 32,  0, 32, 48, 16, 24);
-		sprites[spr_layer_switcher_vertical]             = create_sprite(t, 64,  0, 32, 32, 16, 16);
-		sprites[spr_layer_switcher_horizontal]           = create_sprite(t, 96,  0, 32, 32, 16, 16);
-		sprites[spr_layer_switcher_layer_letter]         = create_sprite(t, 64, 32,  5,  7,  0,  0, 2);
-		sprites[spr_layer_switcher_priority_letter]      = create_sprite(t, 64, 39,  5,  7,  0,  0, 2);
-		sprites[spr_layer_switcher_grounded_flag_letter] = create_sprite(t, 74, 32,  5,  7,  0,  0);
+		sprites[spr_layer_flip]                          = create_sprite(t,   0,  0, 16, 48,  8, 24);
+		sprites[spr_layer_set]                           = create_sprite(t,  16,  0, 16, 48,  8, 24);
+		sprites[spr_sonic_editor_preview]                = create_sprite(t,  32,  0, 32, 48, 16, 24);
+		sprites[spr_layer_switcher_vertical]             = create_sprite(t,  64,  0, 32, 32, 16, 16);
+		sprites[spr_layer_switcher_horizontal]           = create_sprite(t,  96,  0, 32, 32, 16, 16);
+		sprites[spr_layer_switcher_layer_letter]         = create_sprite(t,  64, 32,  5,  7,  0,  0, 2);
+		sprites[spr_layer_switcher_priority_letter]      = create_sprite(t,  64, 39,  5,  7,  0,  0, 2);
+		sprites[spr_layer_switcher_grounded_flag_letter] = create_sprite(t,  74, 32,  5,  7,  0,  0);
+		sprites[spr_camera_region]                       = create_sprite(t, 128,  0, 32, 32, 16, 16);
 	}
 }
 

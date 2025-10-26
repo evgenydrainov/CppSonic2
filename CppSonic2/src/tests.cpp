@@ -11,25 +11,25 @@ static void test_arena_realloc() {
 
 	u8* memory = nullptr;
 
-	memory = arealloc(memory, 16, 0, allocator);
+	memory = arealloc(memory, 16, 0, DEFAULT_ALIGNMENT, allocator);
 	Assert(arena.count == 24);
 
-	memory = arealloc(memory, 32, 16, allocator);
+	memory = arealloc(memory, 32, 16, DEFAULT_ALIGNMENT, allocator);
 	Assert(arena.count == 40);
 
-	memory = arealloc(memory, 16, 32, allocator);
+	memory = arealloc(memory, 16, 32, DEFAULT_ALIGNMENT, allocator);
 	Assert(arena.count == 24);
 
-	memory = arealloc(memory, 32, 16, allocator);
+	memory = arealloc(memory, 32, 16, DEFAULT_ALIGNMENT, allocator);
 	Assert(arena.count == 40);
 
-	memory = arealloc(memory, 16, 32, allocator);
+	memory = arealloc(memory, 16, 32, DEFAULT_ALIGNMENT, allocator);
 	Assert(arena.count == 24);
 
-	memory = arealloc(memory, 32, 16, allocator);
+	memory = arealloc(memory, 32, 16, DEFAULT_ALIGNMENT, allocator);
 	Assert(arena.count == 40);
 
-	memory = arealloc(memory, 16, 32, allocator);
+	memory = arealloc(memory, 16, 32, DEFAULT_ALIGNMENT, allocator);
 	Assert(arena.count == 24);
 
 	afree(memory, 16, allocator);

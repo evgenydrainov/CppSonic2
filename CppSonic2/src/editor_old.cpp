@@ -642,7 +642,7 @@ static void combo_menu_for_enum(const char* label,
 static void AddTexture(ImDrawList* draw_list,
 					   const Texture& t, Rect src,
 					   ImVec2 pos, ImVec2 scale,
-					   ImVec2 origin, float angle, ImU32 color, glm::bvec2 flip) {
+					   ImVec2 origin, float angle, ImU32 color, bvec2 flip) {
 	if (src.w == 0 && src.h == 0) {
 		src.w = t.width;
 		src.h = t.height;
@@ -701,7 +701,7 @@ static void AddTexture(ImDrawList* draw_list,
 static void AddSprite(ImDrawList* draw_list,
 					  const Sprite& s, int frame_index, ImVec2 pos,
 					  ImVec2 scale, float angle,
-					  ImU32 color, glm::bvec2 flip) {
+					  ImU32 color, bvec2 flip) {
 	const Texture& t = s.texture;
 
 	Assert(frame_index >= 0);

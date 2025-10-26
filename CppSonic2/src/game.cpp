@@ -137,11 +137,48 @@ void Game::load_level(const char* path) {
 	gen_widthmap_texture (&widthmap,  ts, tileset_texture);
 }
 
-constexpr float PLAYER_ACC = 0.046875f;
 constexpr float PLAYER_DEC = 0.5f;
-constexpr float PLAYER_FRICTION = 0.046875f;
-constexpr float PLAYER_TOP_SPEED = 6.0f;
 constexpr float PLAYER_PUSH_RADIUS = 10.0f;
+
+static float player_get_top_speed(Player* p) {
+	float result = 6.0f;
+	if (p->super_speed > 0) {
+		result *= 2;
+	}
+	return result;
+}
+
+static float player_get_acc(Player* p) {
+	float result = 0.046875f;
+	if (p->super_speed > 0) {
+		result *= 2;
+	}
+	return result;
+}
+
+static float player_get_friction(Player* p) {
+	float result = 0.046875f;
+	if (p->super_speed > 0) {
+		result *= 2;
+	}
+	return result;
+}
+
+static float player_get_air_acceleration(Player* p) {
+	float result = 0.09375f;
+	if (p->super_speed > 0) {
+		result *= 2;
+	}
+	return result;
+}
+
+static float player_get_roll_friction(Player* p) {
+	float result = 0.0234375f;
+	if (p->super_speed > 0) {
+		result *= 2;
+	}
+	return result;
+}
 
 static bool player_is_grounded(Player* p) {
 	return (p->state == STATE_GROUND
@@ -992,15 +1029,17 @@ static void ground_sensor_collision(Player* p) {
 		}
 	};*/
 
-	// stick only to angled tiles while on a wall
-	/*if (p->ground_angle == 90 || p->ground_angle == 270) {
-		if (angle == -1) {
-			if (res.dist > 0) {
-				p->state = STATE_AIR;
-				return;
+	// don't stick to these tiles while on a wall
+	if (res.tile.special) {
+		if (p->ground_angle == 90 || p->ground_angle == 270) {
+			if (angle == -1) {
+				if (res.dist > 0) {
+					p->state = STATE_AIR;
+					return;
+				}
 			}
 		}
-	}*/
+	}
 
 	/*if (res.dist < -14) {
 		return;
@@ -1218,7 +1257,6 @@ static bool player_try_slip(Player* p) {
 			p->state = STATE_AIR;
 			p->ground_speed = 0;
 			p->control_lock = 32;
-
 			return true;
 		}
 	}
@@ -1229,10 +1267,10 @@ static bool player_try_slip(Player* p) {
 		if (a >= 90 && a <= 270) {
 			p->state = STATE_AIR;
 			p->ground_speed = 0;
+			return true;
 		} else {
 			p->control_lock = 32;
 		}
-		return true;
 	}
 #endif
 
@@ -1273,19 +1311,76 @@ static bool player_try_jump(Player* p) {
 	return true;
 }
 
+static Object* player_find_camera_region(Player* p) {
+	// TODO: optimize?
+	// if all OBJ_CAMERA_REGION objects are at the beginning of the array then it's probably fine
+	Object* region = nullptr;
+	For (it, game.objects) {
+		if (it->type == OBJ_CAMERA_REGION) {
+			float l = it->pos.x - it->radius.x;
+			float r = it->pos.x + it->radius.x;
+			float t = it->pos.y - it->radius.y;
+			float b = it->pos.y + it->radius.y;
+
+			if (l <= p->pos.x && p->pos.x < r && t <= p->pos.y && p->pos.y < b) {
+				region = it;
+				break;
+			}
+		}
+	}
+
+	return region;
+}
+
 static void player_keep_in_bounds(Player* p) {
 	// Handle camera boundaries (keep the Player inside the view and kill them if they touch the kill plane).
 	vec2 radius = player_get_radius(p);
 
-	float left = radius.x + 2;
-	float top  = radius.y + 2;
-	float right  = game.tm.width  * 16 - 3 - radius.x;
-	float bottom = game.tm.height * 16 - 3 - radius.y;
+	auto keep_in_rect = [&](Rectf rect) {
+		float left   = rect.x;
+		// float top    = rect.y;
+		float right  = rect.x + rect.w;
+		float bottom = rect.y + rect.h;
 
-	if (p->pos.x < left)   {p->pos.x = left;  p->ground_speed = 0; p->speed.x = 0;}
-	if (p->pos.x > right)  {p->pos.x = right; p->ground_speed = 0; p->speed.x = 0;}
-	// if (p->pos.y < top)    {p->pos.y = top;}
-	if (p->pos.y > bottom) {p->pos.y = bottom;}
+		if (p->pos.x < left + radius.x + 3) {
+			p->pos.x = left + radius.x + 3;
+			p->ground_speed = 0;
+			p->speed.x = 0;
+		}
+
+		// no upper bound
+		/*if (p->pos.y < top + radius.y + 3)  {
+			p->pos.y = top + radius.y + 3;
+		}*/
+
+		if (p->pos.x > right - radius.x - 4) {
+			p->pos.x = right - radius.x - 4;
+			p->ground_speed = 0;
+			p->speed.x = 0;
+		}
+
+		if (p->pos.y > bottom - radius.x - 4) {
+			p->pos.y = bottom - radius.x - 4;
+		}
+	};
+
+	Rectf rect;
+	rect.x = game.camera_sign_post_left;
+	rect.y = 0;
+	rect.w = game.tm.width  * 16 - rect.x;
+	rect.h = game.tm.height * 16 - rect.y;
+	keep_in_rect(rect);
+
+	Object* region = player_find_camera_region(p);
+	if (region) {
+		Rectf rect;
+		rect.x = region->pos.x - region->radius.x;
+		rect.y = region->pos.y - region->radius.y;
+		rect.w = region->radius.x * 2;
+		rect.h = region->radius.y * 2;
+
+		keep_in_rect(rect);
+	}
 }
 
 static Direction opposite_dir(Direction dir) {
@@ -1346,36 +1441,68 @@ static void player_drop_rings(Player* p, int amount) {
 	}
 }
 
+static void player_die(Player* p) {
+	p->state = STATE_DEAD;
+	p->speed.x = 0;
+	p->speed.y = -7;
+	p->next_anim = anim_die;
+	p->death_timer = 0;
+	p->death_state = 0;
+	p->priority = 2;
+
+	play_sound(get_sound(snd_die));
+}
+
 static void player_get_hit(Player* p, int side) {
-	p->state = STATE_AIR;
-	p->speed.x = side * 2;
-	p->speed.y = -4;
-	p->jumped = false;
-	p->next_anim = anim_hurt;
-	p->invulnerable = 120;
-	p->ignore_rings = 64;
+	if (game.player_rings != 0 || p->has_shield) {
+		p->state = STATE_AIR;
+		p->speed.x = side * 2;
+		p->speed.y = -4;
+		p->jumped = false;
+		p->next_anim = anim_hurt;
+		p->invulnerable = 120;
+		p->ignore_rings = 64;
 
-	player_drop_rings(p, game.player_rings);
-	game.player_rings = 0;
+		if (p->has_shield) {
+			p->has_shield = false;
+		} else {
+			player_drop_rings(p, game.player_rings);
+			game.player_rings = 0;
 
-	play_sound(get_sound(snd_lose_rings));
+			play_sound(get_sound(snd_lose_rings));
+		}
+	} else {
+		player_die(p);
+	}
 }
 
 static bool player_can_attack(Player* p) {
 	return (p->anim == anim_roll
-			|| p->anim == anim_spindash);
+			|| p->anim == anim_spindash
+			|| p->invincibility > 0);
 }
 
 static bool player_can_get_hit(Player* p) {
-	if (p->invulnerable > 0) {
-		return false;
-	}
+	return (p->invulnerable == 0
+			&& p->invincibility == 0
+			&& p->anim != anim_hurt);
+}
 
-	if (p->anim == anim_hurt) {
-		return false;
-	}
+static void player_get_life() {
+	program.player_lives++;
+	play_sound(get_sound(snd_life));
+}
 
-	return true;
+static void player_get_rings(int rings) {
+	while (rings > 0) {
+		game.player_rings++;
+		if (game.player_rings % 100 == 0) {
+			player_get_life();
+		}
+
+		rings--;
+	}
+	play_sound(get_sound(snd_ring));
 }
 
 static bool player_reaction_monitor(Player* p, Object* obj, Direction dir) {
@@ -1496,7 +1623,7 @@ static bool player_reaction_spike(Player* p, Object* obj, Direction dir) {
 		return false;
 	}
 
-	float side = signf(p->pos.x - obj->pos.x);
+	int side = sign_int(p->pos.x - obj->pos.x);
 	if (side == 0) side = 1;
 	player_get_hit(p, side);
 
@@ -1667,7 +1794,9 @@ static void player_collide_with_solid_objects(Player* p) {
 
 				// special case for spikes
 				if (it->type == OBJ_SPIKE && (it->spike.direction == DIR_LEFT || it->spike.direction == DIR_RIGHT)) {
-					should_collide = true;
+					if (p->speed.x == 0) {
+						should_collide = true;
+					}
 				}
 
 				if (should_collide)
@@ -1802,7 +1931,7 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 			case OBJ_RING_DROPPED: {
 				if (p->ignore_rings > 0) break;
 
-				game.player_rings++;
+				player_get_rings(1);
 
 				Particle p = {};
 				p.pos = it->pos;
@@ -1812,8 +1941,6 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 				p.lifespan = (1.0f / s.anim_spd) * s.frames.count;
 
 				add_particle(p);
-
-				play_sound(get_sound(snd_ring));
 
 				it->flags |= FLAG_INSTANCE_DEAD;
 				break;
@@ -1840,7 +1967,6 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 					p.pos = it->pos;
 					p.sprite_index = spr_explosion;
 					p.lifespan = 30;
-
 					add_particle(p);
 
 					play_sound(get_sound(snd_destroy_monitor));
@@ -1850,11 +1976,21 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 					flower.type = OBJ_FLOWER;
 					flower.pos = it->pos;
 					flower.flower.timer = 30;
-
 					array_add(&game.objects, flower);
+
+					program.player_score += 100;
+
+					Particle score_popup = {};
+					score_popup.pos = it->pos;
+					score_popup.sprite_index = spr_score_popup;
+					score_popup.frame_index = 1;
+					score_popup.lifespan = 32;
+					score_popup.spd = 1; // TODO: original game had different movement
+					score_popup.dir = 90;
+					add_particle(score_popup);
 				} else {
 					if (player_can_get_hit(p)) {
-						float side = signf(p->pos.x - it->pos.x);
+						int side = sign_int(p->pos.x - it->pos.x);
 						if (side == 0) side = 1;
 						player_get_hit(p, side);
 					}
@@ -1871,7 +2007,7 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 	}
 }
 
-constexpr int NUM_PHYSICS_STEPS = 8;
+constexpr int NUM_PHYSICS_STEPS = 16;
 
 static void player_state_ground(Player* p, float delta) {
 	int input_h = 0;
@@ -1883,6 +2019,10 @@ static void player_state_ground(Player* p, float delta) {
 	// Adjust Ground Speed based on current Ground Angle (Slope Factor).
 	apply_slope_factor(p, delta);
 
+	float friction  = player_get_friction(p);
+	float top_speed = player_get_top_speed(p);
+	float acc       = player_get_acc(p);
+
 	// Update Ground Speed based on directional input and apply friction/deceleration.
 	if (p->anim != anim_spindash
 		&& !p->peelout
@@ -1890,7 +2030,7 @@ static void player_state_ground(Player* p, float delta) {
 		&& p->anim != anim_look_up)
 	{
 		if (input_h == 0) {
-			Approach(&p->ground_speed, 0.0f, PLAYER_FRICTION * delta);
+			Approach(&p->ground_speed, 0.0f, friction * delta);
 		} else {
 			if (input_h == -sign_int(p->ground_speed)) {
 				p->ground_speed += input_h * PLAYER_DEC * delta;
@@ -1906,14 +2046,14 @@ static void player_state_ground(Player* p, float delta) {
 					}
 				}
 			} else {
-				if (fabsf(p->ground_speed) < PLAYER_TOP_SPEED) {
-					p->ground_speed += input_h * PLAYER_ACC * delta;
-					Clamp(&p->ground_speed, -PLAYER_TOP_SPEED, PLAYER_TOP_SPEED);
+				if (fabsf(p->ground_speed) < top_speed) {
+					p->ground_speed += input_h * acc * delta;
+					Clamp(&p->ground_speed, -top_speed, top_speed);
 				}
 			}
 		}
 	} else {
-		Approach(&p->ground_speed, 0.0f, PLAYER_FRICTION * delta);
+		Approach(&p->ground_speed, 0.0f, friction * delta);
 	}
 
 	auto physics_step = [&](float delta) {
@@ -2015,7 +2155,7 @@ static void player_state_ground(Player* p, float delta) {
 			} else {
 				if (fabsf(p->ground_speed) >= 12) {
 					p->next_anim = anim_peelout;
-				} else if (fabsf(p->ground_speed) >= PLAYER_TOP_SPEED) {
+				} else if (fabsf(p->ground_speed) >= 6) {
 					p->next_anim = anim_run;
 				} else {
 					p->next_anim = anim_walk;
@@ -2089,7 +2229,7 @@ static void player_state_ground(Player* p, float delta) {
 
 		if (fabsf(speed) >= 12) {
 			p->next_anim = anim_peelout;
-		} else if (fabsf(speed) >= PLAYER_TOP_SPEED) {
+		} else if (fabsf(speed) >= 6) {
 			p->next_anim = anim_run;
 		} else {
 			p->next_anim = anim_walk;
@@ -2120,10 +2260,7 @@ static void player_state_ground(Player* p, float delta) {
 	}
 
 	if (p->anim == anim_skid) {
-		// @Cleanup
 		static float t = 0;
-
-		t += delta;
 		while (t >= 4) {
 			Particle dust_particle = {};
 			dust_particle.sprite_index = spr_skid_dust;
@@ -2137,6 +2274,7 @@ static void player_state_ground(Player* p, float delta) {
 
 			t -= 4;
 		}
+		t += delta;
 	}
 
 	if (p->anim == anim_look_up) {
@@ -2166,7 +2304,7 @@ static void player_state_roll(Player* p, float delta) {
 	apply_slope_factor(p, delta);
 
 	// Update Ground Speed based on directional input and apply friction/deceleration.
-	const float roll_friction_speed = 0.0234375f;
+	const float roll_friction_speed = player_get_roll_friction(p);
 	const float roll_deceleration_speed = 0.125f;
 
 	Approach(&p->ground_speed, 0.0f, roll_friction_speed * delta);
@@ -2223,6 +2361,8 @@ static void player_state_roll(Player* p, float delta) {
 	}
 }
 
+constexpr float PLAYER_GRAVITY = 0.21875f;
+
 static void player_state_air(Player* p, float delta) {
 	int input_h = 0;
 	// control_lock is ignored
@@ -2238,11 +2378,13 @@ static void player_state_air(Player* p, float delta) {
 
 	// Update X Speed based on directional input.
 	if (p->anim != anim_hurt) {
-		const float air_acceleration_speed = 0.09375f;
+		float air_acceleration_speed = player_get_air_acceleration(p);
+		float top_speed              = player_get_top_speed(p);
+
 		if (input_h != 0) {
-			if (fabsf(p->speed.x) < PLAYER_TOP_SPEED || input_h == -sign_int(p->speed.x)) {
+			if (fabsf(p->speed.x) < top_speed || input_h == -sign_int(p->speed.x)) {
 				p->speed.x += input_h * air_acceleration_speed * delta;
-				Clamp(&p->speed.x, -PLAYER_TOP_SPEED, PLAYER_TOP_SPEED);
+				Clamp(&p->speed.x, -top_speed, top_speed);
 			}
 		}
 
@@ -2253,10 +2395,9 @@ static void player_state_air(Player* p, float delta) {
 	}
 
 	// Apply gravity.
-	const float GRAVITY = 0.21875f;
-	const float HIT_FORCE = 0.1875f;
+	constexpr float HIT_FORCE = 0.1875f;
 
-	float gravity = (p->anim == anim_hurt) ? HIT_FORCE : GRAVITY;
+	float gravity = (p->anim == anim_hurt) ? HIT_FORCE : PLAYER_GRAVITY;
 	p->speed.y += gravity * delta;
 
 	auto physics_step = [&](float delta) {
@@ -2328,6 +2469,87 @@ static void get_mobile_controls(vec2* dpad_pos,
 	*debug_rect = {16, 8, 95, 43};
 }
 
+static void player_update_input_state(Player* p) {
+	p->input = 0;
+	p->input_press = 0;
+	p->input_release = 0;
+
+	p->input |= input.state;
+	p->input_press |= input.state_press;
+	p->input_release |= input.state_release;
+
+	// handle thumbstick
+	// NOTE: this won't appear in input_press and input_release
+	{
+		const float deadzone = 0.3f;
+
+		float leftx = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTX);
+		float lefty = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTY);
+
+		float len = point_distance(0, 0, leftx, lefty);
+		float dir = angle_wrap(point_direction(0, 0, leftx, lefty));
+
+		if (len > deadzone) {
+			int cardinal = wrap((int)((dir + 45.0f) / 90.0f), 4);
+
+			p->input |= (1 << cardinal);
+		}
+	}
+
+#if defined(__ANDROID__) || defined(PRETEND_MOBILE)
+	p->input |= game.mobile_input_state;
+	p->input_press |= game.mobile_input_state_press;
+	p->input_release |= game.mobile_input_state_release;
+#endif
+}
+
+static void player_state_dead(Player* p, float delta) {
+	p->speed.y += PLAYER_GRAVITY * delta;
+
+	p->pos += p->speed * delta;
+
+	player_keep_in_bounds(p);
+
+	switch (p->death_state) {
+		case 0: {
+			if (p->death_timer >= 102) {
+				program.player_lives--;
+				p->death_state = 1;
+				p->death_timer = 0;
+			}
+			break;
+		}
+
+		case 1: {
+			if (program.player_lives > 0) {
+				if (p->death_timer >= 60) {
+					program.set_program_mode(PROGRAM_GAME);
+					p->death_state = -1;
+					p->death_timer = 0;
+				}
+			} else {
+				game.show_game_over_screen = true;
+				p->death_state = 2;
+				p->death_timer = 0;
+
+				play_music("music/Game_Over.mp3", 0);
+			}
+			break;
+		}
+
+		case 2: {
+			if (p->death_timer >= 686) {
+				program.set_program_mode(PROGRAM_TITLE);
+				p->death_state = -1;
+				// keep death_timer for animation
+			}
+			break;
+		}
+	}
+
+	p->death_timer += delta;
+}
+
 static void player_update(Player* p, float delta) {
 	// clear flags
 	if (p->state != STATE_AIR) {
@@ -2341,88 +2563,7 @@ static void player_update(Player* p, float delta) {
 	p->prev_mode   = player_get_mode(p);
 	p->prev_radius = player_get_radius(p);
 
-	// set input state
-	{
-		u32 prev = p->input;
-		p->input = 0;
-
-		// Keyboard
-
-		if (is_key_held(SDL_SCANCODE_RIGHT)) {
-			p->input |= INPUT_MOVE_RIGHT;
-		}
-
-		if (is_key_held(SDL_SCANCODE_UP)) {
-			p->input |= INPUT_MOVE_UP;
-		}
-
-		if (is_key_held(SDL_SCANCODE_LEFT)) {
-			p->input |= INPUT_MOVE_LEFT;
-		}
-
-		if (is_key_held(SDL_SCANCODE_DOWN)) {
-			p->input |= INPUT_MOVE_DOWN;
-		}
-
-		if (is_key_held(SDL_SCANCODE_Z)) {
-			p->input |= INPUT_A;
-		}
-
-		if (is_key_held(SDL_SCANCODE_X)) {
-			p->input |= INPUT_B;
-		}
-
-		// Controller
-
-		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) {
-			p->input |= INPUT_MOVE_RIGHT;
-		}
-
-		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_DPAD_UP)) {
-			p->input |= INPUT_MOVE_UP;
-		}
-
-		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_DPAD_LEFT)) {
-			p->input |= INPUT_MOVE_LEFT;
-		}
-
-		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_DPAD_DOWN)) {
-			p->input |= INPUT_MOVE_DOWN;
-		}
-
-		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_A)) {
-			p->input |= INPUT_A;
-		}
-
-		if (is_controller_button_held(SDL_CONTROLLER_BUTTON_B)) {
-			p->input |= INPUT_B;
-		}
-
-		// Controller Axis
-		{
-			const float deadzone = 0.3f;
-
-			float leftx = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTX);
-			float lefty = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTY);
-
-			float len = point_distance(0, 0, leftx, lefty);
-			float dir = angle_wrap(point_direction(0, 0, leftx, lefty));
-
-			if (len > deadzone) {
-				int cardinal = wrap((int)((dir + 45.0f) / 90.0f), 4);
-
-				p->input |= (1 << cardinal);
-			}
-		}
-
-		// Touch
-#if defined(__ANDROID__) || defined(PRETEND_MOBILE)
-		p->input |= game.mobile_input_state;
-#endif
-
-		p->input_press   = p->input & (~prev);
-		p->input_release = (~p->input) & prev;
-	}
+	player_update_input_state(p);
 
 	switch (p->state) {
 		case STATE_GROUND: {
@@ -2437,6 +2578,11 @@ static void player_update(Player* p, float delta) {
 
 		case STATE_AIR: {
 			player_state_air(p, delta);
+			break;
+		}
+
+		case STATE_DEAD: {
+			player_state_dead(p, delta);
 			break;
 		}
 
@@ -2473,10 +2619,11 @@ static void player_update(Player* p, float delta) {
 		Approach(&p->invulnerable, 0.0f, delta);
 	}
 
-	Approach(&p->ignore_rings, 0.0f, delta);
-
-	Approach(&p->change_mode_timer, 0.0f, delta);
+	Approach(&p->ignore_rings,           0.0f, delta);
+	Approach(&p->change_mode_timer,      0.0f, delta);
 	Approach(&p->dont_change_mode_timer, 0.0f, delta);
+	Approach(&p->invincibility,          0.0f, delta);
+	Approach(&p->super_speed,            0.0f, delta);
 
 	auto anim_get_frame_count = [](anim_index anim) -> int {
 		const Sprite& s = anim_get_sprite(anim);
@@ -2519,9 +2666,7 @@ static void player_update(Player* p, float delta) {
 	{
 		bool pressed = false;
 
-		pressed |= is_key_pressed(SDL_SCANCODE_A);
-
-		pressed |= is_controller_button_pressed(SDL_CONTROLLER_BUTTON_Y);
+		pressed |= is_input_pressed(INPUT_DEBUG);
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
 		if (game.mobile_input_state_press & INPUT_DEBUG) {
@@ -2541,6 +2686,20 @@ static void player_update(Player* p, float delta) {
 		}
 	}
 #endif
+
+	if (p->invincibility > 0) {
+		static float t = 0;
+		while (t >= 8) {
+			Object o = {};
+			o.id = game.next_id++;
+			o.type = OBJ_INVINCIBILITY_SPARKLE;
+			o.pos = p->pos;
+			array_add(&game.objects, o);
+
+			t -= 8;
+		}
+		t += delta;
+	}
 }
 
 void Game::init(int argc, char* argv[]) {
@@ -2558,7 +2717,7 @@ void Game::init(int argc, char* argv[]) {
 	camera_pos_real.y = player.pos.y - window.game_height / 2;
 
 	// update camera so that it's in the right place when the level starts up
-	update_camera(0);
+	camera_update(0);
 
 	player.prev_mode = player_get_mode(&player);
 	player.prev_radius = player_get_radius(&player);
@@ -2584,7 +2743,7 @@ void Game::deinit() {
 	deinit_particles();
 }
 
-void Game::update_camera(float delta) {
+void Game::camera_update(float delta) {
 	// update camera
 
 	// NOTE: this function can be called with delta=0
@@ -2592,9 +2751,15 @@ void Game::update_camera(float delta) {
 	Player* p = &player;
 	vec2 radius = p->prev_radius;
 
+	if (p->state == STATE_DEAD) {
+		return;
+	}
+
 	if (camera_lock == 0.0f) {
 		float cam_target_x = p->pos.x - window.game_width / 2;
 		float cam_target_y = p->pos.y + radius.y - 19 - window.game_height / 2;
+
+		cam_target_x = fmaxf(cam_target_x, camera_sign_post_left);
 
 		if (camera_pos_real.x < cam_target_x - 8) {
 			Approach(&camera_pos_real.x, cam_target_x - 8, 16 * delta);
@@ -2625,6 +2790,17 @@ void Game::update_camera(float delta) {
 
 		Clamp(&camera_pos_real.x, 0.0f, (float) (tm.width  * 16 - window.game_width));
 		Clamp(&camera_pos_real.y, 0.0f, (float) (tm.height * 16 - window.game_height));
+
+		Object* region = player_find_camera_region(p);
+		if (region) {
+			float l = region->pos.x - region->radius.x;
+			float r = region->pos.x + region->radius.x;
+			float t = region->pos.y - region->radius.y;
+			float b = region->pos.y + region->radius.y;
+
+			Clamp(&camera_pos_real.x, l, r - window.game_width);
+			Clamp(&camera_pos_real.y, t, b - window.game_height);
+		}
 
 		// set camera pos
 		camera_pos = camera_pos_real + vec2{0, camera_look_offset};
@@ -2678,9 +2854,11 @@ void Game::update_gameplay(float delta) {
 	// update player
 	player_update(&player, delta);
 
-	update_camera(delta);
+	camera_update(delta);
 
-	player_time += delta;
+	if (!level_cleared) {
+		player_time += delta;
+	}
 
 	// update objects
 	For (it, objects) {
@@ -2712,12 +2890,29 @@ void Game::update_gameplay(float delta) {
 							}
 
 							case MONITOR_ICON_SUPER_RING: {
-								player_rings += 10;
-								play_sound(get_sound(snd_ring));
+								player_get_rings(10);
 								break;
 							}
 
-							// TODO
+							case MONITOR_ICON_POWER_SNEAKERS: {
+								player.super_speed = 1200;
+								break;
+							}
+
+							case MONITOR_ICON_SHIELD: {
+								player.has_shield = true;
+								break;
+							}
+
+							case MONITOR_ICON_INVINCIBILITY: {
+								player.invincibility = 1200;
+								break;
+							}
+
+							case MONITOR_ICON_1UP: {
+								player_get_life();
+								break;
+							}
 						}
 
 						it->flags |= FLAG_MONITOR_ICON_GOT_REWARD;
@@ -2842,6 +3037,37 @@ void Game::update_gameplay(float delta) {
 				}
 				break;
 			}
+
+			case OBJ_SIGN_POST: {
+				if (player.pos.x >= it->pos.x) {
+					if (!level_cleared) {
+						camera_sign_post_left = player.pos.x - window.game_width / 2;
+						level_cleared = true;
+
+						play_sound(get_sound(snd_sign_post));
+					}
+				}
+
+				if (level_cleared) {
+					if (it->signpost.timer >= 120) {
+						if (score_card.state == ScoreCard::NONE) {
+							score_card.show();
+						}
+					}
+
+					it->signpost.timer += delta;
+				}
+				break;
+			}
+
+			case OBJ_INVINCIBILITY_SPARKLE: {
+				if (it->sparkle.timer >= 24) {
+					it->flags |= FLAG_INSTANCE_DEAD;
+				}
+
+				it->sparkle.timer += delta;
+				break;
+			}
 		}
 
 		if (it->flags & FLAG_INSTANCE_DEAD) {
@@ -2947,18 +3173,24 @@ void Game::update(float delta) {
 
 	bool should_update_gameplay = true;
 
+	if (program.transition_t != 0) {
+		should_update_gameplay = false;
+	}
+
 	if (titlecard_state == TITLECARD_IN
 		|| titlecard_state == TITLECARD_WAIT)
 	{
 		should_update_gameplay = false;
 
 #ifdef DEVELOPER
-		if (is_key_pressed(SDL_SCANCODE_A)) {
+		if (is_input_pressed(INPUT_DEBUG)) {
 			titlecard_state = TITLECARD_OUT;
 			titlecard_timer = 0;
 			titlecard_t = 0.5f;
 
-			// update gameplay so that player can go into debug mode
+			program.transition_t = 0;
+
+			// don't skip this frame so that player can go into debug mode
 			should_update_gameplay = true;
 		}
 #endif
@@ -3017,10 +3249,135 @@ void Game::update(float delta) {
 
 	update_pause_menu(delta);
 
+	score_card.update(delta);
+
 	if (pause_state == PAUSE_NOT_PAUSED) {
 		time_frames += delta;
 		time_seconds = time_frames / 60.0f;
 	}
+}
+
+void ScoreCard::show() {
+	state = WAIT;
+	timer = 0;
+	message_offset = 26;
+	score_offset = 26;
+
+	time_bonus = 0;
+	ring_bonus = 0;
+	total_bonus = 0;
+
+	if (game.time_seconds < 30) {
+		time_bonus = 50'000;
+	} else if (game.time_seconds < 45) {
+		time_bonus = 10'000;
+	} else if (game.time_seconds < 60) {
+		time_bonus = 5'000;
+	} else if (game.time_seconds < 90) {
+		time_bonus = 4'000;
+	} else if (game.time_seconds < 120) {
+		time_bonus = 3'000;
+	} else if (game.time_seconds < 180) {
+		time_bonus = 2'000;
+	} else if (game.time_seconds < 240) {
+		time_bonus = 1'000;
+	} else if (game.time_seconds < 300) {
+		time_bonus = 500;
+	}
+
+	ring_bonus = game.player_rings * 10; // TODO: 50'000 if all rings collected
+}
+
+void ScoreCard::update(float delta) {
+	if (state == NONE) {
+		return;
+	}
+
+	switch (state) {
+		case WAIT: {
+			if (timer >= 60) {
+				state = MOVE_MESSAGE;
+				timer = 0;
+			}
+			break;
+		}
+
+		case MOVE_MESSAGE: {
+			if (timer >= 26) {
+				state = MOVE_SCORE;
+				timer = 0;
+				message_offset = 0;
+			}
+
+			Approach(&message_offset, 0.0f, delta);
+			break;
+		}
+
+		case MOVE_SCORE: {
+			if (timer >= 176) {
+				state = APPLY_SCORE;
+				timer = 0;
+				score_offset = 0;
+			}
+
+			Approach(&score_offset, 0.0f, delta);
+			break;
+		}
+
+		case APPLY_SCORE: {
+			while (timer >= 1) {
+				if (time_bonus > 0) {
+					int i = min(time_bonus, 100);
+					total_bonus += i;
+					program.player_score += i;
+					time_bonus -= i;
+				}
+
+				if (ring_bonus > 0) {
+					int i = min(ring_bonus, 100);
+					total_bonus += i;
+					program.player_score += i;
+					ring_bonus -= i;
+				}
+
+				timer -= 1;
+			}
+
+			{
+				static float t = 0;
+				while (t >= 4) {
+					play_sound(get_sound(snd_blip));
+
+					t -= 4;
+				}
+				t += delta;
+			}
+
+			if (time_bonus == 0 && ring_bonus == 0) {
+				state = WAIT_2;
+				timer = 0;
+
+				stop_sound(get_sound(snd_blip));
+				play_sound(get_sound(snd_get_paid));
+			}
+			break;
+		}
+
+		case WAIT_2: {
+			if (timer >= 220) {
+				program.set_program_mode(PROGRAM_GAME);
+				state = DONE;
+			}
+			break;
+		}
+
+		case DONE: {
+			// do nothing
+			break;
+		}
+	}
+
+	timer += delta;
 }
 
 #define PAUSE_MENU_ITEMS_X (window.game_width - 128 + 44)
@@ -3034,32 +3391,35 @@ void Game::update_pause_menu(float delta) {
 		return;
 	}
 
+	if (titlecard_state != TITLECARD_FINISHED) {
+		return;
+	}
+
 	switch (pause_state) {
 		case PAUSE_NOT_PAUSED: {
-			if (titlecard_state == TITLECARD_FINISHED) {
-				bool pressed = false;
+			bool pressed = false;
 
-				if (is_key_pressed(SDL_SCANCODE_ESCAPE) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_START)) {
-					pressed = true;
-				}
+			if (is_input_pressed(INPUT_PAUSE)) {
+				pressed = true;
+			}
 
-				// pause when lost window focus
-				/*if (!(SDL_GetWindowFlags(window.handle) & SDL_WINDOW_INPUT_FOCUS)) {
-					pressed = true;
-				}*/
+			// pause when lost window focus
+			/*if (!(SDL_GetWindowFlags(window.handle) & SDL_WINDOW_INPUT_FOCUS)) {
+				pressed = true;
+			}*/
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
-				if (mobile_input_state_press & INPUT_PAUSE) {
-					pressed = true;
-				}
+			if (mobile_input_state_press & INPUT_PAUSE) {
+				pressed = true;
+			}
 #endif
 
-				if (pressed) {
-					pause_state = PAUSE_IN;
-					pause_menu_timer = 0;
-					pause_menu_t = 0;
-					pause_menu_cursor = 0;
-				}
+			if (pressed) {
+				pause_state = PAUSE_IN;
+				pause_menu_timer = 0;
+				pause_menu_t = 0;
+				pause_menu_cursor = 0;
+				pause_cancelled = false;
 			}
 			break;
 		}
@@ -3077,34 +3437,33 @@ void Game::update_pause_menu(float delta) {
 		}
 
 		case PAUSE_PAUSED: {
-			bool resume = false;
-
-			if (is_key_pressed(SDL_SCANCODE_ESCAPE)
-				|| is_key_pressed(SDL_SCANCODE_X)
-				|| is_controller_button_pressed(SDL_CONTROLLER_BUTTON_START))
-			{
-				resume = true;
-			}
-
-			if (is_key_pressed(SDL_SCANCODE_UP) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_DPAD_UP)) {
+			if (is_input_pressed(INPUT_UI_UP)) {
 				if (pause_menu_cursor > 0) {
 					pause_menu_cursor--;
 					pause_last_pressed_time = SDL_GetTicks();
 				}
 			}
 
-			if (is_key_pressed(SDL_SCANCODE_DOWN) || is_controller_button_pressed(SDL_CONTROLLER_BUTTON_DPAD_DOWN)) {
+			if (is_input_pressed(INPUT_UI_DOWN)) {
 				if (pause_menu_cursor < PAUSE_MENU_NUM_ITEMS - 1) {
 					pause_menu_cursor++;
 					pause_last_pressed_time = SDL_GetTicks();
 				}
 			}
 
+			if (is_input_pressed(INPUT_PAUSE)
+				|| is_input_pressed(INPUT_UI_CANCEL))
+			{
+				pause_state = PAUSE_OUT;
+				pause_menu_timer = 0;
+				pause_menu_t = 0.5f;
+				pause_cancelled = true;
+				break;
+			}
+
 			bool pressed = false;
 
-			pressed |= is_key_pressed(SDL_SCANCODE_Z);
-				
-			pressed |= is_controller_button_pressed(SDL_CONTROLLER_BUTTON_A);
+			pressed |= is_input_pressed(INPUT_UI_CONFIRM);
 
 #if defined(__ANDROID__) || defined(PRETEND_MOBILE)
 			{
@@ -3137,17 +3496,25 @@ void Game::update_pause_menu(float delta) {
 			if (pressed) {
 				switch (pause_menu_cursor) {
 					case 0: { // resume
-						resume = true;
+						pause_state = PAUSE_BLINK;
+						pause_menu_timer = 0;
+						pause_menu_t = 0.5f;
 						break;
 					}
 
 					case 1: { // restart
 						program.set_program_mode(PROGRAM_GAME);
+						pause_state = PAUSE_BLINK;
+						pause_menu_timer = 0;
+						pause_menu_t = 0.5f;
 						break;
 					}
 
 					case 2: { // exit
 						program.set_program_mode(PROGRAM_TITLE);
+						pause_state = PAUSE_BLINK;
+						pause_menu_timer = 0;
+						pause_menu_t = 0.5f;
 						break;
 					}
 
@@ -3156,13 +3523,6 @@ void Game::update_pause_menu(float delta) {
 						break;
 					}
 				}
-			}
-
-			if (resume) {
-				pause_state = PAUSE_BLINK;
-				pause_menu_timer = 0;
-				pause_menu_t = 0.5f;
-				pause_menu_cursor = 0;
 			}
 			break;
 		}
@@ -3418,6 +3778,40 @@ void draw_objects(array<Object> objects,
 				break;
 			}
 
+			case OBJ_CAMERA_REGION: {
+				if (!show_editor_objects) break;
+
+				float x = it->pos.x - it->radius.x;
+				float y = it->pos.y - it->radius.y;
+				float w = it->radius.x * 2;
+				float h = it->radius.y * 2;
+				draw_rectangle_outline_thick({x, y, w, h}, 2, get_color(0xf0761fff));
+				break;
+			}
+
+			case OBJ_SIGN_POST: {
+				const Sprite& s = get_object_sprite(it->type);
+				if (out_of_bounds(s, it->pos)) break;
+
+				int frame_index;
+				if (it->signpost.timer >= 120) {
+					frame_index = 4;
+				} else {
+					int anim_frame = ((int)(it->signpost.timer * 0.5f)) % 8;
+
+					frame_index = anim_frame % 4;
+					if (anim_frame == 4) frame_index = 4;
+				}
+
+				draw_sprite(s, frame_index, it->pos);
+				break;
+			}
+
+			case OBJ_INVINCIBILITY_SPARKLE: {
+				// don't draw
+				break;
+			}
+
 			default: {
 				const Sprite& s = get_object_sprite(it->type);
 				if (out_of_bounds(s, it->pos)) break;
@@ -3485,9 +3879,7 @@ static void player_draw(Player* p) {
 		int frame_index = SDL_GetTicks() / (16.66 * 2);
 		frame_index %= s.frames.count;
 
-		vec2 pos = floor(p->pos);
-
-		draw_sprite(s, frame_index, pos, {p->facing, 1});
+		draw_sprite(s, frame_index, floor(p->pos), {p->facing, 1});
 	}
 }
 
@@ -3627,6 +4019,45 @@ void Game::draw(float delta) {
 
 	if (player.priority == 1) player_draw(&player);
 
+	// draw invincibility sparkles
+	For (it, game.objects) {
+		switch (it->type) {
+			case OBJ_INVINCIBILITY_SPARKLE: {
+				const Sprite& s = get_object_sprite(it->type);
+
+				int anim_frame = (int)(it->sparkle.timer * 0.5f) % 4;
+				int frame_index = anim_frame % 2;
+
+				bvec2 flip = {};
+				if (anim_frame >= 2) flip.x = true;
+
+				if (it->sparkle.timer >= 16) {
+					if ((int)it->sparkle.timer % 4 >= 2) {
+						break;
+					}
+				} else if (it->sparkle.timer >= 8) {
+					if ((int)it->sparkle.timer % 2 >= 1) {
+						break;
+					}
+				}
+
+				draw_sprite(s, frame_index, it->pos, {1,1}, 0, color_white, flip);
+				break;
+			}
+		}
+	}
+
+	// draw player shield
+	if (player.has_shield) {
+		int frame = game.time_frames;
+		if (frame % 4 >= 2) {
+			const Sprite& s = get_sprite(spr_shield);
+			frame /= 4;
+			frame %= s.frames.count;
+			draw_sprite(s, frame, floor(player.pos));
+		}
+	}
+
 	// draw layer C
 	draw_tilemap_layer(tm, 2, tileset_texture, xfrom, yfrom, xto, yto, color_white);
 
@@ -3708,6 +4139,8 @@ void Game::draw(float delta) {
 			frame_index %= s.frames.count;
 		}
 	}
+
+	if (player.priority == 2) player_draw(&player);
 
 	// draw object hitboxes
 	if (show_hitboxes) {
@@ -3823,6 +4256,22 @@ void Game::draw(float delta) {
 	// :ui
 	set_view_mat(get_identity());
 
+	// draw game over screen
+	if (show_game_over_screen) {
+		float t = 26 - fminf(player.death_timer, 26);
+
+		vec2 pos;
+		pos.x = window.game_width/2 - 40 - t*16;
+		pos.y = window.game_height/2;
+		draw_sprite(get_sprite(spr_game_over_text), 0, pos);
+
+		pos.x = window.game_width/2 + 40 + t*16;
+		pos.y = window.game_height/2;
+		draw_sprite(get_sprite(spr_game_over_text), 1, pos);
+	}
+
+	score_card.draw(delta);
+
 	// draw titlecard
 	if (titlecard_state != TITLECARD_FINISHED) {
 		const Texture& t = get_texture(tex_titlecard_line);
@@ -3913,7 +4362,7 @@ void Game::draw(float delta) {
 				if (player.state == STATE_DEBUG) {
 					str = tprintf("%8d", (int)player.pos.x);
 				} else {
-					str = tprintf("%d", player_score);
+					str = tprintf("%d", program.player_score);
 				}
 
 				draw_text(get_font(fnt_hud), str, pos, HALIGN_RIGHT);
@@ -3960,7 +4409,7 @@ void Game::draw(float delta) {
 			pos.x += 25;
 			pos.y += 5;
 
-			string str = tprintf("%d", player_lives);
+			string str = tprintf("%d", program.player_lives);
 			draw_text(get_font(fnt_hud), str, pos);
 		}
 	}
@@ -3995,97 +4444,164 @@ void Game::draw(float delta) {
 	}
 #endif
 
+	draw_pause_menu(delta);
+}
+
+void ScoreCard::draw(float delta) {
+	// draw score card
+
+	if (state == NONE) {
+		return;
+	}
+
+	float t  = message_offset;
+	float t2 = score_offset;
+
+	vec2 pos;
+	pos.x = window.game_width/2 - 68 - t*16;
+	pos.y = 58;
+	draw_sprite(get_sprite(spr_text_sonic), 0, pos);
+
+	pos.x = window.game_width/2 + 20 + t*16;
+	pos.y = 58;
+	draw_sprite(get_sprite(spr_text_got), 0, pos);
+
+	pos.x = window.game_width/2 - 100 - t*16;
+	pos.y = 82;
+	draw_sprite(get_sprite(spr_text_through), 0, pos);
+
+	pos.x = window.game_width/2 + 28 + t*16;
+	pos.y = 82;
+	draw_sprite(get_sprite(spr_text_zone), 0, pos);
+
+	pos.x = window.game_width/2 + 92 + t*16;
+	pos.y = 80;
+	draw_sprite(get_sprite(spr_text_zone_number), 0, pos);
+
+	pos.x = window.game_width/2 - 91 - t2*16;
+	pos.y = 113;
+	draw_text(get_font(fnt_hud), "score", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
+
+	pos.x = window.game_width/2 - 91 - t2*16;
+	pos.y = 137;
+	draw_text(get_font(fnt_hud), "ring bonus", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
+
+	pos.x = window.game_width/2 - 91 - t2*16;
+	pos.y = 161;
+	draw_text(get_font(fnt_hud), "time bonus", pos, HALIGN_LEFT, VALIGN_TOP, color_yellow);
+
+	pos.x = window.game_width/2 + 80 + t2*16;
+	pos.y = 113;
+	draw_text(get_font(fnt_hud), tprintf("%d", total_bonus), pos, HALIGN_RIGHT);
+
+	pos.x = window.game_width/2 + 80 + t2*16;
+	pos.y = 137;
+	draw_text(get_font(fnt_hud), tprintf("%d", ring_bonus), pos, HALIGN_RIGHT);
+
+	pos.x = window.game_width/2 + 80 + t2*16;
+	pos.y = 161;
+	draw_text(get_font(fnt_hud), tprintf("%d", time_bonus), pos, HALIGN_RIGHT);
+}
+
+void Game::draw_pause_menu(float delta) {
 	// draw pause menu
-	if (pause_state != PAUSE_NOT_PAUSED) {
-		// white bg
-		{
-			float alpha1 = 0.4f;
-			float alpha2 = 0.4f;
-			float alpha3 = 0;
+
+	if (pause_state == PAUSE_NOT_PAUSED) {
+		return;
+	}
+
+	// white bg
+	{
+		float alpha1 = 0.4f;
+		float alpha2 = 0.4f;
+		float alpha3 = 0;
 			
+		vec4 color = color_white;
+		color.a = lerp3(alpha1, alpha2, alpha3, pause_menu_t);
+
+		float y1 = -window.game_height;
+		float y2 = 0;
+		float y3 = 0;
+
+		float y = lerp3(y1, y2, y3, pause_menu_t);
+
+		Rectf r = {0, y, (float)window.game_width, (float)window.game_height};
+		draw_rectangle(r, color);
+	}
+
+	// pause logo
+	{
+		float y1 = window.game_height - 32 - 25;
+		float y2 = window.game_height - 32 - 25;
+		float y3 = window.game_height;
+
+		float y = lerp3(y1, y2, y3, pause_menu_t);
+
+		// black line
+		{
+			float w1 = 0;
+			float w2 = window.game_width;
+			float w3 = window.game_width;
+
+			Rectf r = {};
+			r.y = y + 19;
+			r.w = lerp3(w1, w2, w3, pause_menu_t);
+			r.h = 13;
+
+			draw_rectangle(r, color_black);
+		}
+
+		// logo
+		{
+			float a1 = 0;
+			float a2 = 1;
+			float a3 = 1;
+
 			vec4 color = color_white;
-			color.a = lerp3(alpha1, alpha2, alpha3, pause_menu_t);
+			color.a = lerp3(a1, a2, a3, pause_menu_t);
 
-			float y1 = -window.game_height;
-			float y2 = 0;
-			float y3 = 0;
-
-			float y = lerp3(y1, y2, y3, pause_menu_t);
-
-			Rectf r = {0, y, (float)window.game_width, (float)window.game_height};
-			draw_rectangle(r, color);
+			vec2 pos = {0, y};
+			draw_sprite(get_sprite(spr_pause_menu_logo), 0, pos, {1, 1}, 0, color);
 		}
+	}
 
-		// pause logo
-		{
-			float y1 = window.game_height - 32 - 25;
-			float y2 = window.game_height - 32 - 25;
-			float y3 = window.game_height;
+	// sidebar
+	{
+		float x1 = window.game_width;
+		float x2 = window.game_width - 128;
+		float x3 = window.game_width;
 
-			float y = lerp3(y1, y2, y3, pause_menu_t);
+		vec2 pos = {};
+		pos.x = lerp3(x1, x2, x3, pause_menu_t);
 
-			// black line
-			{
-				float w1 = 0;
-				float w2 = window.game_width;
-				float w3 = window.game_width;
+		while (pos.y < window.game_height) {
+			draw_sprite(get_sprite(spr_pause_menu_bg), 0, pos);
 
-				Rectf r = {};
-				r.y = y + 19;
-				r.w = lerp3(w1, w2, w3, pause_menu_t);
-				r.h = 13;
-
-				draw_rectangle(r, color_black);
-			}
-
-			// logo
-			{
-				float a1 = 0;
-				float a2 = 1;
-				float a3 = 1;
-
-				vec4 color = color_white;
-				color.a = lerp3(a1, a2, a3, pause_menu_t);
-
-				vec2 pos = {0, y};
-				draw_sprite(get_sprite(spr_pause_menu_logo), 0, pos, {1, 1}, 0, color);
-			}
+			pos.y += 32;
 		}
+	}
 
-		// sidebar
-		{
-			float x1 = window.game_width;
-			float x2 = window.game_width - 128;
-			float x3 = window.game_width;
+	// labels
+	{
+		vec2 pos;
+		pos.x = PAUSE_MENU_ITEMS_X;
+		pos.y = PAUSE_MENU_ITEMS_Y;
 
-			vec2 pos = {};
-			pos.x = lerp3(x1, x2, x3, pause_menu_t);
+		for (int i = 0; i < PAUSE_MENU_NUM_ITEMS; i++) {
+			float t = pause_menu_t;
 
-			while (pos.y < window.game_height) {
-				draw_sprite(get_sprite(spr_pause_menu_bg), 0, pos);
-
-				pos.y += 32;
-			}
-		}
-
-		// labels
-		{
-			vec2 pos;
-			pos.x = PAUSE_MENU_ITEMS_X;
-			pos.y = PAUSE_MENU_ITEMS_Y;
-
-			for (int i = 0; i < PAUSE_MENU_NUM_ITEMS; i++) {
-				float t = pause_menu_t;
-
-				if (i == pause_menu_cursor) {
-					// blink
-					if (pause_state == PAUSE_BLINK || pause_state == PAUSE_OUT) {
-						if (SDL_GetTicks() % 100 < 50) {
-							t = 0;
-						}
+			// blink selected menu item
+			if (i == pause_menu_cursor) {
+				if (pause_state == PAUSE_BLINK) {
+					if (SDL_GetTicks() % 120 < 60) {
+						t = 0;
 					}
-				} else {
-					// fade out earlier
+				}
+			}
+
+			// fade out earlier for menu items that are not the selected one
+			if (!pause_cancelled) {
+				if (i != pause_menu_cursor) {
 					if (pause_state == PAUSE_BLINK) {
 						t = lerp(0.5f, 1.3f, pause_menu_timer / PAUSE_BLINK_TIME);
 						if (t > 1) t = 1;
@@ -4093,23 +4609,23 @@ void Game::draw(float delta) {
 						t = 0;
 					}
 				}
-
-				vec4 color = color_white;
-				color.a = lerp3(0.0f, 1.0f, 0.0f, t);
-
-				draw_sprite(get_sprite(spr_pause_menu_labels), i, pos, {1, 1}, 0, color);
-
-				// draw cursor
-				if (i == pause_menu_cursor) {
-					if ((SDL_GetTicks() - pause_last_pressed_time + 50) % 500 < 250) {
-						vec4 color = color_white;
-						color.a = lerp3(0.0f, 1.0f, 0.0f, pause_menu_t);
-						draw_sprite(get_sprite(spr_pause_menu_cursor), 0, pos + vec2{-6, 13}, {1, 1}, 0, color);
-					}
-				}
-
-				pos.y += PAUSE_MENU_ITEMS_SEP_Y;
 			}
+
+			vec4 color = color_white;
+			color.a = lerp3(0.0f, 1.0f, 0.0f, t);
+
+			draw_sprite(get_sprite(spr_pause_menu_labels), i, pos, {1, 1}, 0, color);
+
+			// draw cursor
+			if (i == pause_menu_cursor) {
+				if ((SDL_GetTicks() - pause_last_pressed_time + 50) % 500 < 250) {
+					vec4 color = color_white;
+					color.a = lerp3(0.0f, 1.0f, 0.0f, pause_menu_t);
+					draw_sprite(get_sprite(spr_pause_menu_cursor), 0, pos + vec2{-6, 13}, {1, 1}, 0, color);
+				}
+			}
+
+			pos.y += PAUSE_MENU_ITEMS_SEP_Y;
 		}
 	}
 }
@@ -4439,7 +4955,8 @@ void write_objects(array<Object> objects, const char* fname) {
 
 		switch (o.type) {
 			case OBJ_PLAYER_INIT_POS:
-			case OBJ_RING: {
+			case OBJ_RING:
+			case OBJ_SIGN_POST: {
 				break;
 			}
 
@@ -4524,6 +5041,12 @@ void write_objects(array<Object> objects, const char* fname) {
 				break;
 			}
 
+			case OBJ_CAMERA_REGION: {
+				vec2 radius = o.radius;
+				SDL_RWwrite(f, &radius, sizeof radius, 1);
+				break;
+			}
+
 			default: {
 				Assert(false);
 				break;
@@ -4589,7 +5112,8 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 
 		switch (o->type) {
 			case OBJ_PLAYER_INIT_POS:
-			case OBJ_RING: {
+			case OBJ_RING:
+			case OBJ_SIGN_POST: {
 				return true;
 			}
 
@@ -4701,6 +5225,13 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 				} else {
 					o->mosqui.fly_distance = 64;
 				}
+				return true;
+			}
+
+			case OBJ_CAMERA_REGION: {
+				vec2 radius;
+				SDL_RWread(f, &radius, sizeof radius, 1);
+				o->radius = radius;
 				return true;
 			}
 		}
@@ -4853,6 +5384,9 @@ const Sprite& get_object_sprite(ObjType type) {
 		case OBJ_MOVING_PLATFORM:           return get_sprite(spr_EEZ_platform1);
 		case OBJ_SPRING_DIAGONAL:           return get_sprite(spr_spring_diagonal_yellow);
 		case OBJ_MOSQUI:                    return get_sprite(spr_mosqui);
+		case OBJ_CAMERA_REGION:             return get_sprite(spr_camera_region);
+		case OBJ_SIGN_POST:                 return get_sprite(spr_sign_post);
+		case OBJ_INVINCIBILITY_SPARKLE:     return get_sprite(spr_invincibility_sparkle);
 	}
 
 	Assert(!"invalid object type");
@@ -4865,6 +5399,7 @@ vec2 get_object_size(const Object& o) {
 		case OBJ_MONITOR:         return {30, 30};
 		case OBJ_SPRING_DIAGONAL: return {30, 30};
 		case OBJ_MOSQUI:          return {16, 16};
+		case OBJ_CAMERA_REGION:   return {-1, -1}; // don't pick this object in the editor
 
 		case OBJ_SPRING: {
 			vec2 size = {32, 16};
@@ -4882,7 +5417,9 @@ vec2 get_object_size(const Object& o) {
 		case OBJ_LAYER_FLIP_DEPRECATED:
 		case OBJ_MOVING_PLATFORM:
 		case OBJ_LAYER_SWITCHER_VERTICAL:
-		case OBJ_LAYER_SWITCHER_HORIZONTAL:  return o.radius * 2.0f;
+		case OBJ_LAYER_SWITCHER_HORIZONTAL: {
+			return o.radius * 2.0f;
+		}
 	}
 
 	const Sprite& s = get_object_sprite(o.type);
@@ -4891,11 +5428,11 @@ vec2 get_object_size(const Object& o) {
 
 template <typename T>
 static T* binary_search(array<T> arr, instance_id id) {
-	ssize_t left = 0;
-	ssize_t right = (ssize_t)arr.count - 1;
+	isize left = 0;
+	isize right = (isize)arr.count - 1;
 
 	while (left <= right) {
-		ssize_t middle = (left + right) / 2;
+		isize middle = (left + right) / 2;
 		if (arr[middle].id < id) {
 			left = middle + 1;
 		} else if (arr[middle].id > id) {

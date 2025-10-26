@@ -137,15 +137,15 @@ void draw_quad(const Texture& t, Vertex vertices[4]);
 
 void draw_texture(const Texture& t, Rect src = {},
 				  vec2 pos = {}, vec2 scale = {1, 1},
-				  vec2 origin = {}, float angle = 0, vec4 color = color_white, glm::bvec2 flip = {});
+				  vec2 origin = {}, float angle = 0, vec4 color = color_white, bvec2 flip = {});
 
 // This version of the function is here because matrix multiplications are too slow in Debug build.
 void draw_texture_simple(const Texture& t, Rect src = {},
-						 vec2 pos = {}, vec2 origin = {}, vec4 color = color_white, glm::bvec2 flip = {});
+						 vec2 pos = {}, vec2 origin = {}, vec4 color = color_white, bvec2 flip = {});
 
 void draw_texture_centered(const Texture& t,
 						   vec2 pos = {}, vec2 scale = {1, 1},
-						   float angle = 0, vec4 color = color_white, glm::bvec2 flip = {});
+						   float angle = 0, vec4 color = color_white, bvec2 flip = {});
 
 void draw_rectangle(Rectf rect, vec4 color);
 void draw_rectangle(Rectf rect, vec2 scale,

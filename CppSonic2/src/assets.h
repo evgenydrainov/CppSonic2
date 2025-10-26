@@ -52,6 +52,8 @@ enum {
 	spr_sonic_push,
 	spr_sonic_rise,
 	spr_sonic_hurt,
+	spr_sonic_die,
+	spr_sonic_drown,
 
 	spr_spindash_smoke,
 	spr_ring,
@@ -65,6 +67,16 @@ enum {
 	spr_water_surface,
 	spr_mosqui,
 	spr_flower,
+	spr_score_popup,
+	spr_game_over_text,
+	spr_sign_post,
+	spr_text_sonic,
+	spr_text_got,
+	spr_text_through,
+	spr_text_zone,
+	spr_text_zone_number,
+	spr_invincibility_sparkle,
+	spr_shield,
 
 	// has to be in order
 	spr_spring_yellow,
@@ -93,6 +105,7 @@ enum {
 	spr_layer_switcher_layer_letter,
 	spr_layer_switcher_priority_letter,
 	spr_layer_switcher_grounded_flag_letter,
+	spr_camera_region,
 
 	spr_title_medal,
 	spr_title_sonic,
@@ -122,6 +135,7 @@ enum {
 	fnt_ms_mincho,
 	fnt_consolas,
 	fnt_consolas_bold,
+	fnt_cp437,
 	fnt_menu,
 	fnt_hud,
 	fnt_titlecard,
@@ -139,6 +153,11 @@ enum {
 	snd_destroy_monitor,
 	snd_spring_bounce,
 	snd_lose_rings,
+	snd_die,
+	snd_life,
+	snd_blip,
+	snd_get_paid,
+	snd_sign_post,
 
 	NUM_SOUNDS,
 };

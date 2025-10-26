@@ -13,6 +13,9 @@ enum Program_Mode {
 struct Program {
 	static constexpr float TRANSITION_SPEED = 1.0f / 60.0f;
 
+	int player_lives = 3;
+	int player_score;
+
 	Program_Mode program_mode;
 	Program_Mode next_program_mode;
 	float transition_t;
@@ -20,9 +23,6 @@ struct Program {
 	bool show_debug_info;
 
 	string level_filepath;
-
-	size_t temp_memory_max_usage_this_frame;
-	size_t temp_memory_max_usage_ever;
 
 	int argc;
 	char** argv;

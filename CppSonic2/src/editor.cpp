@@ -770,6 +770,7 @@ void Editor::close_level() {
 	free(objects.data);
 	objects = {};
 	objects_editor.object_index = -1;
+	// TODO: clear all the editors
 
 	free_texture(&heightmap);
 	free_texture(&widthmap);
@@ -939,6 +940,17 @@ void Editor::update(float delta) {
 			if (ImGui::BeginMenu("Objects##2")) {
 				// if (ImGui::MenuItem("Delete All")) try_delete_all_objects();
 
+				bool enabled = objects_editor.object_index != -1;
+				if (ImGui::MenuItem("Move selected object to the beginning of the array", nullptr, false, enabled)) {
+					// TODO
+					/*Object o = objects[objects_editor.object_index];
+
+					array_remove(&objects, objects_editor.object_index);
+					array_insert(&objects, 0, o);
+
+					objects_editor.object_index = -1;*/
+				}
+
 				ImGui::EndMenu();
 			}
 		}
@@ -1103,6 +1115,7 @@ void Editor::update(float delta) {
 		if (create_level_backup_timer <= 0) {
 			create_level_backup_timer += CREATE_LEVEL_BACKUP_TIME;
 			
+#if 0
 			auto level_name = current_level_dir.filename().u8string();
 
 			auto dir = current_level_dir / ".backups" / std::filesystem::u8path(level_name + "-" + get_timestamp_str());
@@ -1111,6 +1124,7 @@ void Editor::update(float delta) {
 			std::filesystem::create_directories(dir);
 
 			save_level_internal(dir);
+#endif
 		} else {
 			create_level_backup_timer -= delta;
 		}
@@ -1399,7 +1413,8 @@ void Editor::action_perform(const Action& action) {
 
 		case ACTION_ADD_OBJECT: {
 			array_add(&objects, action.add_object.object);
-			objects_editor.object_index = -1;
+			// objects_editor.object_index = -1;
+			objects_editor.object_index = objects.count - 1;
 			break;
 		}
 
@@ -1497,8 +1512,13 @@ bool Editor::try_run_game() {
 	}
 
 	// SDL converts argv to utf8, so `process_name` is utf8
-	auto str = current_level_dir.u8string();
-	const char *command_line[] = {process_name, "--game", str.c_str(), NULL};
+	auto level_dir = current_level_dir.u8string();
+
+#if 0
+	const char *command_line[] = {process_name, "--game", level_dir.c_str(), NULL};
+
+	// there's a bug where the game deadlocks when it fills the stdout pipe,
+	// if it's launched with subprocess.h
 
 	// @Utf8
 	// it seems like this library doesn't convert from utf8 to windows wide char
@@ -1509,6 +1529,11 @@ bool Editor::try_run_game() {
 	}
 
 	// do we need to `subprocess_destroy`?
+#else
+	char buf[512];
+	stbsp_snprintf(buf, sizeof buf, "%s --game %s", process_name, level_dir.c_str());
+	system(buf);
+#endif
 
 	return true;
 }
@@ -2124,7 +2149,7 @@ void TilemapEditor::update(float delta) {
 						for (int x = pos_from.x; x < pos_to.x; x++) {
 							Tile tile = get_tile(editor.tm, x, y, i);
 
-							if (tile.index == 0) {
+							if (tile.index == 0 && !tile.special) {
 								continue;
 							}
 
@@ -2135,6 +2160,10 @@ void TilemapEditor::update(float delta) {
 							src.h = 16;
 
 							draw_texture_simple(editor.tileset_texture, src, {x * 16.0f, y * 16.0f}, {}, color, {tile.hflip, tile.vflip});
+
+							if (tile.special) {
+								draw_text_shadow(get_font(fnt_cp437), "*", {x * 16.0f, y * 16.0f});
+							}
 						}
 					}
 
@@ -2231,10 +2260,14 @@ void TilemapEditor::update(float delta) {
 									pos.x = (mouse_pos.x + x) * 16;
 									pos.y = (mouse_pos.y + y) * 16;
 
-									if (tile.index == 0) { // can only happen in solidity_mode
+									if (tile.index == 0) {
 										draw_rectangle({pos.x, pos.y, 16, 16}, color);
 									} else {
 										draw_texture_simple(t, src, pos, {}, color, {tile.hflip, tile.vflip});
+									}
+
+									if (tile.special) {
+										draw_text_shadow(get_font(fnt_cp437), "*", pos);
 									}
 								}
 							}
@@ -2482,6 +2515,10 @@ void TilemapEditor::update(float delta) {
 
 			if (IsKeyPressedNoMod(ImGuiKey_L)) {
 				For (it, brush) it->lrb_solid ^= 1;
+			}
+
+			if (IsKeyPressedNoMod(ImGuiKey_Q)) {
+				For (it, brush) it->special ^= 1;
 			}
 		}
 
@@ -2901,6 +2938,11 @@ void ObjectsEditor::update(float delta) {
 						o.mplatform.time_multiplier = 1.0f / 32.0f;
 						break;
 					}
+
+					case OBJ_CAMERA_REGION: {
+						o.radius = {16, 16};
+						break;
+					}
 				}
 
 				Action action = {};
@@ -2984,6 +3026,23 @@ void ObjectsEditor::update(float delta) {
 				}
 			}
 		}
+
+		// ctrl+d to duplicate object
+		{
+			if (object_index != -1) {
+				if (ImGui::IsKeyPressed(ImGuiKey_D) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
+					Object o = editor.objects[object_index];
+					o.pos.x += 16;
+					o.pos.y += 16;
+
+					Action action = {};
+					action.type = ACTION_ADD_OBJECT;
+					action.add_object.object = o;
+
+					editor.action_add_and_perform(action);
+				}
+			}
+		}
 	};
 
 	objects_editor_window();
@@ -3028,6 +3087,8 @@ void ObjectsEditor::update(float delta) {
 		button(OBJ_LAYER_SWITCHER_VERTICAL);
 		button(OBJ_LAYER_SWITCHER_HORIZONTAL);
 		button(OBJ_MOSQUI);
+		button(OBJ_CAMERA_REGION);
+		button(OBJ_SIGN_POST);
 	};
 
 	object_types_window();
@@ -3159,6 +3220,11 @@ void ObjectsEditor::update(float delta) {
 
 			case OBJ_MOSQUI: {
 				ObjUndoDragFloat("Fly Distance", &o->mosqui.fly_distance, object_index);
+				break;
+			}
+
+			case OBJ_CAMERA_REGION: {
+				ObjUndoDragVec2("Radius", &o->radius, object_index);
 				break;
 			}
 		}

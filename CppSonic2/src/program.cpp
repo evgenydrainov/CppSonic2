@@ -33,7 +33,7 @@ void Program::init(int argc, char* argv[]) {
 	transition_t = 1; // skip the fade in
 
 #ifdef _DEBUG
-	show_debug_info = true;
+	show_debug_info = false; // true;
 #endif
 
 	this->argc = argc;

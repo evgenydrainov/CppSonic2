@@ -41,7 +41,7 @@ Sprite create_sprite(const Texture& t,
 
 void draw_sprite(const Sprite& s, int frame_index, vec2 pos,
 				 vec2 scale, float angle,
-				 vec4 color, glm::bvec2 flip) {
+				 vec4 color, bvec2 flip) {
 	const Texture& t = s.texture;
 
 	Assert(frame_index >= 0);
