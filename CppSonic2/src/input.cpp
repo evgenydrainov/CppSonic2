@@ -14,8 +14,6 @@ bool Input::handle_event(const SDL_Event& ev) {
 		case SDL_KEYDOWN: {
 			SDL_Scancode scancode = ev.key.keysym.scancode;
 
-			if (scancode == 0) break;
-
 			u32 mask = 1;
 			for (const auto& it : g_InputBindings) {
 				if (it.scancode0 == scancode || it.scancode1 == scancode) {
@@ -43,8 +41,6 @@ bool Input::handle_event(const SDL_Event& ev) {
 
 		case SDL_KEYUP: {
 			SDL_Scancode scancode = ev.key.keysym.scancode;
-
-			if (scancode == 0) break;
 
 			u32 mask = 1;
 			for (const auto& it : g_InputBindings) {
@@ -91,6 +87,16 @@ bool Input::handle_event(const SDL_Event& ev) {
 				if (SDL_JoystickInstanceID(joystick) == ev.cbutton.which) {
 					SDL_GameControllerButton button = (SDL_GameControllerButton) ev.cbutton.button;
 
+					u32 mask = 1;
+					for (const auto& it : g_InputBindings) {
+						if (it.controller_button0 == button || it.controller_button1 == button) {
+							state_press |= mask;
+							state       |= mask;
+						}
+
+						mask <<= 1;
+					}
+
 					if (button >= 0 && button < NUM_CONTROLLER_BUTTONS) {
 						controller_state_press[button / 32] |= 1 << (button % 32);
 						controller_state      [button / 32] |= 1 << (button % 32);
@@ -105,6 +111,16 @@ bool Input::handle_event(const SDL_Event& ev) {
 				SDL_Joystick* joystick = SDL_GameControllerGetJoystick(controller);
 				if (SDL_JoystickInstanceID(joystick) == ev.cbutton.which) {
 					SDL_GameControllerButton button = (SDL_GameControllerButton) ev.cbutton.button;
+
+					u32 mask = 1;
+					for (const auto& it : g_InputBindings) {
+						if (it.controller_button0 == button || it.controller_button1 == button) {
+							state_release |=  mask;
+							state         &= ~mask;
+						}
+
+						mask <<= 1;
+					}
 
 					if (button >= 0 && button < NUM_CONTROLLER_BUTTONS) {
 						controller_state_release[button / 32] |=   1 << (button % 32);
