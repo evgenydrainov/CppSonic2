@@ -1,11 +1,11 @@
-layout(location = 0) in vec3 in_Position;
-layout(location = 1) in vec3 in_Normal;
-layout(location = 2) in vec4 in_Color;
-layout(location = 3) in vec2 in_TexCoord;
+attribute vec3 in_Position;
+attribute vec3 in_Normal;
+attribute vec4 in_Color;
+attribute vec2 in_TexCoord;
 
-out vec4 v_Color;
-out vec2 v_TexCoord;
-out vec3 v_WorldPos;
+varying vec4 v_Color;
+varying vec2 v_TexCoord;
+varying vec3 v_WorldPos;
 
 uniform mat4 u_MVP;
 uniform mat4 u_ModelView;

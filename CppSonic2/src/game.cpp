@@ -5303,7 +5303,7 @@ void gen_heightmap_texture(Texture* heightmap, const Tileset& ts, const Texture&
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, heightmap->width, heightmap->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, surf->pixels);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, heightmap->width, heightmap->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, surf->pixels);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
@@ -5357,7 +5357,7 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, widthmap->width, widthmap->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, wsurf->pixels);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, widthmap->width, widthmap->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, wsurf->pixels);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 }

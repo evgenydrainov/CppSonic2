@@ -10,7 +10,7 @@ u32 compile_shader(GLenum type, string source, const char* debug_name) {
 #elif defined(__EMSCRIPTEN__)
 	string version_string = "#version 300 es\n";
 #else
-	string version_string = "#version 330 core\n";
+	string version_string = "";
 #endif
 
 	string precision_string = "#ifdef GL_ES\n"
@@ -55,6 +55,11 @@ u32 link_program(u32 vertex_shader, u32 fragment_shader, const char* debug_name)
 		log_error("Shader Link Error:\n%s", buf);
 	}
 
+	/*glBindAttribLocation(program, 0, "in_Position");
+	glBindAttribLocation(program, 1, "in_Normal");
+	glBindAttribLocation(program, 2, "in_Color");
+	glBindAttribLocation(program, 3, "in_TexCoord");*/
+
 	return program;
 }
 
@@ -65,11 +70,11 @@ u32 create_vertex_array_obj(array<Vertex> vertices,
 	u32 vbo = 0;
 	u32 ebo = 0;
 
-	glGenVertexArrays(1, &vao);
+	// glGenVertexArrays(1, &vao);
 	glGenBuffers(1, &vbo);
 	if (indices.count > 0) glGenBuffers(1, &ebo);
 
-	glBindVertexArray(vao);
+	// glBindVertexArray(vao);
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, vertices.count * sizeof(vertices[0]), vertices.data, GL_STATIC_DRAW);
@@ -79,9 +84,9 @@ u32 create_vertex_array_obj(array<Vertex> vertices,
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.count * sizeof(indices[0]), indices.data, GL_STATIC_DRAW);
 	}
 
-	set_vertex_attribs();
+	// set_vertex_attribs();
 
-	glBindVertexArray(0);
+	// glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 

@@ -107,7 +107,7 @@ struct Renderer {
 
 extern Renderer renderer;
 
-void set_vertex_attribs();
+void set_vertex_attribs(u32 program);
 
 void init_renderer(); // assumes opengl is initialized
 void deinit_renderer();

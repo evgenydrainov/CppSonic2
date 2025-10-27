@@ -7,13 +7,13 @@ Renderer renderer = {};
 
 
 static char texture_vert_shader_src[] =
-R"(layout(location = 0) in vec3 in_Position;
-layout(location = 1) in vec3 in_Normal;
-layout(location = 2) in vec4 in_Color;
-layout(location = 3) in vec2 in_TexCoord;
+R"(attribute vec3 in_Position;
+attribute vec3 in_Normal;
+attribute vec4 in_Color;
+attribute vec2 in_TexCoord;
 
-out vec4 v_Color;
-out vec2 v_TexCoord;
+varying vec4 v_Color;
+varying vec2 v_TexCoord;
 
 uniform mat4 u_MVP;
 
@@ -28,32 +28,28 @@ void main() {
 
 
 static char texture_frag_shader_src[] =
-R"(layout(location = 0) out vec4 FragColor;
-
-in vec4 v_Color;
-in vec2 v_TexCoord;
+R"(varying vec4 v_Color;
+varying vec2 v_TexCoord;
 
 uniform sampler2D u_Texture;
 
 void main() {
-	vec4 color = texture(u_Texture, v_TexCoord);
+	vec4 color = texture2D(u_Texture, v_TexCoord);
 
-	FragColor = color * v_Color;
+	gl_FragColor = color * v_Color;
 }
 )";
 
 
 
 static char circle_frag_shader_src[] =
-R"(layout(location = 0) out vec4 FragColor;
-
-in vec4 v_Color;
-in vec2 v_TexCoord;
+R"(varying vec4 v_Color;
+varying vec2 v_TexCoord;
 
 uniform sampler2D u_Texture;
 
 void main() {
-	vec4 color = texture(u_Texture, v_TexCoord);
+	vec4 color = texture2D(u_Texture, v_TexCoord);
 
 	vec2 coord = v_TexCoord * 2.0 - 1.0;
 
@@ -61,7 +57,7 @@ void main() {
 		discard;
 	}
 
-	FragColor = color * v_Color;
+	gl_FragColor = color * v_Color;
 }
 )";
 
@@ -78,10 +74,8 @@ R"(/*
 	that are scaled by non-integer factors.
 */
 
-layout(location = 0) out vec4 FragColor;
-
-in vec4 v_Color;
-in vec2 v_TexCoord;
+varying vec4 v_Color;
+varying vec2 v_TexCoord;
 
 uniform sampler2D u_Texture;
 
@@ -104,17 +98,15 @@ void main() {
 
 	vec2 mod_texel = texel_floored + f;
 
-	vec4 color = texture(u_Texture, mod_texel / u_SourceSize);
-	FragColor = color * v_Color;
+	vec4 color = texture2D(u_Texture, mod_texel / u_SourceSize);
+	gl_FragColor = color * v_Color;
 }
 )";
 
 
 static char hq4x_frag_shader_src[] =
-R"(layout(location = 0) out vec4 FragColor;
-
-in vec4 v_Color;
-in vec2 v_TexCoord;
+R"(varying vec4 v_Color;
+varying vec2 v_TexCoord;
 
 uniform sampler2D u_Texture;
 
@@ -127,15 +119,15 @@ void main()
 	vec2 sd1 = dg1 * 0.5;
 	vec2 sd2 = dg2 * 0.5;
 	
-	vec4 c  = texture(u_Texture, v_TexCoord);
-	vec4 i1 = texture(u_Texture, v_TexCoord - sd1);
-	vec4 i2 = texture(u_Texture, v_TexCoord - sd2);
-	vec4 i3 = texture(u_Texture, v_TexCoord + sd1);
-	vec4 i4 = texture(u_Texture, v_TexCoord + sd2);
-	vec4 o1 = texture(u_Texture, v_TexCoord - dg1);
-	vec4 o3 = texture(u_Texture, v_TexCoord + dg1);
-	vec4 o2 = texture(u_Texture, v_TexCoord - dg2);
-	vec4 o4 = texture(u_Texture, v_TexCoord + dg2);
+	vec4 c  = texture2D(u_Texture, v_TexCoord);
+	vec4 i1 = texture2D(u_Texture, v_TexCoord - sd1);
+	vec4 i2 = texture2D(u_Texture, v_TexCoord - sd2);
+	vec4 i3 = texture2D(u_Texture, v_TexCoord + sd1);
+	vec4 i4 = texture2D(u_Texture, v_TexCoord + sd2);
+	vec4 o1 = texture2D(u_Texture, v_TexCoord - dg1);
+	vec4 o3 = texture2D(u_Texture, v_TexCoord + dg1);
+	vec4 o2 = texture2D(u_Texture, v_TexCoord - dg2);
+	vec4 o4 = texture2D(u_Texture, v_TexCoord + dg2);
 	
 	float ko1 = dot(abs(o1 - c), vec4(1.0));
 	float ko2 = dot(abs(o2 - c), vec4(1.0));
@@ -150,7 +142,7 @@ void main()
 	float w3 = k2; if (ko1 < ko3) w3 *= ko1 / ko3;
 	float w4 = k1; if (ko2 < ko4) w4 *= ko2 / ko4;
 	
-	FragColor = (w1 * o1 + w2 * o2 + w3 * o3 + w4 * o4 + 0.001 * c) / (w1 + w2 + w3 + w4 + 0.001) * v_Color;
+	gl_FragColor = (w1 * o1 + w2 * o2 + w3 * o3 + w4 * o4 + 0.001 * c) / (w1 + w2 + w3 + w4 + 0.001) * v_Color;
 }
 )";
 
@@ -158,8 +150,8 @@ void main()
 
 static int get_internal_format_from_gl_format(u32 gl_format) {
 	switch (gl_format) {
-		case GL_RGB:  return GL_RGB8;
-		case GL_RGBA: return GL_RGBA8;
+		case GL_RGB:  return GL_RGB;
+		case GL_RGBA: return GL_RGBA;
 	}
 
 	Assert(!"format not supported");
@@ -201,7 +193,7 @@ Texture load_depth_texture(int width, int height) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 	return t;
@@ -247,22 +239,27 @@ void free_shader(Shader* s) {
 	*s = {};
 }
 
-void set_vertex_attribs() {
+void set_vertex_attribs(u32 program) {
+	int pos = glGetAttribLocation(program, "in_Position");
+	int normal = glGetAttribLocation(program, "in_Normal");
+	int color = glGetAttribLocation(program, "in_Color");
+	int texcoord = glGetAttribLocation(program, "in_TexCoord");
+
 	// Position
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
-	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(pos, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
+	glEnableVertexAttribArray(pos);
 
 	// Normal
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
-	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(normal, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+	glEnableVertexAttribArray(normal);
 
 	// Color
-	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, color));
-	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(color, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, color));
+	glEnableVertexAttribArray(color);
 
 	// Texcoord
-	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
-	glEnableVertexAttribArray(3);
+	glVertexAttribPointer(texcoord, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
+	glEnableVertexAttribArray(texcoord);
 }
 
 void init_renderer() {
@@ -270,12 +267,10 @@ void init_renderer() {
 	// Initialize.
 	// 
 	{
-		glGenVertexArrays(1, &renderer.batch_vao);
 		glGenBuffers(1, &renderer.batch_vbo);
 		glGenBuffers(1, &renderer.batch_ebo);
 
 		// 1. bind Vertex Array Object
-		glBindVertexArray(renderer.batch_vao);
 
 		// 2. copy our vertices array in a vertex buffer for OpenGL to use
 		glBindBuffer(GL_ARRAY_BUFFER, renderer.batch_vbo);
@@ -302,9 +297,7 @@ void init_renderer() {
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * BATCH_MAX_INDICES, indices, GL_STATIC_DRAW);
 
 		// 4. then set the vertex attributes pointers
-		set_vertex_attribs();
 
-		glBindVertexArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); // ebo must be unbound after vao
 
@@ -350,7 +343,6 @@ void deinit_renderer() {
 
 	glDeleteBuffers(1, &renderer.batch_ebo);
 	glDeleteBuffers(1, &renderer.batch_vbo);
-	glDeleteVertexArrays(1, &renderer.batch_vao);
 
 	free_texture(&renderer.texture_for_shapes);
 	free_framebuffer(&renderer.framebuffer);
@@ -503,18 +495,21 @@ void break_batch() {
 
 	// upload vertices to gpu
 	glBindBuffer(GL_ARRAY_BUFFER, renderer.batch_vbo);
+	defer { glBindBuffer(GL_ARRAY_BUFFER, 0); };
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, renderer.batch_ebo);
+	defer { glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); };
+
 	glBufferSubData(GL_ARRAY_BUFFER, 0, renderer.vertices.count * sizeof(Vertex), renderer.vertices.data);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	u32 program = (renderer.current_mode == MODE_CIRCLES) ? renderer.circle_shader.id : renderer.current_shader;
 
 	glUseProgram(program);
 	defer { glUseProgram(0); };
 
-	setup_uniforms(program);
+	set_vertex_attribs(program);
 
-	glBindVertexArray(renderer.batch_vao);
-	defer { glBindVertexArray(0); };
+	setup_uniforms(program);
 
 	u32 gl_mode = 0;
 	bool use_index_buffer = false;

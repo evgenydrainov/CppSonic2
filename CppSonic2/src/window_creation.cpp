@@ -23,7 +23,7 @@ static void GLAPIENTRY gl_debug_callback(GLenum source,
 	log_info("---------------");
 	log_info("Debug message (%u): %s", id, message);
 
-	switch (source)
+	/*switch (source)
 	{
 		case GL_DEBUG_SOURCE_API:             log_info("Source: API"); break;
 		case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   log_info("Source: Window System"); break;
@@ -52,7 +52,7 @@ static void GLAPIENTRY gl_debug_callback(GLenum source,
 		case GL_DEBUG_SEVERITY_MEDIUM:       log_info("Severity: medium"); break;
 		case GL_DEBUG_SEVERITY_LOW:          log_info("Severity: low"); break;
 		case GL_DEBUG_SEVERITY_NOTIFICATION: log_info("Severity: notification"); break;
-	}
+	}*/
 
 	// SDL_Window* win = SDL_GL_GetCurrentWindow();
 	// SDL_ShowSimpleMessageBox(0, "", message, win);
@@ -144,13 +144,13 @@ void init_window_and_opengl(const char* title,
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 #else
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+	// SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+	// SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+	// SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 #endif
 
 #ifdef _DEBUG
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
+	// SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
 #endif
 
 	// disable depth buffer
@@ -209,7 +209,7 @@ void init_window_and_opengl(const char* title,
 #if defined(__ANDROID__) || defined(__EMSCRIPTEN__)
 		auto load = gladLoadGLES2;
 #else
-		auto load = gladLoadGL;
+		auto load = gladLoadGLES2;
 #endif
 
 		int version = load([](const char* name) {
@@ -226,10 +226,10 @@ void init_window_and_opengl(const char* title,
 
 #ifdef _DEBUG
 	if (GLAD_GL_KHR_debug) {
-		glEnable(GL_DEBUG_OUTPUT);
-		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-		glDebugMessageCallback(gl_debug_callback, nullptr);
-		glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+		/*glEnable(GL_DEBUG_OUTPUT_KHR);
+		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_KHR);
+		glDebugMessageCallbackKHR(gl_debug_callback, nullptr);
+		glDebugMessageControlKHR(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);*/
 	}
 #endif
 
