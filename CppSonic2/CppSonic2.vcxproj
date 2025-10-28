@@ -198,6 +198,7 @@ copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.pdb" "$(TargetDi
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\assets.cpp" />
+    <ClCompile Include="src\bunnymark.cpp" />
     <ClCompile Include="src\console.cpp" />
     <ClCompile Include="src\input.cpp" />
     <ClCompile Include="src\input_bindings.cpp" />
@@ -232,6 +233,7 @@ copy /Y "$(SolutionDir)external\SDL2\lib\$(PlatformTarget)\SDL2.pdb" "$(TargetDi
   <ItemGroup>
     <ClInclude Include="resource.h" />
     <ClInclude Include="src\assets.h" />
+    <ClInclude Include="src\bunnymark.h" />
     <ClInclude Include="src\config.h" />
     <ClInclude Include="src\console.h" />
     <ClInclude Include="src\input.h" />

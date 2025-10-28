@@ -7,6 +7,7 @@
 #include "input.h"
 #include "game.h"
 #include "title_screen.h"
+#include "bunnymark.h"
 
 Program program;
 
@@ -58,7 +59,7 @@ void Program::update(float delta) {
 			next_program_mode = PROGRAM_NONE;
 
 			program_mode = mode;
-			static_assert(NUM_PROGRAM_MODES == 3);
+			static_assert(NUM_PROGRAM_MODES == 4);
 			switch (mode) {
 				case PROGRAM_TITLE: {
 					title_screen = {};
@@ -71,6 +72,12 @@ void Program::update(float delta) {
 					game.init(argc, argv);
 					break;
 				}
+
+				case PROGRAM_BUNNYMARK: {
+					bunnymark = {};
+					bunnymark.init();
+					break;
+				}
 			}
 		}
 
@@ -79,8 +86,7 @@ void Program::update(float delta) {
 		Approach(&transition_t, 0.0f, TRANSITION_SPEED * delta);
 	}
 
-	static_assert(NUM_PROGRAM_MODES == 3);
-
+	static_assert(NUM_PROGRAM_MODES == 4);
 	switch (program_mode) {
 		case PROGRAM_TITLE: {
 			title_screen.update(delta);
@@ -91,12 +97,16 @@ void Program::update(float delta) {
 			game.update(delta);
 			break;
 		}
+
+		case PROGRAM_BUNNYMARK: {
+			bunnymark.update(delta);
+			break;
+		}
 	}
 }
 
 void Program::draw(float delta) {
-	static_assert(NUM_PROGRAM_MODES == 3);
-
+	static_assert(NUM_PROGRAM_MODES == 4);
 	switch (program_mode) {
 		case PROGRAM_TITLE: {
 			title_screen.draw(delta);
@@ -105,6 +115,11 @@ void Program::draw(float delta) {
 
 		case PROGRAM_GAME: {
 			game.draw(delta);
+			break;
+		}
+
+		case PROGRAM_BUNNYMARK: {
+			bunnymark.draw(delta);
 			break;
 		}
 	}
@@ -181,8 +196,7 @@ void Program::late_draw(float delta) {
 }
 
 void Program::deinit_program_mode() {
-	static_assert(NUM_PROGRAM_MODES == 3);
-
+	static_assert(NUM_PROGRAM_MODES == 4);
 	switch (program_mode) {
 		case PROGRAM_TITLE: {
 			title_screen.deinit();
@@ -191,6 +205,11 @@ void Program::deinit_program_mode() {
 
 		case PROGRAM_GAME: {
 			game.deinit();
+			break;
+		}
+
+		case PROGRAM_BUNNYMARK: {
+			bunnymark.deinit();
 			break;
 		}
 	}

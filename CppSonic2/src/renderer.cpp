@@ -447,6 +447,15 @@ void render_end_frame() {
 		break_batch();
 
 		reset_shader();
+	} else {
+		float xscale = backbuffer_width  / (float)window.game_width;
+		float yscale = backbuffer_height / (float)window.game_height;
+		float scale = fminf(xscale, yscale);
+
+		renderer.game_texture_rect.w = (int) (window.game_width  * scale);
+		renderer.game_texture_rect.h = (int) (window.game_height * scale);
+		renderer.game_texture_rect.x = (backbuffer_width  - renderer.game_texture_rect.w) / 2;
+		renderer.game_texture_rect.y = (backbuffer_height - renderer.game_texture_rect.h) / 2;
 	}
 
 	// glFinish();
