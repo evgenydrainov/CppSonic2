@@ -2239,12 +2239,12 @@ static void player_state_ground(Player* p, float delta) {
 		if (!(p->input & INPUT_MOVE_UP)) {
 			p->peelout = false;
 
+			stop_sound(get_sound(snd_spindash));
 			if (p->spinrev >= 15) {
 				p->state = STATE_GROUND;
 				p->ground_speed = speed;
 				game.camera_lock = 24 - floorf(fabsf(p->ground_speed));
 
-				stop_sound(get_sound(snd_spindash));
 				play_sound(get_sound(snd_spindash_end));
 				return;
 			}
