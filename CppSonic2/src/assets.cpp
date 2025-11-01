@@ -215,6 +215,7 @@ void load_assets_for_editor() {
 		sprites[spr_layer_switcher_priority_letter]      = create_sprite(t,  64, 39,  5,  7,  0,  0, 2);
 		sprites[spr_layer_switcher_grounded_flag_letter] = create_sprite(t,  74, 32,  5,  7,  0,  0);
 		sprites[spr_camera_region]                       = create_sprite(t, 128,  0, 32, 32, 16, 16);
+		sprites[spr_force_spin]                          = create_sprite(t, 160,  0, 32, 32, 16, 16);
 	}
 }
 

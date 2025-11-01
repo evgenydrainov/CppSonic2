@@ -113,7 +113,8 @@ struct Player {
 	X(OBJ_FLOWER,                    15) \
 	X(OBJ_CAMERA_REGION,             16) \
 	X(OBJ_SIGN_POST,                 17) \
-	X(OBJ_INVINCIBILITY_SPARKLE,     18)
+	X(OBJ_INVINCIBILITY_SPARKLE,     18) \
+	X(OBJ_FORCE_SPIN,                19)
 
 DEFINE_NAMED_ENUM_WITH_VALUES(ObjType, int, OBJ_TYPE_ENUM)
 

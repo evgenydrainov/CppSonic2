@@ -3089,6 +3089,7 @@ void ObjectsEditor::update(float delta) {
 		button(OBJ_MOSQUI);
 		button(OBJ_CAMERA_REGION);
 		button(OBJ_SIGN_POST);
+		button(OBJ_FORCE_SPIN);
 	};
 
 	object_types_window();

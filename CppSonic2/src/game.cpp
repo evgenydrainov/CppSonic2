@@ -5382,6 +5382,7 @@ const Sprite& get_object_sprite(ObjType type) {
 		case OBJ_CAMERA_REGION:             return get_sprite(spr_camera_region);
 		case OBJ_SIGN_POST:                 return get_sprite(spr_sign_post);
 		case OBJ_INVINCIBILITY_SPARKLE:     return get_sprite(spr_invincibility_sparkle);
+		case OBJ_FORCE_SPIN:                return get_sprite(spr_force_spin);
 	}
 
 	Assert(!"invalid object type");
