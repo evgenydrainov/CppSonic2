@@ -26,6 +26,7 @@ static bool object_is_nonsolid(ObjType type) {
 		case OBJ_RING:         return true;
 		case OBJ_RING_DROPPED: return true;
 		case OBJ_MOSQUI:       return true;
+		case OBJ_FORCE_SPIN:   return true;
 	}
 	return false;
 }
@@ -920,6 +921,10 @@ static bool player_roll_condition(Player* p) {
 	int input_h = 0;
 	if (p->input & INPUT_MOVE_RIGHT) input_h++;
 	if (p->input & INPUT_MOVE_LEFT)  input_h--;
+
+	if (p->force_spin) {
+		return true;
+	}
 
 	return (fabsf(p->ground_speed) >= 0.5f
 			&& (p->input & INPUT_MOVE_DOWN)
@@ -1878,6 +1883,8 @@ static bool player_collides_with_nonsolid_object(Player* p, const Object& o) {
 }
 
 static void player_collide_with_nonsolid_objects(Player* p) {
+	p->force_spin = false;
+
 	// because we add objects while iterating
 	int object_count = game.objects.count;
 
@@ -1995,6 +2002,12 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 						player_get_hit(p, side);
 					}
 				}
+				break;
+			}
+
+			case OBJ_FORCE_SPIN: {
+				p->force_spin = true;
+				p->ground_speed = max(p->ground_speed, 4.0f);
 				break;
 			}
 		}
@@ -2551,6 +2564,8 @@ static void player_state_dead(Player* p, float delta) {
 }
 
 static void player_update(Player* p, float delta) {
+	// :player update
+
 	// clear flags
 	if (p->state != STATE_AIR) {
 		p->jumped = false;
@@ -3812,6 +3827,16 @@ void draw_objects(array<Object> objects,
 				break;
 			}
 
+			case OBJ_FORCE_SPIN: {
+				if (!show_editor_objects) break;
+
+				const Sprite& s = get_object_sprite(it->type);
+				vec2 scale = (it->radius * 2.0f) / vec2{s.width, s.height};
+				vec4 color = {1, 1, 1, 0.5f};
+				draw_sprite(s, 0, it->pos, scale, 0, color);
+				break;
+			}
+
 			default: {
 				const Sprite& s = get_object_sprite(it->type);
 				if (out_of_bounds(s, it->pos)) break;
@@ -5047,6 +5072,12 @@ void write_objects(array<Object> objects, const char* fname) {
 				break;
 			}
 
+			case OBJ_FORCE_SPIN: {
+				vec2 radius = o.radius;
+				SDL_RWwrite(f, &radius, sizeof radius, 1);
+				break;
+			}
+
 			default: {
 				Assert(false);
 				break;
@@ -5234,6 +5265,13 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 				o->radius = radius;
 				return true;
 			}
+
+			case OBJ_FORCE_SPIN: {
+				vec2 radius;
+				SDL_RWread(f, &radius, sizeof radius, 1);
+				o->radius = radius;
+				return true;
+			}
 		}
 
 		return false;
@@ -5363,6 +5401,8 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 }
 
 const Sprite& get_object_sprite(ObjType type) {
+	// :object sprite
+	// :obj sprite
 	switch (type) {
 		case OBJ_PLAYER_INIT_POS:           return get_sprite(spr_sonic_editor_preview);
 		case OBJ_LAYER_SET_DEPRECATED:      return get_sprite(spr_layer_set);
@@ -5390,6 +5430,8 @@ const Sprite& get_object_sprite(ObjType type) {
 }
 
 vec2 get_object_size(const Object& o) {
+	// :object size
+	// :obj size
 	switch (o.type) {
 		case OBJ_PLAYER_INIT_POS: return {30, 44};
 		case OBJ_MONITOR:         return {30, 30};
@@ -5413,7 +5455,8 @@ vec2 get_object_size(const Object& o) {
 		case OBJ_LAYER_FLIP_DEPRECATED:
 		case OBJ_MOVING_PLATFORM:
 		case OBJ_LAYER_SWITCHER_VERTICAL:
-		case OBJ_LAYER_SWITCHER_HORIZONTAL: {
+		case OBJ_LAYER_SWITCHER_HORIZONTAL:
+		case OBJ_FORCE_SPIN: {
 			return o.radius * 2.0f;
 		}
 	}

@@ -2893,7 +2893,7 @@ void ObjectsEditor::update(float delta) {
 					 pan_and_zoom_flags,
 					 callback);
 
-		// add objects
+		// :add objects
 		if (ImGui::BeginDragDropTarget()) {
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ADD_OBJECT")) {
 				ObjType type;
@@ -2940,6 +2940,11 @@ void ObjectsEditor::update(float delta) {
 					}
 
 					case OBJ_CAMERA_REGION: {
+						o.radius = {16, 16};
+						break;
+					}
+
+					case OBJ_FORCE_SPIN: {
 						o.radius = {16, 16};
 						break;
 					}
@@ -3138,6 +3143,9 @@ void ObjectsEditor::update(float delta) {
 
 		ObjUndoDragVec2("Position", &o->pos, object_index, 1, 0, 0, "%.0f");
 
+		// :object properties
+		// :obj prop
+
 		switch (o->type) {
 			case OBJ_MONITOR: {
 				ObjUndoComboEnum("Monitor Icon",
@@ -3225,6 +3233,11 @@ void ObjectsEditor::update(float delta) {
 			}
 
 			case OBJ_CAMERA_REGION: {
+				ObjUndoDragVec2("Radius", &o->radius, object_index);
+				break;
+			}
+
+			case OBJ_FORCE_SPIN: {
 				ObjUndoDragVec2("Radius", &o->radius, object_index);
 				break;
 			}

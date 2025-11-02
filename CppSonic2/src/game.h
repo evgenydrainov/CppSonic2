@@ -75,6 +75,7 @@ struct Player {
 	bool peelout;
 	bool pushing;
 	bool landed_on_solid_object;
+	bool force_spin;
 
 	PlayerMode prev_mode;
 	vec2 prev_radius;
