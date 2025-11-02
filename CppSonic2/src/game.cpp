@@ -1685,14 +1685,7 @@ static void player_collide_with_solid_objects(Player* p) {
 		return false;
 	};
 
-	// because we add objects while iterating
-	int object_count = game.objects.count;
-
-	for (int i = 0; i < object_count; i++) {
-		Object* it = &game.objects[i];
-
-		if (!object_is_solid(it->type)) continue;
-
+	auto handle_solid_object = [&](Object* it) {
 		vec2 obj_size = get_object_size(*it);
 
 		float combined_x_radius = obj_size.x/2 + (player_radius.x + 1) + 1;
@@ -1704,16 +1697,26 @@ static void player_collide_with_solid_objects(Player* p) {
 		float left_difference = (p->pos.x - it->pos.x) + combined_x_radius;
 
 		// the Player is too far to the left to be touching?
-		if (left_difference < 0) continue;
+		if (left_difference < 0) {
+			return;
+		}
+
 		// the Player is too far to the right to be touching?
-		if (left_difference > combined_x_diameter) continue;
+		if (left_difference > combined_x_diameter) {
+			return;
+		}
 
 		float top_difference = (p->pos.y - it->pos.y) + 4 + combined_y_radius;
 
 		// the Player is too far above to be touching
-		if (top_difference < 0) continue;
+		if (top_difference < 0) {
+			return;
+		}
+
 		// the Player is too far down to be touching
-		if (top_difference > combined_y_diameter) continue;
+		if (top_difference > combined_y_diameter) {
+			return;
+		}
 
 		float x_distance;
 		if (p->pos.x > it->pos.x) {
@@ -1745,15 +1748,19 @@ static void player_collide_with_solid_objects(Player* p) {
 			if (y_distance >= 0) {
 				// land
 
-				//if (y_distance >= 16) continue;
+				/*if (y_distance >= 16) {
+					return;
+				}*/
 
 				y_distance -= 4;
 
 				if (!(it->pos.x - obj_size.x/2 < p->pos.x && p->pos.x < it->pos.x + obj_size.x/2)) {
-					continue;
+					return;
 				}
 
-				if (p->speed.y < 0) continue;
+				if (p->speed.y < 0) {
+					return;
+				}
 
 				p->pos.y -= y_distance;
 
@@ -1771,14 +1778,6 @@ static void player_collide_with_solid_objects(Player* p) {
 					p->speed.y = 0;
 					p->landed_on_solid_object = true;
 				}
-
-				// we could remove dead objects at the end of the frame but idk
-				if (it->flags & FLAG_INSTANCE_DEAD) {
-					array_remove(&game.objects, i);
-					i--;
-					object_count--;
-					continue;
-				}
 			} else {
 				// TODO: bump the ceiling
 
@@ -1788,7 +1787,9 @@ static void player_collide_with_solid_objects(Player* p) {
 		} else {
 			// collide horizontally
 
-			if (fabsf(y_distance) <= 4) continue;
+			if (fabsf(y_distance) <= 4) {
+				return;
+			}
 
 			p->pos.x -= x_distance;
 
@@ -1804,8 +1805,7 @@ static void player_collide_with_solid_objects(Player* p) {
 					}
 				}
 
-				if (should_collide)
-				{
+				if (should_collide) {
 					Direction dir = (x_distance > 0) ? DIR_RIGHT : DIR_LEFT;
 
 					if (!player_collide_solid_object_side(p, it, dir)) {
@@ -1819,41 +1819,34 @@ static void player_collide_with_solid_objects(Player* p) {
 						p->ground_speed = 0;
 						p->speed.x = 0;
 					}
-
-					// we could remove dead objects at the end of the frame but idk
-					if (it->flags & FLAG_INSTANCE_DEAD) {
-						array_remove(&game.objects, i);
-						i--;
-						object_count--;
-						continue;
-					}
 				}
 			}
 		}
-	}
+	};
 
-	// handle OBJ_MOVING_PLATFORM
-	for (int i = 0; i < game.objects.count; i++) {
-		Object* it = &game.objects[i];
-
-		if (it->type != OBJ_MOVING_PLATFORM) continue;
-
-		if (p->speed.y < 0) continue;
+	auto handle_moving_platform = [&](Object* it) {
+		if (p->speed.y < 0) {
+			return;
+		}
 
 		vec2 obj_size = get_object_size(*it);
 
 		if (!(it->pos.x - obj_size.x/2 < p->pos.x && p->pos.x < it->pos.x + obj_size.x/2)) {
-			continue;
+			return;
 		}
 
 		float surface_y = it->pos.y - obj_size.y/2;
 		float bottom_y = p->pos.y + player_radius.y + 7;
 
-		if (surface_y > bottom_y) continue;
+		if (surface_y > bottom_y) {
+			return;
+		}
 
 		float dist = surface_y - bottom_y;
 
-		if (dist < -16 || dist >= 0) continue;
+		if (dist < -16 || dist >= 0) {
+			return;
+		}
 
 		p->pos.y += dist + 6;
 		p->pos.x += it->pos.x - it->mplatform.prev_pos.x;
@@ -1869,6 +1862,26 @@ static void player_collide_with_solid_objects(Player* p) {
 		}
 		p->speed.y = 0;
 		p->landed_on_solid_object = true;
+	};
+
+	// because we add objects while iterating
+	int object_count = game.objects.count;
+
+	for (int i = 0; i < object_count; i++) {
+		Object* it = &game.objects[i];
+
+		if (object_is_solid(it->type)) {
+			handle_solid_object(it);
+		} else if (it->type == OBJ_MOVING_PLATFORM) {
+			handle_moving_platform(it);
+		}
+
+		if (it->flags & FLAG_INSTANCE_DEAD) {
+			array_remove(&game.objects, i);
+			i--;
+			object_count--;
+			continue;
+		}
 	}
 }
 
