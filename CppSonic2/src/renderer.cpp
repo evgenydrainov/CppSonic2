@@ -281,10 +281,17 @@ void init_renderer() {
 		glBindBuffer(GL_ARRAY_BUFFER, renderer.batch_vbo);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * BATCH_MAX_VERTICES, nullptr, GL_DYNAMIC_DRAW);
 
-		u32* indices = (u32*) malloc(BATCH_MAX_INDICES * sizeof(u32));
+		u16* indices = (u16*) malloc(BATCH_MAX_INDICES * sizeof(u16));
 		defer { free(indices); };
 
-		u32 offset = 0;
+		{
+			constexpr u64 MAX_INDEX = ((BATCH_MAX_QUADS - 1) * 4) + 3;
+			constexpr u64 MAX_U16 = 0xffff;
+
+			static_assert(MAX_INDEX <= MAX_U16);
+		}
+
+		u16 offset = 0;
 		for (size_t i = 0; i < BATCH_MAX_INDICES; i += 6) {
 			indices[i + 0] = offset + 0;
 			indices[i + 1] = offset + 1;
@@ -299,7 +306,7 @@ void init_renderer() {
 
 		// 3. copy our index array in a element buffer for OpenGL to use
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, renderer.batch_ebo);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * BATCH_MAX_INDICES, indices, GL_STATIC_DRAW);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u16) * BATCH_MAX_INDICES, indices, GL_STATIC_DRAW);
 
 		// 4. then set the vertex attributes pointers
 		set_vertex_attribs();
@@ -567,7 +574,7 @@ void break_batch() {
 
 	if (use_index_buffer) {
 		int num_indices = renderer.vertices.count / 4 * 6;
-		glDrawElements(gl_mode, num_indices, GL_UNSIGNED_INT, NULL);
+		glDrawElements(gl_mode, num_indices, GL_UNSIGNED_SHORT, NULL);
 	} else {
 		glDrawArrays(gl_mode, 0, renderer.vertices.count);
 	}
