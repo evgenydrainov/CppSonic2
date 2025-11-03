@@ -22,9 +22,11 @@ constexpr size_t BATCH_MAX_INDICES  = (BATCH_MAX_QUADS * INDICES_PER_QUAD);
 struct Vertex {
 	vec3 pos;
 	vec3 normal;
-	vec4 color;
+	u32 color;
 	vec2 uv;
 };
+
+static_assert(sizeof(Vertex) == 36);
 
 enum RenderMode {
 	MODE_NONE,

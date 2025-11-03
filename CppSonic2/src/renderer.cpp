@@ -257,7 +257,7 @@ void set_vertex_attribs() {
 	glEnableVertexAttribArray(1);
 
 	// Color
-	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, color));
+	glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void*)offsetof(Vertex, color));
 	glEnableVertexAttribArray(2);
 
 	// Texcoord
@@ -710,10 +710,10 @@ void draw_texture(const Texture& t, Rect src,
 	}
 
 	Vertex vertices[] = {
-		{{x1, y1, 0.0f}, {}, color, {u1, v1}}, // LT
-		{{x2, y1, 0.0f}, {}, color, {u2, v1}}, // RT
-		{{x2, y2, 0.0f}, {}, color, {u2, v2}}, // RB
-		{{x1, y2, 0.0f}, {}, color, {u1, v2}}, // LB
+		{{x1, y1, 0.0f}, {}, pack_color_u32(color), {u1, v1}}, // LT
+		{{x2, y1, 0.0f}, {}, pack_color_u32(color), {u2, v1}}, // RT
+		{{x2, y2, 0.0f}, {}, pack_color_u32(color), {u2, v2}}, // RB
+		{{x1, y2, 0.0f}, {}, pack_color_u32(color), {u1, v2}}, // LB
 	};
 
 	mat4 model = glm::translate(mat4{1.0f}, {pos.x, pos.y, 0.0f});
@@ -758,10 +758,10 @@ void draw_texture_simple(const Texture& t, Rect src,
 	}
 
 	Vertex vertices[4] = {
-		{{x1, y1, 0.0f}, {}, color, {u1, v1}}, // LT
-		{{x2, y1, 0.0f}, {}, color, {u2, v1}}, // RT
-		{{x2, y2, 0.0f}, {}, color, {u2, v2}}, // RB
-		{{x1, y2, 0.0f}, {}, color, {u1, v2}}, // LB
+		{{x1, y1, 0.0f}, {}, pack_color_u32(color), {u1, v1}}, // LT
+		{{x2, y1, 0.0f}, {}, pack_color_u32(color), {u2, v1}}, // RT
+		{{x2, y2, 0.0f}, {}, pack_color_u32(color), {u2, v2}}, // RB
+		{{x1, y2, 0.0f}, {}, pack_color_u32(color), {u1, v2}}, // LB
 	};
 
 	draw_quad(t, vertices);
@@ -795,9 +795,9 @@ void draw_rectangle(Rectf rect, vec2 scale,
 
 void draw_triangle(vec2 p1, vec2 p2, vec2 p3, vec4 color) {
 	Vertex vertices[] = {
-		{{p1.x, p1.y, 0.0f}, {}, color, {}},
-		{{p2.x, p2.y, 0.0f}, {}, color, {}},
-		{{p3.x, p3.y, 0.0f}, {}, color, {}},
+		{{p1.x, p1.y, 0.0f}, {}, pack_color_u32(color), {}},
+		{{p2.x, p2.y, 0.0f}, {}, pack_color_u32(color), {}},
+		{{p3.x, p3.y, 0.0f}, {}, pack_color_u32(color), {}},
 	};
 
 	push_vertices(MODE_TRIANGLES, renderer.texture_for_shapes, vertices);
@@ -814,10 +814,10 @@ void draw_circle(vec2 pos, float radius, vec4 color, int precision) {
 	}
 #else
 	Vertex vertices[] = {
-		{{pos.x - radius, pos.y - radius, 0.0f}, {}, color, {0.0f, 0.0f}}, // LT
-		{{pos.x + radius, pos.y - radius, 0.0f}, {}, color, {1.0f, 0.0f}}, // RT
-		{{pos.x + radius, pos.y + radius, 0.0f}, {}, color, {1.0f, 1.0f}}, // RB
-		{{pos.x - radius, pos.y + radius, 0.0f}, {}, color, {0.0f, 1.0f}}, // LB
+		{{pos.x - radius, pos.y - radius, 0.0f}, {}, pack_color_u32(color), {0.0f, 0.0f}}, // LT
+		{{pos.x + radius, pos.y - radius, 0.0f}, {}, pack_color_u32(color), {1.0f, 0.0f}}, // RT
+		{{pos.x + radius, pos.y + radius, 0.0f}, {}, pack_color_u32(color), {1.0f, 1.0f}}, // RB
+		{{pos.x - radius, pos.y + radius, 0.0f}, {}, pack_color_u32(color), {0.0f, 1.0f}}, // LB
 	};
 
 	push_vertices(MODE_CIRCLES, renderer.texture_for_shapes, vertices);
@@ -838,8 +838,8 @@ void draw_line(vec2 p1, vec2 p2, vec4 color) {
 	p2.y += sinf(angle) * 0.50f;
 
 	Vertex vertices[] = {
-		{{p1.x, p1.y, 0.0f}, {}, color, {}},
-		{{p2.x, p2.y, 0.0f}, {}, color, {}},
+		{{p1.x, p1.y, 0.0f}, {}, pack_color_u32(color), {}},
+		{{p2.x, p2.y, 0.0f}, {}, pack_color_u32(color), {}},
 	};
 
 	push_vertices(MODE_LINES, renderer.texture_for_shapes, vertices);
@@ -847,8 +847,8 @@ void draw_line(vec2 p1, vec2 p2, vec4 color) {
 
 void draw_line_exact(vec2 p1, vec2 p2, vec4 color) {
 	Vertex vertices[] = {
-		{{p1.x, p1.y, 0.0f}, {}, color, {}},
-		{{p2.x, p2.y, 0.0f}, {}, color, {}},
+		{{p1.x, p1.y, 0.0f}, {}, pack_color_u32(color), {}},
+		{{p2.x, p2.y, 0.0f}, {}, pack_color_u32(color), {}},
 	};
 
 	push_vertices(MODE_LINES, renderer.texture_for_shapes, vertices);
@@ -865,10 +865,10 @@ void draw_line_thick(vec2 p1, vec2 p2, float thickness, vec4 color) {
 	vec2 rb = p2 + lengthdir_v2(thickness * sqrt2_over_2, dir + 45);
 
 	Vertex vertices[] = {
-		{{lt.x, lt.y, 0.0f}, {}, color, {}}, // LT
-		{{rt.x, rt.y, 0.0f}, {}, color, {}}, // RT
-		{{rb.x, rb.y, 0.0f}, {}, color, {}}, // RB
-		{{lb.x, lb.y, 0.0f}, {}, color, {}}, // LB
+		{{lt.x, lt.y, 0.0f}, {}, pack_color_u32(color), {}}, // LT
+		{{rt.x, rt.y, 0.0f}, {}, pack_color_u32(color), {}}, // RT
+		{{rb.x, rb.y, 0.0f}, {}, pack_color_u32(color), {}}, // RB
+		{{lb.x, lb.y, 0.0f}, {}, pack_color_u32(color), {}}, // LB
 	};
 
 	draw_quad(renderer.texture_for_shapes, vertices);
@@ -879,7 +879,7 @@ void draw_point(vec2 point, vec4 color) {
 	point += vec2{0.5f, 0.5f};
 
 	Vertex vertices[] = {
-		{{point.x, point.y, 0.0f}, {}, color, {}},
+		{{point.x, point.y, 0.0f}, {}, pack_color_u32(color), {}},
 	};
 
 	push_vertices(MODE_POINTS, renderer.texture_for_shapes, vertices);

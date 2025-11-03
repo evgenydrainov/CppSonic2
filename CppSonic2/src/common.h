@@ -315,6 +315,19 @@ constexpr vec4 get_color_4bit(u16 rgba) {
 			((rgba >>  0) & 0xF) / 15.0f};
 }
 
+inline u32 pack_color_u32(vec4 color) {
+	u32 r = (u32)(color.r * 255.0f) & 0xFF;
+	u32 g = (u32)(color.g * 255.0f) & 0xFF;
+	u32 b = (u32)(color.b * 255.0f) & 0xFF;
+	u32 a = (u32)(color.a * 255.0f) & 0xFF;
+
+	// NOTE: little-endian
+	return ((a << 24)
+			| (b << 16)
+			| (g << 8)
+			| (r << 0));
+}
+
 
 constexpr vec4 color_white  = get_color(0xffffffff);
 constexpr vec4 color_black  = get_color(0x000000ff);

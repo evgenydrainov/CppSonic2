@@ -205,7 +205,7 @@ bump_array<Vertex> load_3d_model_from_obj_file(const char* fname) {
 				v.pos    = positions[string_to_u32(pos)    - 1];
 				v.normal = normals  [string_to_u32(normal) - 1];
 				v.uv     = uvs      [string_to_u32(uv)     - 1];
-				v.color  = color_white;
+				v.color  = pack_color_u32(color_white);
 
 				array_add(&vertices, v);
 			};
