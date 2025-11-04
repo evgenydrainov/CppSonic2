@@ -86,6 +86,8 @@ void init_window_and_opengl(const char* title,
 	}
 
 	log_info("Platform: %s", SDL_GetPlatform());
+
+	// sometimes you just don't know...
 	log_info("sizeof(void*): %d", (int) sizeof(void*));
 
 	{

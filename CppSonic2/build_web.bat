@@ -22,7 +22,9 @@ set SOURCES=src/renderer.cpp^
  src/util.cpp^
  src/input.cpp^
  src/input_bindings.cpp^
- src/bunnymark.cpp
+ src/bunnymark.cpp^
+ src/tests.cpp^
+ src/common.cpp
 
 set INCLUDES=-I../external/glad/include -I../external/glm/include -I../external/stb/include
 

@@ -16,18 +16,9 @@
 #include "console.h"
 #endif
 
-
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
-
-
-static Arena temp_arena;
-Arena* get_temp_arena() { return &temp_arena; }
-
-size_t temp_memory_max_usage_this_frame;
-size_t temp_memory_max_usage_ever;
-
 
 static void do_one_frame() {
 	reset_temporary_storage();
@@ -126,7 +117,6 @@ static int game_main(int argc, char* argv[]) {
 	return 0;
 }
 
-
 static int editor_main(int argc, char* argv[]) {
 #ifdef EDITOR
 	init_window_and_opengl("Editor", 424, 240, 2, true, true);
@@ -182,12 +172,10 @@ static int editor_main(int argc, char* argv[]) {
 	return 0;
 }
 
-
 enum Launch_Mode {
 	LAUNCH_GAME,
 	LAUNCH_EDITOR,
 };
-
 
 int main(int argc, char* argv[]) {
 	init_temporary_storage(Megabytes(1));
@@ -215,4 +203,3 @@ int main(int argc, char* argv[]) {
 
 	return 0;
 }
-

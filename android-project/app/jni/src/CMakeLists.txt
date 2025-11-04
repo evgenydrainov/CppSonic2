@@ -53,6 +53,8 @@ target_sources(main PRIVATE
         ${SourceDir}/input.cpp
         ${SourceDir}/input_bindings.cpp
         ${SourceDir}/bunnymark.cpp
+        ${SourceDir}/tests.cpp
+        ${SourceDir}/common.cpp
         )
 
 target_link_libraries(main SDL2 SDL2_mixer)
