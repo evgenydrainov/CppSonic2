@@ -54,10 +54,8 @@ static void GLAPIENTRY gl_debug_callback(GLenum source,
 		case GL_DEBUG_SEVERITY_NOTIFICATION: log_info("Severity: notification"); break;
 	}
 
-	// SDL_Window* win = SDL_GL_GetCurrentWindow();
-	// SDL_ShowSimpleMessageBox(0, "", message, win);
-
-	// SDL_TriggerBreakpoint();
+	const char* read_me = message;
+	Assert(!"opengl error");
 }
 #endif
 
@@ -229,7 +227,7 @@ void init_window_and_opengl(const char* title,
 		glEnable(GL_DEBUG_OUTPUT);
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 		glDebugMessageCallback(gl_debug_callback, nullptr);
-		glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+		glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, true);
 	}
 #endif
 

@@ -1515,7 +1515,7 @@ bool Editor::try_run_game() {
 	auto level_dir = current_level_dir.u8string();
 
 #if 0
-	const char *command_line[] = {process_name, "--game", level_dir.c_str(), NULL};
+	const char *command_line[] = {process_name, "--game", level_dir.c_str(), nullptr};
 
 	// there's a bug where the game deadlocks when it fills the stdout pipe,
 	// if it's launched with subprocess.h

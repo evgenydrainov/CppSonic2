@@ -142,13 +142,6 @@ void Program::draw(float delta) {
 }
 
 void Program::late_draw(float delta) {
-	int backbuffer_width;
-	int backbuffer_height;
-	SDL_GL_GetDrawableSize(window.handle, &backbuffer_width, &backbuffer_height);
-
-	set_proj_mat(get_ortho(0, backbuffer_width, backbuffer_height, 0));
-	set_viewport(0, 0, backbuffer_width, backbuffer_height);
-
 	vec2 pos = {};
 
 	if (window.frame_advance_mode) {

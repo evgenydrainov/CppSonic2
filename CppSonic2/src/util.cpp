@@ -27,7 +27,7 @@ u32 compile_shader(GLenum type, string source, const char* debug_name) {
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 	if (!success) {
 		char buf[512];
-		glGetShaderInfoLog(shader, sizeof(buf), NULL, buf);
+		glGetShaderInfoLog(shader, sizeof(buf), nullptr, buf);
 
 		if (debug_name) log_error("While compiling %s...", debug_name);
 		log_error("Shader Compile Error:\n%s", buf);
@@ -49,7 +49,7 @@ u32 link_program(u32 vertex_shader, u32 fragment_shader, const char* debug_name)
 	glGetProgramiv(program, GL_LINK_STATUS, &success);
 	if (!success) {
 		char buf[512];
-		glGetProgramInfoLog(program, sizeof(buf), NULL, buf);
+		glGetProgramInfoLog(program, sizeof(buf), nullptr, buf);
 
 		if (debug_name) log_error("While linking %s...", debug_name);
 		log_error("Shader Link Error:\n%s", buf);
@@ -58,6 +58,7 @@ u32 link_program(u32 vertex_shader, u32 fragment_shader, const char* debug_name)
 	return program;
 }
 
+#if 0
 u32 create_vertex_array_obj(array<Vertex> vertices,
 							array<u32> indices,
 							u32* out_vbo, u32* out_ebo) {
@@ -89,6 +90,7 @@ u32 create_vertex_array_obj(array<Vertex> vertices,
 	if (out_ebo) *out_ebo = ebo;
 	return vao;
 }
+#endif
 
 Shader load_shader_from_file(const char* vert_fname, const char* frag_fname) {
 	string vertex_source = get_file_str(vert_fname);

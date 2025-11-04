@@ -75,31 +75,32 @@ struct Renderer {
 	u32 current_shader;
 	bump_array<Vertex> vertices;
 
-	Shader texture_shader;  // These shaders should be handled by an asset system maybe
+	Shader texture_shader;
 	Shader circle_shader;
 	Shader sharp_bilinear_shader;
 	Shader hq4x_shader;
 
-	u32 batch_vao;
+	u32 stub_vao;
+
 	u32 batch_vbo;
 	u32 batch_ebo;
 	Texture texture_for_shapes; // 1x1 white texture
 
-	Framebuffer framebuffer;  // Game is renderer to a framebuffer, and then the framebuffer is rendered to the screen.
+	Framebuffer framebuffer;
 	Rect game_texture_rect;
 
 	int backbuffer_width;
 	int backbuffer_height;
 
-	mat4 proj_mat = {1};
-	mat4 view_mat = {1};
-	mat4 model_mat = {1};
+	mat4 proj_mat;
+	mat4 view_mat;
+	mat4 model_mat;
 
 	int draw_calls;
 	size_t max_batch;
 	int total_triangles;
 
-	int curr_draw_calls;  // These values change during the frame, use draw_calls and max_batch for metrics
+	int curr_draw_calls;
 	size_t curr_max_batch;
 	int curr_total_triangles;
 
@@ -109,7 +110,7 @@ struct Renderer {
 
 extern Renderer renderer;
 
-void set_vertex_attribs();
+void set_vertex_attribs(u32 program);
 
 void init_renderer(); // assumes opengl is initialized
 void deinit_renderer();
@@ -139,7 +140,7 @@ void draw_texture(const Texture& t, Rect src = {},
 				  vec2 pos = {}, vec2 scale = {1, 1},
 				  vec2 origin = {}, float angle = 0, vec4 color = color_white, bvec2 flip = {});
 
-// This version of the function is here because matrix multiplications are too slow in Debug build.
+// this version of the function is here because matrix multiplications are too slow in debug build
 void draw_texture_simple(const Texture& t, Rect src = {},
 						 vec2 pos = {}, vec2 origin = {}, vec4 color = color_white, bvec2 flip = {});
 

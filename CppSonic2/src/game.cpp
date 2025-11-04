@@ -3161,7 +3161,7 @@ void Game::update_touch_input() {
 			mouse.x = finger->x * renderer.backbuffer_width;
 			mouse.y = finger->y * renderer.backbuffer_height;
 
-			auto rect = renderer.game_texture_rect;
+			Rect rect = renderer.game_texture_rect;
 			mouse.x = (mouse.x - rect.x) / (float)rect.w * (float)window.game_width;
 			mouse.y = (mouse.y - rect.y) / (float)rect.h * (float)window.game_height;
 

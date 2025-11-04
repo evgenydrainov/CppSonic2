@@ -15,8 +15,8 @@ struct Sprite {
 	array<SpriteFrame> frames;
 	int xorigin;
 	int yorigin;
-	int loop_frame; // The frame from which animation will loop.
-	float anim_spd; // Animation speed
+	int loop_frame; // the frame from which the animation will loop
+	float anim_spd;
 	int width;
 	int height;
 };
