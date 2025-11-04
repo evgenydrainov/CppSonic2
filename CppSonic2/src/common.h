@@ -73,6 +73,11 @@ struct Rectf {
 //                 SECTION: Logging
 // -----------------------------------------------------------
 
+// console colors don't work in emscripten
+#ifndef __EMSCRIPTEN__
+#define LOG_USE_CONSOLE_COLORS
+#endif
+
 enum Log_Type {
 	LOG_INFO,
 	LOG_WARN,
@@ -95,7 +100,7 @@ inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(Log_Type type, SDL_PRINTF_FOR
 		return {};
 	};
 
-	// SDL_snprintf doesn't support %g
+	// NOTE: SDL_snprintf doesn't support %g
 	va_list va;
 	va_start(va, fmt);
 	int written = stbsp_vsnprintf(stack_buf, sizeof(stack_buf), fmt, va);
@@ -115,16 +120,34 @@ inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(Log_Type type, SDL_PRINTF_FOR
 		}
 	}
 
-#if 0
-	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, to_sdl_priority(type), "%s", buf);
+	auto log_impl_printf = [&]() {
+		// print the prefix
+#ifdef LOG_USE_CONSOLE_COLORS
+		switch (type) {
+			case LOG_INFO:  printf("INFO: ");  break;
+			case LOG_WARN:  printf("\033[93mWARN\033[0m: ");  break;
+			case LOG_ERROR: printf("\033[91mERROR\033[0m: "); break;
+		}
 #else
-	switch (type) {
-		case LOG_INFO:  printf("INFO: ");  break;
-		case LOG_WARN:  printf("\033[93mWARN\033[0m: ");  break;
-		case LOG_ERROR: printf("\033[91mERROR\033[0m: "); break;
-	}
+		switch (type) {
+			case LOG_INFO:  printf("INFO: ");  break;
+			case LOG_WARN:  printf("WARN: ");  break;
+			case LOG_ERROR: printf("ERROR: "); break;
+		}
+#endif
 
-	printf("%s\n", buf);
+		// print the message
+		printf("%s\n", buf);
+	};
+
+	auto log_impl_sdl = [&]() {
+		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, to_sdl_priority(type), "%s", buf);
+	};
+
+#ifdef __ANDROID__
+	log_impl_sdl();
+#else
+	log_impl_printf();
 #endif
 
 	if (buf != stack_buf) {

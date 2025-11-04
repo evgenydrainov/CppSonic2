@@ -36,7 +36,6 @@ target_sources(main PRIVATE
         ${SourceDir}/game.cpp
         ${SourceDir}/main.cpp
         ${SourceDir}/package.cpp
-        ${SourceDir}/stdafx.cpp
         ${SourceDir}/texture.cpp
         ${SourceDir}/window_creation.cpp
         ${SourceDir}/imgui_glue.cpp
@@ -53,6 +52,7 @@ target_sources(main PRIVATE
         ${SourceDir}/util.cpp
         ${SourceDir}/input.cpp
         ${SourceDir}/input_bindings.cpp
+        ${SourceDir}/bunnymark.cpp
         )
 
 target_link_libraries(main SDL2 SDL2_mixer)
