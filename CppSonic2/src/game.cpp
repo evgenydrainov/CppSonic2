@@ -74,6 +74,10 @@ void Game::load_level(const char* path) {
 				}
 
 				player.pos = it->pos;
+#ifdef PLAYER_NEW_RADIUS
+				player.pos.y += 5;
+#endif
+
 				found = true;
 			}
 		}
@@ -382,10 +386,17 @@ static bool player_is_small_radius(Player* p) {
 }
 
 static vec2 player_get_radius(Player* p) {
+	vec2 normal_radius = {9, 19};
+#ifdef PLAYER_NEW_RADIUS
+	normal_radius = {8, 14};
+#endif
+
+	vec2 small_radius = {7, 14};
+
 	if (player_is_small_radius(p)) {
-		return {7, 14};
+		return small_radius;
 	} else {
-		return {9, 19};
+		return normal_radius;
 	}
 }
 
@@ -1364,8 +1375,8 @@ static void player_keep_in_bounds(Player* p) {
 			p->speed.x = 0;
 		}
 
-		if (p->pos.y > bottom - radius.x - 4) {
-			p->pos.y = bottom - radius.x - 4;
+		if (p->pos.y > bottom - radius.y - 4) {
+			p->pos.y = bottom - radius.y - 4;
 		}
 	};
 
@@ -2294,7 +2305,7 @@ static void player_state_ground(Player* p, float delta) {
 
 			dust_particle.pos = p->pos;
 			dust_particle.pos.y += player_get_radius(p).y;
-			dust_particle.pos.y -= 8;
+			dust_particle.pos.y -= 4;
 
 			add_particle(dust_particle);
 
@@ -2722,6 +2733,12 @@ static void player_update(Player* p, float delta) {
 			o.id = game.next_id++;
 			o.type = OBJ_INVINCIBILITY_SPARKLE;
 			o.pos = p->pos;
+#ifdef PLAYER_NEW_RADIUS
+			if (p->anim == anim_roll) {
+				o.pos.y += 5;
+			}
+#endif
+
 			array_add(&game.objects, o);
 
 			t -= 8;
@@ -2741,8 +2758,8 @@ void Game::init(int argc, char* argv[]) {
 	}
 
 	// set camera pos after loading the level
-	camera_pos_real.x = player.pos.x - window.game_width  / 2;
-	camera_pos_real.y = player.pos.y - window.game_height / 2;
+	camera_pos_real.x = player.pos.x - window.game_width / 2;
+	camera_pos_real.y = player.pos.y + player_get_radius(&player).y - 19 - window.game_height / 2;
 
 	// update camera so that it's in the right place when the level starts up
 	camera_update(0);
@@ -4079,20 +4096,29 @@ void Game::draw(float delta) {
 					}
 				}
 
-				draw_sprite(s, frame_index, it->pos, {1,1}, 0, color_white, flip);
+				vec2 pos = floor(it->pos);
+				draw_sprite(s, frame_index, pos, {1,1}, 0, color_white, flip);
 				break;
 			}
 		}
 	}
 
 	// draw player shield
-	if (player.has_shield) {
+	if (player.has_shield && player.invincibility == 0) {
 		int frame = game.time_frames;
 		if (frame % 4 >= 2) {
 			const Sprite& s = get_sprite(spr_shield);
 			frame /= 4;
 			frame %= s.frames.count;
-			draw_sprite(s, frame, floor(player.pos));
+
+			vec2 pos = floor(player.pos);
+#ifdef PLAYER_NEW_RADIUS
+			if (player.anim == anim_roll) {
+				pos.y += 5;
+			}
+#endif
+
+			draw_sprite(s, frame, pos);
 		}
 	}
 

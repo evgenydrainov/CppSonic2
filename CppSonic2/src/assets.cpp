@@ -21,7 +21,11 @@ void load_global_assets() {
 		textures[tex_global_objects] = load_texture_from_file("textures/global_objects.png");
 		const Texture& t = get_texture(tex_global_objects);
 
-		sprites[spr_spindash_smoke]        = create_sprite(t,   0,   0,  32,  32,  32,  11,   7);
+		int oy = 11;
+#ifdef PLAYER_NEW_RADIUS
+		oy = 16;
+#endif
+		sprites[spr_spindash_smoke]        = create_sprite(t,   0,   0,  32,  32,  32,  oy,   7);
 		sprites[spr_ring]                  = create_sprite(t,   0,  32,  16,  16,   8,   8,   4);
 		sprites[spr_ring_disappear]        = create_sprite(t,   0,  48,  16,  16,   8,   8,   4,  4,  1.0f / 6.0f);
 		sprites[spr_monitor]               = create_sprite(t,   0,  64,  32,  32,  16,  16,   2);
@@ -41,8 +45,12 @@ void load_global_assets() {
 		sprites[spr_text_through]          = create_sprite(t, 128, 576, 111,  14,   0,   0);
 		sprites[spr_text_zone]             = create_sprite(t, 240, 576,  53,  14,   0,   0);
 		sprites[spr_text_zone_number]      = create_sprite(t, 304, 576,  16,  16,   0,   0,   3);
-		sprites[spr_invincibility_sparkle] = create_sprite(t,   0, 592,  48,  48,  24,  24,   2);
-		sprites[spr_shield]                = create_sprite(t,  96, 592,  48,  48,  24,  24,   3);
+		oy = 24;
+#ifdef PLAYER_NEW_RADIUS
+		oy = 29;
+#endif
+		sprites[spr_invincibility_sparkle] = create_sprite(t,   0, 592,  48,  48,  24,  oy,   2);
+		sprites[spr_shield]                = create_sprite(t,  96, 592,  48,  48,  24,  oy,   3);
 
 		sprites[spr_spring_yellow]  = create_sprite(t,  32, 112, 32, 40, 16, 32);
 		sprites[spr_spring_red]     = create_sprite(t, 128, 112, 32, 40, 16, 32);
@@ -71,22 +79,27 @@ void load_assets_for_game() {
 		textures[tex_sonic_sprites] = load_texture_from_file("textures/sonic_sprites_indexed.png");
 		const Texture& t = get_texture(tex_sonic_sprites);
 
-		sprites[spr_sonic_crouch]   = create_sprite(t, 0,  0 * 59, 59, 59, 30, 30);
-		sprites[spr_sonic_idle]     = create_sprite(t, 0,  1 * 59, 59, 59, 30, 30);
-		sprites[spr_sonic_look_up]  = create_sprite(t, 0,  2 * 59, 59, 59, 30, 30);
-		sprites[spr_sonic_peelout]  = create_sprite(t, 0,  3 * 59, 59, 59, 30, 30, 4);
 		sprites[spr_sonic_roll]     = create_sprite(t, 0,  4 * 59, 59, 59, 30, 30, 5);
-		sprites[spr_sonic_run]      = create_sprite(t, 0,  5 * 59, 59, 59, 30, 30, 4);
-		sprites[spr_sonic_skid]     = create_sprite(t, 0,  6 * 59, 59, 59, 30, 30, 2);
-		sprites[spr_sonic_spindash] = create_sprite(t, 0,  7 * 59, 59, 59, 30, 30, 6);
-		sprites[spr_sonic_walk]     = create_sprite(t, 0,  8 * 59, 59, 59, 30, 30, 6);
-		sprites[spr_sonic_balance]  = create_sprite(t, 0,  9 * 59, 59, 59, 30, 30, 4);
-		sprites[spr_sonic_balance2] = create_sprite(t, 0, 10 * 59, 59, 59, 30, 30, 4);
-		sprites[spr_sonic_push]     = create_sprite(t, 0, 11 * 59, 59, 59, 30, 30, 4);
-		sprites[spr_sonic_rise]     = create_sprite(t, 0, 12 * 59, 59, 59, 30, 30, 5);
-		sprites[spr_sonic_hurt]     = create_sprite(t, 0, 13 * 59, 59, 59, 30, 30);
-		sprites[spr_sonic_die]      = create_sprite(t, 0, 14 * 59, 59, 59, 30, 30);
-		sprites[spr_sonic_drown]    = create_sprite(t, 0, 15 * 59, 59, 59, 30, 30);
+
+		int oy = 30;
+#ifdef PLAYER_NEW_RADIUS
+		oy = 35;
+#endif
+		sprites[spr_sonic_crouch]   = create_sprite(t, 0,  0 * 59, 59, 59, 30, oy);
+		sprites[spr_sonic_idle]     = create_sprite(t, 0,  1 * 59, 59, 59, 30, oy);
+		sprites[spr_sonic_look_up]  = create_sprite(t, 0,  2 * 59, 59, 59, 30, oy);
+		sprites[spr_sonic_peelout]  = create_sprite(t, 0,  3 * 59, 59, 59, 30, oy, 4);
+		sprites[spr_sonic_run]      = create_sprite(t, 0,  5 * 59, 59, 59, 30, oy, 4);
+		sprites[spr_sonic_skid]     = create_sprite(t, 0,  6 * 59, 59, 59, 30, oy, 2);
+		sprites[spr_sonic_spindash] = create_sprite(t, 0,  7 * 59, 59, 59, 30, oy, 6);
+		sprites[spr_sonic_walk]     = create_sprite(t, 0,  8 * 59, 59, 59, 30, oy, 6);
+		sprites[spr_sonic_balance]  = create_sprite(t, 0,  9 * 59, 59, 59, 30, oy, 4);
+		sprites[spr_sonic_balance2] = create_sprite(t, 0, 10 * 59, 59, 59, 30, oy, 4);
+		sprites[spr_sonic_push]     = create_sprite(t, 0, 11 * 59, 59, 59, 30, oy, 4);
+		sprites[spr_sonic_rise]     = create_sprite(t, 0, 12 * 59, 59, 59, 30, oy, 5);
+		sprites[spr_sonic_hurt]     = create_sprite(t, 0, 13 * 59, 59, 59, 30, oy);
+		sprites[spr_sonic_die]      = create_sprite(t, 0, 14 * 59, 59, 59, 30, oy);
+		sprites[spr_sonic_drown]    = create_sprite(t, 0, 15 * 59, 59, 59, 30, oy);
 	}
 
 	textures[tex_sonic_palette] = load_texture_from_file("textures/sonic_palette.png");
