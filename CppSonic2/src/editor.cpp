@@ -13,7 +13,6 @@
 #include "imgui/imgui_internal.h"
 #include "nfd/nfd.h"
 #include "IconsFontAwesome5.h"
-#include "subprocess.h"
 
 #include <sstream>
 
@@ -1086,7 +1085,9 @@ void Editor::update(float delta) {
 			if (it->type == MESSAGE_INFO) {
 				ImGui::Text(ICON_FA_INFO_CIRCLE " Info");
 			} else if (it->type == MESSAGE_WARN) {
-				ImGui::Text(ICON_FA_EXCLAMATION_TRIANGLE " Warning");
+				ImGui::TextColored({1, 1, 0, 1}, ICON_FA_EXCLAMATION_TRIANGLE " Warning");
+			} else if (it->type == MESSAGE_ERROR) {
+				ImGui::TextColored({1, 0, 0, 1}, ICON_FA_EXCLAMATION_CIRCLE " Error");
 			}
 			ImGui::Text("%s", it->buf);
 
@@ -1506,32 +1507,67 @@ void Editor::action_revert(const Action& action) {
 	}
 }
 
+#ifdef _WIN32
+// custom thing to avoid printf deadlock
+static int subprocess_create_2(char* command_line, subprocess_s* out_process) {
+	subprocess_startup_info_s startInfo = { sizeof(startInfo) };
+	subprocess_subprocess_information_s processInfo;
+	
+	if (!CreateProcessA(nullptr,
+						command_line,	// command line
+						nullptr,		// process security attributes
+						nullptr,		// primary thread security attributes
+						1,				// handles are inherited
+						0,				// creation flagsted
+						nullptr,		// used environment
+						nullptr,		// use parent's current directory
+						(LPSTARTUPINFOA)&startInfo,
+						(LPPROCESS_INFORMATION)&processInfo))
+	{
+		return -1;
+	}
+
+	out_process->hProcess = processInfo.hProcess;
+
+	// We don't need the handle of the primary thread in the called process.
+	CloseHandle(processInfo.hThread);
+
+	out_process->alive = 1;
+
+	return 0;
+}
+#endif
+
 bool Editor::try_run_game() {
 	if (!is_level_open) {
 		return false;
 	}
 
-	// SDL converts argv to utf8, so `process_name` is utf8
-	auto level_dir = current_level_dir.u8string();
-
-#if 0
-	const char *command_line[] = {process_name, "--game", level_dir.c_str(), nullptr};
-
-	// there's a bug where the game deadlocks when it fills the stdout pipe,
-	// if it's launched with subprocess.h
-
-	// @Utf8
-	// it seems like this library doesn't convert from utf8 to windows wide char
-	subprocess_s subprocess;
-	int result = subprocess_create(command_line, subprocess_option_inherit_environment, &subprocess);
-	if (result != 0) {
+#ifdef _WIN32
+	if (subprocess_alive(&subprocess)) {
+		show_message(MESSAGE_WARN, "The game is already running.");
 		return false;
 	}
 
-	// do we need to `subprocess_destroy`?
-#else
+	subprocess_join(&subprocess, nullptr);
+	subprocess_destroy(&subprocess);
+#endif
+
+	try_save_level();
+
+	// SDL converts argv to utf8, so `process_name` is utf8
+	auto level_dir = current_level_dir.u8string();
+
+	// TODO: handle spaces
 	char buf[512];
 	stbsp_snprintf(buf, sizeof buf, "%s --game %s", process_name, level_dir.c_str());
+
+#ifdef _WIN32
+	if (subprocess_create_2(buf, &subprocess) != 0) {
+		show_message(MESSAGE_ERROR, "Couldn't run the game.");
+		return false;
+	}
+#else
 	system(buf);
 #endif
 
