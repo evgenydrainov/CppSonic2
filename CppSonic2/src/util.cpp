@@ -6,19 +6,17 @@ u32 compile_shader(GLenum type, string source, const char* debug_name) {
 	u32 shader = glCreateShader(type);
 
 #if defined(__ANDROID__)
-	string version_string = "#version 320 es\n";
+	string prefix = ("#version 320 es\n"
+					 "precision highp float;\n");
 #elif defined(__EMSCRIPTEN__)
-	string version_string = "#version 300 es\n";
+	string prefix = ("#version 300 es\n"
+					 "precision highp float;\n");
 #else
-	string version_string = "#version 330 core\n";
+	string prefix = "#version 330 core\n";
 #endif
 
-	string precision_string = "#ifdef GL_ES\n"
-		"precision highp float;\n"
-		"#endif\n";
-
-	const char* sources[] = {version_string.data, precision_string.data, source.data};
-	int lengths[] = {version_string.count, precision_string.count, source.count};
+	const char* sources[] = {prefix.data, source.data};
+	int lengths[] = {prefix.count, source.count};
 	glShaderSource(shader, ArrayLength(sources), sources, lengths);
 
 	glCompileShader(shader);
