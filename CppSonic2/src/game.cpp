@@ -3122,6 +3122,8 @@ void Game::update_gameplay(float delta) {
 	}
 
 	update_particles(delta);
+
+	score_card.update(delta);
 }
 
 void Game::update_touch_input() {
@@ -3218,10 +3220,6 @@ void Game::update(float delta) {
 
 	bool should_update_gameplay = true;
 
-	if (program.transition_t != 0) {
-		should_update_gameplay = false;
-	}
-
 	if (titlecard_state == TITLECARD_IN
 		|| titlecard_state == TITLECARD_WAIT)
 	{
@@ -3293,8 +3291,6 @@ void Game::update(float delta) {
 	}
 
 	update_pause_menu(delta);
-
-	score_card.update(delta);
 
 	if (pause_state == PAUSE_NOT_PAUSED) {
 		time_frames += delta;
@@ -3437,6 +3433,10 @@ void Game::update_pause_menu(float delta) {
 	}
 
 	if (titlecard_state != TITLECARD_FINISHED) {
+		return;
+	}
+
+	if (score_card.state != ScoreCard::NONE) {
 		return;
 	}
 
@@ -4406,7 +4406,7 @@ void Game::draw(float delta) {
 
 			vec4 color = color_yellow;
 			if (player_rings == 0) {
-				if ((SDL_GetTicks() / 500) % 2) {
+				if (fmodf(time_seconds, 1) > 0.5) {
 					color = color_red;
 				}
 			}

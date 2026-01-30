@@ -14,6 +14,11 @@ struct Input {
 	u32 state_release;
 	u32 state_repeat;
 
+	// special case for the thumbstick to be able to navigate the ui
+	u32 axis_state;
+	u32 axis_state_press;
+	u32 axis_state_release;
+
 	u32 keyboard_state        [(NUM_KEYBOARD_KEYS + 31) / 32];
 	u32 keyboard_state_press  [(NUM_KEYBOARD_KEYS + 31) / 32];
 	u32 keyboard_state_release[(NUM_KEYBOARD_KEYS + 31) / 32];
