@@ -101,9 +101,21 @@ MESSAGE(STATUS "INFO: FREETYPE_LIBRARIES is ${FREETYPE_LIBRARIES}")
 # target_link_libraries(${PROJECT_NAME} ${FREETYPE_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME}.elf
-	SDL2::SDL2 SceIme_stub libGLESv2_stub libIMGEGL_stub
-	# SDL2_mixer::SDL2_mixer-static
-	# FLAC ogg vorbis vorbisenc vorbisfile vorbisidec
+	SDL2_mixer
+	SDL2::SDL2
+	mikmod
+	mpg123
+	FLAC
+	vorbisfile
+	vorbis
+	ogg
+	modplug
+	opusfile
+	opus
+	xmp
+	SceIme_stub
+	libGLESv2_stub
+	libIMGEGL_stub
 )
 
 # target_precompile_headers(${PROJECT_NAME} PRIVATE src/stdafx.h)

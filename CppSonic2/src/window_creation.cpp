@@ -69,6 +69,16 @@ unsigned int sceLibcHeapSize = 50 * 1024 * 1024;
 void init_window_and_opengl(const char* title,
 							int width, int height, int init_window_scale,
 							bool prefer_vsync, bool prefer_borderless_fullscreen) {
+	#ifdef __VITA__
+	{
+		FILE* file = fopen("ux0:/data/SDL_Log.txt", "w");
+		if (file) {
+			fprintf(file, "Cleared log file...\n");
+			fclose(file);
+		}
+	}
+	#endif
+								
 	SDL_LogSetAllPriority(SDL_LOG_PRIORITY_VERBOSE);
 
 	window.perf_counter_when_started = SDL_GetPerformanceCounter();
