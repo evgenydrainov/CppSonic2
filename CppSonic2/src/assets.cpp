@@ -229,7 +229,7 @@ void free_all_assets() {
 
 	for (int i = 0; i < NUM_SOUNDS; i++) {
 		if (sounds[i]) {
-			// Mix_FreeChunk(sounds[i]);
+			Mix_FreeChunk(sounds[i]);
 			sounds[i] = nullptr;
 		}
 	}
