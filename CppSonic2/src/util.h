@@ -7,9 +7,11 @@ u32 compile_shader(GLenum type, string source, const char* debug_name = nullptr)
 
 u32 link_program(u32 vertex_shader, u32 fragment_shader, const char* debug_name = nullptr);
 
+#if 0
 u32 create_vertex_array_obj(array<Vertex> vertices,
 							array<u32> indices = {},
 							u32* out_vbo = nullptr, u32* out_ebo = nullptr);
+#endif
 
 Shader load_shader_from_file(const char* vert_fname, const char* frag_fname);
 

@@ -80,11 +80,11 @@ varying vec2 v_TexCoord;
 uniform sampler2D u_Texture;
 
 uniform vec2 u_SourceSize;
-uniform vec2 u_Scale; // The integer scale.
+uniform vec2 u_IntegerScale;
 
 void main() {
 	vec2 texel = v_TexCoord * u_SourceSize;
-	vec2 scale = u_Scale;
+	vec2 scale = u_IntegerScale;
 
 	vec2 texel_floored = floor(texel);
 	vec2 s = fract(texel);
@@ -197,7 +197,8 @@ Texture load_depth_texture(int width, int height) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+	u32 type = GL_UNSIGNED_INT; // not sure what the type should be
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, type, nullptr);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 	return t;
@@ -243,46 +244,66 @@ void free_shader(Shader* s) {
 	*s = {};
 }
 
-void set_vertex_attribs() {
-	// Position
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, pos));
-	glEnableVertexAttribArray(0);
+void set_vertex_attribs(u32 program) {
+	int position = glGetAttribLocation(program, "in_Position");
+	if (position != -1) {
+		glVertexAttribPointer(position, 3, GL_FLOAT, false, sizeof(Vertex), (void*) offsetof(Vertex, pos));
+		glEnableVertexAttribArray(position);
+	}
 
-	// Normal
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
-	glEnableVertexAttribArray(1);
+	int normal = glGetAttribLocation(program, "in_Normal");
+	if (normal != -1) {
+		glVertexAttribPointer(normal, 3, GL_FLOAT, false, sizeof(Vertex), (void*) offsetof(Vertex, normal));
+		glEnableVertexAttribArray(normal);
+	}
 
-	// Color
-	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, color));
-	glEnableVertexAttribArray(2);
+	int color = glGetAttribLocation(program, "in_Color");
+	if (color != -1) {
+		glVertexAttribPointer(color, 4, GL_UNSIGNED_BYTE, true, sizeof(Vertex), (void*) offsetof(Vertex, color));
+		glEnableVertexAttribArray(color);
+	}
 
-	// Texcoord
-	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
-	glEnableVertexAttribArray(3);
+	int texcoord = glGetAttribLocation(program, "in_TexCoord");
+	if (texcoord != -1) {
+		glVertexAttribPointer(texcoord, 2, GL_FLOAT, false, sizeof(Vertex), (void*) offsetof(Vertex, uv));
+		glEnableVertexAttribArray(texcoord);
+	}
 }
 
+constexpr size_t VERTICES_ARRAY_SIZE = BATCH_MAX_VERTICES * sizeof(Vertex);
+constexpr size_t INDICES_ARRAY_SIZE = BATCH_MAX_INDICES * sizeof(u16);
+
 void init_renderer() {
-	log_info("HERE 1");
+	// create a stub vao and bind it forever
+	glGenVertexArrays(1, &renderer.stub_vao);
+	glBindVertexArray(renderer.stub_vao);
 
-	// 
-	// Initialize.
-	// 
+	glGenBuffers(1, &renderer.batch_vbo);
+	glGenBuffers(1, &renderer.batch_ebo);
+
+	// allocate vertex buffer on the gpu
+	glBindBuffer(GL_ARRAY_BUFFER, renderer.batch_vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * BATCH_MAX_VERTICES, nullptr, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	renderer.vertices = allocate_bump_array<Vertex>(BATCH_MAX_VERTICES, get_libc_allocator());
+
 	{
-		glGenVertexArrays(1, &renderer.batch_vao);
-		glGenBuffers(1, &renderer.batch_vbo);
-		glGenBuffers(1, &renderer.batch_ebo);
+		static_assert(INDICES_ARRAY_SIZE <= VERTICES_ARRAY_SIZE);
 
-		// 1. bind Vertex Array Object
-		glBindVertexArray(renderer.batch_vao);
+		// use this memory temporarily to generate indices
+		array<u16> indices;
+		indices.data = (u16*) renderer.vertices.data;
+		indices.count = BATCH_MAX_INDICES;
 
-		// 2. copy our vertices array in a vertex buffer for OpenGL to use
-		glBindBuffer(GL_ARRAY_BUFFER, renderer.batch_vbo);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * BATCH_MAX_VERTICES, nullptr, GL_DYNAMIC_DRAW);
+		{
+			constexpr u64 MAX_INDEX = ((BATCH_MAX_QUADS - 1) * 4) + 3;
+			constexpr u64 MAX_U16 = 0xffff;
 
-		u32* indices = (u32*) malloc(BATCH_MAX_INDICES * sizeof(u32));
-		defer { free(indices); };
+			static_assert(MAX_INDEX <= MAX_U16);
+		}
 
-		u32 offset = 0;
+		u16 offset = 0;
 		for (size_t i = 0; i < BATCH_MAX_INDICES; i += 6) {
 			indices[i + 0] = offset + 0;
 			indices[i + 1] = offset + 1;
@@ -295,30 +316,25 @@ void init_renderer() {
 			offset += 4;
 		}
 
-		// 3. copy our index array in a element buffer for OpenGL to use
+		// upload indices to gpu
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, renderer.batch_ebo);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * BATCH_MAX_INDICES, indices, GL_STATIC_DRAW);
-
-		// 4. then set the vertex attributes pointers
-		set_vertex_attribs();
-
-		glBindVertexArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); // ebo must be unbound after vao
-
-		renderer.vertices = allocate_bump_array<Vertex>(BATCH_MAX_VERTICES, get_libc_allocator());
-
-		u8 pixel_data[] = {255, 255, 255, 255};
-		renderer.texture_for_shapes = load_texture(pixel_data, 1, 1, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_RGBA);
-
-		renderer.framebuffer = load_framebuffer(window.game_width, window.game_height, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_RGB, false);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.count * sizeof(u16), indices.data, GL_STATIC_DRAW);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	}
 
-	log_info("HERE 2");
+	// create default texture
+	{
+		u8 pixel_data[4] = {255, 255, 255, 255};
+		renderer.texture_for_shapes = load_texture(pixel_data, 1, 1, GL_NEAREST, GL_CLAMP_TO_EDGE, GL_RGBA);
+	}
 
-	// 
-	// Load shaders.
-	// 
+	{
+		int filter = GL_LINEAR; // linear filtering needed for sharp bilinear shader
+		u32 format = GL_RGB; // no alpha channel to disable alpha blending
+		renderer.framebuffer = load_framebuffer(window.game_width, window.game_height, filter, GL_CLAMP_TO_EDGE, format, false);
+	}
+
+	// load shaders
 	{
 		log_info("compiling texture_vert");
 		u32 texture_vert_shader = compile_shader(GL_VERTEX_SHADER, texture_vert_shader_src, "texture_vert");
@@ -348,21 +364,37 @@ void init_renderer() {
 		renderer.sharp_bilinear_shader.id = link_program(texture_vert_shader, sharp_bilinear_frag_shader, "sharp_bilinear_shader");
 		log_info("linking hq4x_shader");
 		renderer.hq4x_shader.id           = link_program(texture_vert_shader, hq4x_frag_shader,           "hq4x_shader");
-
-		renderer.current_shader = renderer.texture_shader.id;
-		glUseProgram(renderer.current_shader);
 	}
+
+	// set default shader
+	renderer.current_shader = renderer.texture_shader.id;
 }
 
 void deinit_renderer() {
-	free(renderer.vertices.data);
+	glBindVertexArray(0);
 
-	glDeleteBuffers(1, &renderer.batch_ebo);
-	glDeleteBuffers(1, &renderer.batch_vbo);
-	glDeleteVertexArrays(1, &renderer.batch_vao);
+	free_shader(&renderer.texture_shader);
+	free_shader(&renderer.circle_shader);
+	free_shader(&renderer.sharp_bilinear_shader);
+	free_shader(&renderer.hq4x_shader);
+
+	free_framebuffer(&renderer.framebuffer);
 
 	free_texture(&renderer.texture_for_shapes);
-	free_framebuffer(&renderer.framebuffer);
+
+	afree(renderer.vertices.data, VERTICES_ARRAY_SIZE, get_libc_allocator());
+	renderer.vertices = {};
+
+	glDeleteBuffers(1, &renderer.batch_ebo);
+	renderer.batch_ebo = 0;
+
+	glDeleteBuffers(1, &renderer.batch_vbo);
+	renderer.batch_vbo = 0;
+
+	glDeleteVertexArrays(1, &renderer.stub_vao);
+	renderer.stub_vao = 0;
+
+	renderer = {};
 }
 
 void render_begin_frame(vec4 clear_color) {
@@ -408,6 +440,9 @@ void render_end_frame() {
 	int backbuffer_height;
 	SDL_GL_GetDrawableSize(window.handle, &backbuffer_width, &backbuffer_height);
 
+	renderer.backbuffer_width  = backbuffer_width;
+	renderer.backbuffer_height = backbuffer_height;
+
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glViewport(0, 0, backbuffer_width, backbuffer_height);
 
@@ -431,31 +466,39 @@ void render_end_frame() {
 		renderer.game_texture_rect.x = (backbuffer_width  - renderer.game_texture_rect.w) / 2;
 		renderer.game_texture_rect.y = (backbuffer_height - renderer.game_texture_rect.h) / 2;
 
-		renderer.backbuffer_width  = backbuffer_width;
-		renderer.backbuffer_height = backbuffer_height;
-
+		// setup uniforms
 		{
-			int u_SourceSize = glGetUniformLocation(program, "u_SourceSize");
-			glUniform2f(u_SourceSize, (float)renderer.framebuffer.texture.width, (float)renderer.framebuffer.texture.height);
+			int u_source_size = glGetUniformLocation(program, "u_SourceSize");
+			if (u_source_size != -1) {
+				glUniform2f(u_source_size, (float)renderer.framebuffer.texture.width, (float)renderer.framebuffer.texture.height);
+			}
+
+			int u_integer_scale = glGetUniformLocation(program, "u_IntegerScale");
+			if (u_integer_scale != -1) {
+				float int_scale = fmaxf(floorf(scale), 1.0f);
+				glUniform2f(u_integer_scale, int_scale, int_scale);
+			}
+
+			int u_texel_size = glGetUniformLocation(program, "u_TexelSize");
+			if (u_texel_size != -1) {
+				glUniform2f(u_texel_size, 1.0f / (float)window.game_width, 1.0f / (float)window.game_height);
+			}
 		}
-
-		{
-			float int_scale = fmaxf(floorf(scale), 1.0f);
-
-			int u_Scale = glGetUniformLocation(program, "u_Scale");
-			glUniform2f(u_Scale, int_scale, int_scale);
-		}
-
-		/*{
-			int u_TexelSize = glGetUniformLocation(program, "u_TexelSize");
-			glUniform2f(u_TexelSize, 1.0f / (float)window.game_width, 1.0f / (float)window.game_height);
-		}*/
 
 		draw_texture(renderer.framebuffer.texture, {}, {(float)renderer.game_texture_rect.x, (float)renderer.game_texture_rect.y}, {scale, scale}, {}, 0, color_white, {false, true});
 
 		break_batch();
 
 		reset_shader();
+	} else {
+		float xscale = backbuffer_width  / (float)window.game_width;
+		float yscale = backbuffer_height / (float)window.game_height;
+		float scale = fminf(xscale, yscale);
+
+		renderer.game_texture_rect.w = (int) (window.game_width  * scale);
+		renderer.game_texture_rect.h = (int) (window.game_height * scale);
+		renderer.game_texture_rect.x = (backbuffer_width  - renderer.game_texture_rect.w) / 2;
+		renderer.game_texture_rect.y = (backbuffer_height - renderer.game_texture_rect.h) / 2;
 	}
 
 	// glFinish();
@@ -464,38 +507,38 @@ void render_end_frame() {
 }
 
 static void setup_uniforms(u32 program) {
-	int u_MVP = glGetUniformLocation(program, "u_MVP");
-	if (u_MVP != -1) {
-		mat4 MVP = (renderer.proj_mat * renderer.view_mat) * renderer.model_mat;
+	int u_mvp = glGetUniformLocation(program, "u_MVP");
+	if (u_mvp != -1) {
+		mat4 mvp = (renderer.proj_mat * renderer.view_mat) * renderer.model_mat;
 
-		glUniformMatrix4fv(u_MVP, 1, GL_FALSE, &MVP[0][0]);
+		glUniformMatrix4fv(u_mvp, 1, false, &mvp[0][0]);
 	}
 
-	int u_ModelView = glGetUniformLocation(program, "u_ModelView");
-	if (u_ModelView != -1) {
+	int u_model_view = glGetUniformLocation(program, "u_ModelView");
+	if (u_model_view != -1) {
 		mat4 model_view = renderer.view_mat * renderer.model_mat;
 
-		glUniformMatrix4fv(u_ModelView, 1, GL_FALSE, &model_view[0][0]);
+		glUniformMatrix4fv(u_model_view, 1, false, &model_view[0][0]);
 	}
 
-	int u_Model = glGetUniformLocation(program, "u_Model");
-	if (u_Model != -1) {
-		glUniformMatrix4fv(u_Model, 1, GL_FALSE, &renderer.model_mat[0][0]);
+	int u_model = glGetUniformLocation(program, "u_Model");
+	if (u_model != -1) {
+		glUniformMatrix4fv(u_model, 1, false, &renderer.model_mat[0][0]);
 	}
 
-	int u_View = glGetUniformLocation(program, "u_View");
-	if (u_View != -1) {
-		glUniformMatrix4fv(u_Model, 1, GL_FALSE, &renderer.view_mat[0][0]);
+	int u_view = glGetUniformLocation(program, "u_View");
+	if (u_view != -1) {
+		glUniformMatrix4fv(u_view, 1, false, &renderer.view_mat[0][0]);
 	}
 
-	int u_Proj = glGetUniformLocation(program, "u_Proj");
-	if (u_Proj != -1) {
-		glUniformMatrix4fv(u_Proj, 1, GL_FALSE, &renderer.proj_mat[0][0]);
+	int u_proj = glGetUniformLocation(program, "u_Proj");
+	if (u_proj != -1) {
+		glUniformMatrix4fv(u_proj, 1, false, &renderer.proj_mat[0][0]);
 	}
 
-	int u_Texture = glGetUniformLocation(program, "u_Texture");
-	if (u_Texture != -1) {
-		glUniform1i(u_Texture, 0);
+	int u_texture = glGetUniformLocation(program, "u_Texture");
+	if (u_texture != -1) {
+		glUniform1i(u_texture, 0);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, renderer.current_texture);
@@ -510,20 +553,23 @@ void break_batch() {
 	Assert(renderer.current_mode != MODE_NONE);
 	Assert(renderer.current_texture != 0);
 
-	// upload vertices to gpu
 	glBindBuffer(GL_ARRAY_BUFFER, renderer.batch_vbo);
+	defer { glBindBuffer(GL_ARRAY_BUFFER, 0); };
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, renderer.batch_ebo);
+	defer { glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); };
+
+	// upload vertices to gpu
 	glBufferSubData(GL_ARRAY_BUFFER, 0, renderer.vertices.count * sizeof(Vertex), renderer.vertices.data);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	u32 program = (renderer.current_mode == MODE_CIRCLES) ? renderer.circle_shader.id : renderer.current_shader;
 
 	glUseProgram(program);
 	defer { glUseProgram(0); };
 
-	setup_uniforms(program);
+	set_vertex_attribs(program);
 
-	glBindVertexArray(renderer.batch_vao);
-	defer { glBindVertexArray(0); };
+	setup_uniforms(program);
 
 	u32 gl_mode = 0;
 	bool use_index_buffer = false;
@@ -567,7 +613,7 @@ void break_batch() {
 
 	if (use_index_buffer) {
 		int num_indices = renderer.vertices.count / 4 * 6;
-		glDrawElements(gl_mode, num_indices, GL_UNSIGNED_INT, NULL);
+		glDrawElements(gl_mode, num_indices, GL_UNSIGNED_SHORT, nullptr);
 	} else {
 		glDrawArrays(gl_mode, 0, renderer.vertices.count);
 	}
@@ -590,7 +636,7 @@ void set_shader(u32 shader) {
 		break_batch();
 		renderer.current_shader = shader;
 
-		// @Cleanup: to be able to set uniforms
+		// to be able to set uniforms
 		glUseProgram(renderer.current_shader);
 	}
 }
@@ -602,7 +648,7 @@ void reset_shader() {
 		break_batch();
 		renderer.current_shader = shader;
 
-		// @Cleanup: to be able to set uniforms
+		// to be able to set uniforms
 		glUseProgram(renderer.current_shader);
 	}
 }
@@ -651,7 +697,7 @@ void render_clear_color(vec4 color) {
 
 static void push_vertices(RenderMode mode, const Texture& t, array<Vertex> vertices) {
 	if (t.id == 0) {
-		log_error("Trying to draw invalid texture.");
+		log_error("trying to draw invalid texture");
 		return;
 	}
 
@@ -710,10 +756,10 @@ void draw_texture(const Texture& t, Rect src,
 	}
 
 	Vertex vertices[] = {
-		{{x1, y1, 0.0f}, {}, color, {u1, v1}}, // LT
-		{{x2, y1, 0.0f}, {}, color, {u2, v1}}, // RT
-		{{x2, y2, 0.0f}, {}, color, {u2, v2}}, // RB
-		{{x1, y2, 0.0f}, {}, color, {u1, v2}}, // LB
+		{{x1, y1, 0.0f}, {}, pack_color_u32(color), {u1, v1}}, // LT
+		{{x2, y1, 0.0f}, {}, pack_color_u32(color), {u2, v1}}, // RT
+		{{x2, y2, 0.0f}, {}, pack_color_u32(color), {u2, v2}}, // RB
+		{{x1, y2, 0.0f}, {}, pack_color_u32(color), {u1, v2}}, // LB
 	};
 
 	mat4 model = glm::translate(mat4{1.0f}, {pos.x, pos.y, 0.0f});
@@ -758,10 +804,10 @@ void draw_texture_simple(const Texture& t, Rect src,
 	}
 
 	Vertex vertices[4] = {
-		{{x1, y1, 0.0f}, {}, color, {u1, v1}}, // LT
-		{{x2, y1, 0.0f}, {}, color, {u2, v1}}, // RT
-		{{x2, y2, 0.0f}, {}, color, {u2, v2}}, // RB
-		{{x1, y2, 0.0f}, {}, color, {u1, v2}}, // LB
+		{{x1, y1, 0.0f}, {}, pack_color_u32(color), {u1, v1}}, // LT
+		{{x2, y1, 0.0f}, {}, pack_color_u32(color), {u2, v1}}, // RT
+		{{x2, y2, 0.0f}, {}, pack_color_u32(color), {u2, v2}}, // RB
+		{{x1, y2, 0.0f}, {}, pack_color_u32(color), {u1, v2}}, // LB
 	};
 
 	draw_quad(t, vertices);
@@ -795,9 +841,9 @@ void draw_rectangle(Rectf rect, vec2 scale,
 
 void draw_triangle(vec2 p1, vec2 p2, vec2 p3, vec4 color) {
 	Vertex vertices[] = {
-		{{p1.x, p1.y, 0.0f}, {}, color, {}},
-		{{p2.x, p2.y, 0.0f}, {}, color, {}},
-		{{p3.x, p3.y, 0.0f}, {}, color, {}},
+		{{p1.x, p1.y, 0.0f}, {}, pack_color_u32(color), {}},
+		{{p2.x, p2.y, 0.0f}, {}, pack_color_u32(color), {}},
+		{{p3.x, p3.y, 0.0f}, {}, pack_color_u32(color), {}},
 	};
 
 	push_vertices(MODE_TRIANGLES, renderer.texture_for_shapes, vertices);
@@ -814,10 +860,10 @@ void draw_circle(vec2 pos, float radius, vec4 color, int precision) {
 	}
 #else
 	Vertex vertices[] = {
-		{{pos.x - radius, pos.y - radius, 0.0f}, {}, color, {0.0f, 0.0f}}, // LT
-		{{pos.x + radius, pos.y - radius, 0.0f}, {}, color, {1.0f, 0.0f}}, // RT
-		{{pos.x + radius, pos.y + radius, 0.0f}, {}, color, {1.0f, 1.0f}}, // RB
-		{{pos.x - radius, pos.y + radius, 0.0f}, {}, color, {0.0f, 1.0f}}, // LB
+		{{pos.x - radius, pos.y - radius, 0.0f}, {}, pack_color_u32(color), {0.0f, 0.0f}}, // LT
+		{{pos.x + radius, pos.y - radius, 0.0f}, {}, pack_color_u32(color), {1.0f, 0.0f}}, // RT
+		{{pos.x + radius, pos.y + radius, 0.0f}, {}, pack_color_u32(color), {1.0f, 1.0f}}, // RB
+		{{pos.x - radius, pos.y + radius, 0.0f}, {}, pack_color_u32(color), {0.0f, 1.0f}}, // LB
 	};
 
 	push_vertices(MODE_CIRCLES, renderer.texture_for_shapes, vertices);
@@ -838,8 +884,8 @@ void draw_line(vec2 p1, vec2 p2, vec4 color) {
 	p2.y += sinf(angle) * 0.50f;
 
 	Vertex vertices[] = {
-		{{p1.x, p1.y, 0.0f}, {}, color, {}},
-		{{p2.x, p2.y, 0.0f}, {}, color, {}},
+		{{p1.x, p1.y, 0.0f}, {}, pack_color_u32(color), {}},
+		{{p2.x, p2.y, 0.0f}, {}, pack_color_u32(color), {}},
 	};
 
 	push_vertices(MODE_LINES, renderer.texture_for_shapes, vertices);
@@ -847,8 +893,8 @@ void draw_line(vec2 p1, vec2 p2, vec4 color) {
 
 void draw_line_exact(vec2 p1, vec2 p2, vec4 color) {
 	Vertex vertices[] = {
-		{{p1.x, p1.y, 0.0f}, {}, color, {}},
-		{{p2.x, p2.y, 0.0f}, {}, color, {}},
+		{{p1.x, p1.y, 0.0f}, {}, pack_color_u32(color), {}},
+		{{p2.x, p2.y, 0.0f}, {}, pack_color_u32(color), {}},
 	};
 
 	push_vertices(MODE_LINES, renderer.texture_for_shapes, vertices);
@@ -865,10 +911,10 @@ void draw_line_thick(vec2 p1, vec2 p2, float thickness, vec4 color) {
 	vec2 rb = p2 + lengthdir_v2(thickness * sqrt2_over_2, dir + 45);
 
 	Vertex vertices[] = {
-		{{lt.x, lt.y, 0.0f}, {}, color, {}}, // LT
-		{{rt.x, rt.y, 0.0f}, {}, color, {}}, // RT
-		{{rb.x, rb.y, 0.0f}, {}, color, {}}, // RB
-		{{lb.x, lb.y, 0.0f}, {}, color, {}}, // LB
+		{{lt.x, lt.y, 0.0f}, {}, pack_color_u32(color), {}}, // LT
+		{{rt.x, rt.y, 0.0f}, {}, pack_color_u32(color), {}}, // RT
+		{{rb.x, rb.y, 0.0f}, {}, pack_color_u32(color), {}}, // RB
+		{{lb.x, lb.y, 0.0f}, {}, pack_color_u32(color), {}}, // LB
 	};
 
 	draw_quad(renderer.texture_for_shapes, vertices);
@@ -879,7 +925,7 @@ void draw_point(vec2 point, vec4 color) {
 	point += vec2{0.5f, 0.5f};
 
 	Vertex vertices[] = {
-		{{point.x, point.y, 0.0f}, {}, color, {}},
+		{{point.x, point.y, 0.0f}, {}, pack_color_u32(color), {}},
 	};
 
 	push_vertices(MODE_POINTS, renderer.texture_for_shapes, vertices);

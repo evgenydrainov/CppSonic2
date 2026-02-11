@@ -6,19 +6,17 @@ u32 compile_shader(GLenum type, string source, const char* debug_name) {
 	u32 shader = glCreateShader(type);
 
 #if defined(__ANDROID__)
-	string version_string = "#version 320 es\n";
+	string prefix = ("#version 320 es\n"
+					 "precision highp float;\n");
 #elif defined(__EMSCRIPTEN__)
-	string version_string = "#version 300 es\n";
+	string prefix = ("#version 300 es\n"
+					 "precision highp float;\n");
 #else
-	string version_string = "";
+	string prefix = "#version 330 core\n";
 #endif
 
-	string precision_string = "#ifdef GL_ES\n"
-		"precision highp float;\n"
-		"#endif\n";
-
-	const char* sources[] = {precision_string.data, source.data};
-	int lengths[] = {precision_string.count, source.count};
+	const char* sources[] = {prefix.data, source.data};
+	int lengths[] = {prefix.count, source.count};
 	glShaderSource(shader, ArrayLength(sources), sources, lengths);
 
 	glCompileShader(shader);
@@ -27,7 +25,7 @@ u32 compile_shader(GLenum type, string source, const char* debug_name) {
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 	if (!success) {
 		char buf[512];
-		glGetShaderInfoLog(shader, sizeof(buf), NULL, buf);
+		glGetShaderInfoLog(shader, sizeof(buf), nullptr, buf);
 
 		if (debug_name) log_error("While compiling %s...", debug_name);
 		log_error("Shader Compile Error:\n%s", buf);
@@ -54,7 +52,7 @@ u32 link_program(u32 vertex_shader, u32 fragment_shader, const char* debug_name)
 	glGetProgramiv(program, GL_LINK_STATUS, &success);
 	if (!success) {
 		char buf[512];
-		glGetProgramInfoLog(program, sizeof(buf), NULL, buf);
+		glGetProgramInfoLog(program, sizeof(buf), nullptr, buf);
 
 		if (debug_name) log_error("While linking %s...", debug_name);
 		log_error("Shader Link Error:\n%s", buf);
@@ -63,6 +61,7 @@ u32 link_program(u32 vertex_shader, u32 fragment_shader, const char* debug_name)
 	return program;
 }
 
+#if 0
 u32 create_vertex_array_obj(array<Vertex> vertices,
 							array<u32> indices,
 							u32* out_vbo, u32* out_ebo) {
@@ -94,6 +93,7 @@ u32 create_vertex_array_obj(array<Vertex> vertices,
 	if (out_ebo) *out_ebo = ebo;
 	return vao;
 }
+#endif
 
 Shader load_shader_from_file(const char* vert_fname, const char* frag_fname) {
 	string vertex_source = get_file_str(vert_fname);
@@ -210,7 +210,7 @@ bump_array<Vertex> load_3d_model_from_obj_file(const char* fname) {
 				v.pos    = positions[string_to_u32(pos)    - 1];
 				v.normal = normals  [string_to_u32(normal) - 1];
 				v.uv     = uvs      [string_to_u32(uv)     - 1];
-				v.color  = color_white;
+				v.color  = pack_color_u32(color_white);
 
 				array_add(&vertices, v);
 			};

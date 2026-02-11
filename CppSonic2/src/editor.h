@@ -6,6 +6,7 @@
 #include "renderer.h"
 #include "game.h"
 
+#include "subprocess.h"
 #include <filesystem>
 
 struct View {
@@ -181,6 +182,7 @@ struct ObjectsEditor {
 enum EditorMessageType {
 	MESSAGE_INFO,
 	MESSAGE_WARN,
+	MESSAGE_ERROR,
 };
 
 struct EditorMessage {
@@ -232,6 +234,8 @@ struct Editor {
 	static constexpr float CREATE_LEVEL_BACKUP_TIME = 10 * 60 * 60; // 10 minutes
 
 	float create_level_backup_timer;
+
+	subprocess_s subprocess;
 
 	void init(int argc, char* argv[]);
 	void deinit();

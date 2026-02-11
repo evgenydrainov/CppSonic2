@@ -23,7 +23,7 @@ static ImFont* AddFontFromFileTTF(ImFontAtlas* atlas, const char* filename, floa
 	if (!data)
 	{
 		// IM_ASSERT_USER_ERROR(0, "Could not load font file!");
-		return NULL;
+		return nullptr;
 	}
 	ImFontConfig font_cfg = font_cfg_template ? *font_cfg_template : ImFontConfig();
 	if (font_cfg.Name[0] == '\0')

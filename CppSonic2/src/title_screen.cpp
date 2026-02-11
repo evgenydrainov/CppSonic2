@@ -117,10 +117,10 @@ void Title_Screen::draw(float delta) {
 		float off = glm::fract(SDL_GetTicks() / 5'000.0f);
 
 		Vertex vertices[] = {
-			{{-100 * r, 0, -100 * r}, {}, color_white, {0, 0 - off}},
-			{{ 100 * r, 0, -100 * r}, {}, color_white, {r, 0 - off}},
-			{{ 100 * r, 0,  100 * r}, {}, color_white, {r, r - off}},
-			{{-100 * r, 0,  100 * r}, {}, color_white, {0, r - off}},
+			{{-100 * r, 0, -100 * r}, {}, pack_color_u32(color_white), {0, 0 - off}},
+			{{ 100 * r, 0, -100 * r}, {}, pack_color_u32(color_white), {r, 0 - off}},
+			{{ 100 * r, 0,  100 * r}, {}, pack_color_u32(color_white), {r, r - off}},
+			{{-100 * r, 0,  100 * r}, {}, pack_color_u32(color_white), {0, r - off}},
 		};
 
 		draw_quad(t, vertices);

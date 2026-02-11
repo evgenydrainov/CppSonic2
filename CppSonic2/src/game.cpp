@@ -26,6 +26,7 @@ static bool object_is_nonsolid(ObjType type) {
 		case OBJ_RING:         return true;
 		case OBJ_RING_DROPPED: return true;
 		case OBJ_MOSQUI:       return true;
+		case OBJ_FORCE_SPIN:   return true;
 	}
 	return false;
 }
@@ -73,6 +74,10 @@ void Game::load_level(const char* path) {
 				}
 
 				player.pos = it->pos;
+#ifdef PLAYER_NEW_RADIUS
+				player.pos.y += 5;
+#endif
+
 				found = true;
 			}
 		}
@@ -381,10 +386,17 @@ static bool player_is_small_radius(Player* p) {
 }
 
 static vec2 player_get_radius(Player* p) {
+	vec2 normal_radius = {9, 19};
+#ifdef PLAYER_NEW_RADIUS
+	normal_radius = {8, 14};
+#endif
+
+	vec2 small_radius = {7, 14};
+
 	if (player_is_small_radius(p)) {
-		return {7, 14};
+		return small_radius;
 	} else {
-		return {9, 19};
+		return normal_radius;
 	}
 }
 
@@ -921,6 +933,10 @@ static bool player_roll_condition(Player* p) {
 	if (p->input & INPUT_MOVE_RIGHT) input_h++;
 	if (p->input & INPUT_MOVE_LEFT)  input_h--;
 
+	if (p->force_spin) {
+		return true;
+	}
+
 	return (fabsf(p->ground_speed) >= 0.5f
 			&& (p->input & INPUT_MOVE_DOWN)
 			&& input_h == 0);
@@ -1359,8 +1375,8 @@ static void player_keep_in_bounds(Player* p) {
 			p->speed.x = 0;
 		}
 
-		if (p->pos.y > bottom - radius.x - 4) {
-			p->pos.y = bottom - radius.x - 4;
+		if (p->pos.y > bottom - radius.y - 4) {
+			p->pos.y = bottom - radius.y - 4;
 		}
 	};
 
@@ -1680,14 +1696,7 @@ static void player_collide_with_solid_objects(Player* p) {
 		return false;
 	};
 
-	// because we add objects while iterating
-	int object_count = game.objects.count;
-
-	for (int i = 0; i < object_count; i++) {
-		Object* it = &game.objects[i];
-
-		if (!object_is_solid(it->type)) continue;
-
+	auto handle_solid_object = [&](Object* it) {
 		vec2 obj_size = get_object_size(*it);
 
 		float combined_x_radius = obj_size.x/2 + (player_radius.x + 1) + 1;
@@ -1699,16 +1708,26 @@ static void player_collide_with_solid_objects(Player* p) {
 		float left_difference = (p->pos.x - it->pos.x) + combined_x_radius;
 
 		// the Player is too far to the left to be touching?
-		if (left_difference < 0) continue;
+		if (left_difference < 0) {
+			return;
+		}
+
 		// the Player is too far to the right to be touching?
-		if (left_difference > combined_x_diameter) continue;
+		if (left_difference > combined_x_diameter) {
+			return;
+		}
 
 		float top_difference = (p->pos.y - it->pos.y) + 4 + combined_y_radius;
 
 		// the Player is too far above to be touching
-		if (top_difference < 0) continue;
+		if (top_difference < 0) {
+			return;
+		}
+
 		// the Player is too far down to be touching
-		if (top_difference > combined_y_diameter) continue;
+		if (top_difference > combined_y_diameter) {
+			return;
+		}
 
 		float x_distance;
 		if (p->pos.x > it->pos.x) {
@@ -1740,15 +1759,19 @@ static void player_collide_with_solid_objects(Player* p) {
 			if (y_distance >= 0) {
 				// land
 
-				//if (y_distance >= 16) continue;
+				/*if (y_distance >= 16) {
+					return;
+				}*/
 
 				y_distance -= 4;
 
 				if (!(it->pos.x - obj_size.x/2 < p->pos.x && p->pos.x < it->pos.x + obj_size.x/2)) {
-					continue;
+					return;
 				}
 
-				if (p->speed.y < 0) continue;
+				if (p->speed.y < 0) {
+					return;
+				}
 
 				p->pos.y -= y_distance;
 
@@ -1766,14 +1789,6 @@ static void player_collide_with_solid_objects(Player* p) {
 					p->speed.y = 0;
 					p->landed_on_solid_object = true;
 				}
-
-				// we could remove dead objects at the end of the frame but idk
-				if (it->flags & FLAG_INSTANCE_DEAD) {
-					array_remove(&game.objects, i);
-					i--;
-					object_count--;
-					continue;
-				}
 			} else {
 				// TODO: bump the ceiling
 
@@ -1783,7 +1798,9 @@ static void player_collide_with_solid_objects(Player* p) {
 		} else {
 			// collide horizontally
 
-			if (fabsf(y_distance) <= 4) continue;
+			if (fabsf(y_distance) <= 4) {
+				return;
+			}
 
 			p->pos.x -= x_distance;
 
@@ -1799,8 +1816,7 @@ static void player_collide_with_solid_objects(Player* p) {
 					}
 				}
 
-				if (should_collide)
-				{
+				if (should_collide) {
 					Direction dir = (x_distance > 0) ? DIR_RIGHT : DIR_LEFT;
 
 					if (!player_collide_solid_object_side(p, it, dir)) {
@@ -1814,41 +1830,34 @@ static void player_collide_with_solid_objects(Player* p) {
 						p->ground_speed = 0;
 						p->speed.x = 0;
 					}
-
-					// we could remove dead objects at the end of the frame but idk
-					if (it->flags & FLAG_INSTANCE_DEAD) {
-						array_remove(&game.objects, i);
-						i--;
-						object_count--;
-						continue;
-					}
 				}
 			}
 		}
-	}
+	};
 
-	// handle OBJ_MOVING_PLATFORM
-	for (int i = 0; i < game.objects.count; i++) {
-		Object* it = &game.objects[i];
-
-		if (it->type != OBJ_MOVING_PLATFORM) continue;
-
-		if (p->speed.y < 0) continue;
+	auto handle_moving_platform = [&](Object* it) {
+		if (p->speed.y < 0) {
+			return;
+		}
 
 		vec2 obj_size = get_object_size(*it);
 
 		if (!(it->pos.x - obj_size.x/2 < p->pos.x && p->pos.x < it->pos.x + obj_size.x/2)) {
-			continue;
+			return;
 		}
 
 		float surface_y = it->pos.y - obj_size.y/2;
 		float bottom_y = p->pos.y + player_radius.y + 7;
 
-		if (surface_y > bottom_y) continue;
+		if (surface_y > bottom_y) {
+			return;
+		}
 
 		float dist = surface_y - bottom_y;
 
-		if (dist < -16 || dist >= 0) continue;
+		if (dist < -16 || dist >= 0) {
+			return;
+		}
 
 		p->pos.y += dist + 6;
 		p->pos.x += it->pos.x - it->mplatform.prev_pos.x;
@@ -1864,6 +1873,26 @@ static void player_collide_with_solid_objects(Player* p) {
 		}
 		p->speed.y = 0;
 		p->landed_on_solid_object = true;
+	};
+
+	// because we add objects while iterating
+	int object_count = game.objects.count;
+
+	for (int i = 0; i < object_count; i++) {
+		Object* it = &game.objects[i];
+
+		if (object_is_solid(it->type)) {
+			handle_solid_object(it);
+		} else if (it->type == OBJ_MOVING_PLATFORM) {
+			handle_moving_platform(it);
+		}
+
+		if (it->flags & FLAG_INSTANCE_DEAD) {
+			array_remove(&game.objects, i);
+			i--;
+			object_count--;
+			continue;
+		}
 	}
 }
 
@@ -1878,6 +1907,8 @@ static bool player_collides_with_nonsolid_object(Player* p, const Object& o) {
 }
 
 static void player_collide_with_nonsolid_objects(Player* p) {
+	p->force_spin = false;
+
 	// because we add objects while iterating
 	int object_count = game.objects.count;
 
@@ -1995,6 +2026,12 @@ static void player_collide_with_nonsolid_objects(Player* p) {
 						player_get_hit(p, side);
 					}
 				}
+				break;
+			}
+
+			case OBJ_FORCE_SPIN: {
+				p->force_spin = true;
+				p->ground_speed = max(p->ground_speed, 4.0f);
 				break;
 			}
 		}
@@ -2239,12 +2276,12 @@ static void player_state_ground(Player* p, float delta) {
 		if (!(p->input & INPUT_MOVE_UP)) {
 			p->peelout = false;
 
+			stop_sound(get_sound(snd_spindash));
 			if (p->spinrev >= 15) {
 				p->state = STATE_GROUND;
 				p->ground_speed = speed;
 				game.camera_lock = 24 - floorf(fabsf(p->ground_speed));
 
-				stop_sound(get_sound(snd_spindash));
 				play_sound(get_sound(snd_spindash_end));
 				return;
 			}
@@ -2268,7 +2305,7 @@ static void player_state_ground(Player* p, float delta) {
 
 			dust_particle.pos = p->pos;
 			dust_particle.pos.y += player_get_radius(p).y;
-			dust_particle.pos.y -= 8;
+			dust_particle.pos.y -= 4;
 
 			add_particle(dust_particle);
 
@@ -2551,6 +2588,8 @@ static void player_state_dead(Player* p, float delta) {
 }
 
 static void player_update(Player* p, float delta) {
+	// :player update
+
 	// clear flags
 	if (p->state != STATE_AIR) {
 		p->jumped = false;
@@ -2694,6 +2733,12 @@ static void player_update(Player* p, float delta) {
 			o.id = game.next_id++;
 			o.type = OBJ_INVINCIBILITY_SPARKLE;
 			o.pos = p->pos;
+#ifdef PLAYER_NEW_RADIUS
+			if (p->anim == anim_roll) {
+				o.pos.y += 5;
+			}
+#endif
+
 			array_add(&game.objects, o);
 
 			t -= 8;
@@ -2713,8 +2758,8 @@ void Game::init(int argc, char* argv[]) {
 	}
 
 	// set camera pos after loading the level
-	camera_pos_real.x = player.pos.x - window.game_width  / 2;
-	camera_pos_real.y = player.pos.y - window.game_height / 2;
+	camera_pos_real.x = player.pos.x - window.game_width / 2;
+	camera_pos_real.y = player.pos.y + player_get_radius(&player).y - 19 - window.game_height / 2;
 
 	// update camera so that it's in the right place when the level starts up
 	camera_update(0);
@@ -3077,6 +3122,8 @@ void Game::update_gameplay(float delta) {
 	}
 
 	update_particles(delta);
+
+	score_card.update(delta);
 }
 
 void Game::update_touch_input() {
@@ -3133,7 +3180,7 @@ void Game::update_touch_input() {
 			mouse.x = finger->x * renderer.backbuffer_width;
 			mouse.y = finger->y * renderer.backbuffer_height;
 
-			auto rect = renderer.game_texture_rect;
+			Rect rect = renderer.game_texture_rect;
 			mouse.x = (mouse.x - rect.x) / (float)rect.w * (float)window.game_width;
 			mouse.y = (mouse.y - rect.y) / (float)rect.h * (float)window.game_height;
 
@@ -3172,10 +3219,6 @@ void Game::update(float delta) {
 	}
 
 	bool should_update_gameplay = true;
-
-	if (program.transition_t != 0) {
-		should_update_gameplay = false;
-	}
 
 	if (titlecard_state == TITLECARD_IN
 		|| titlecard_state == TITLECARD_WAIT)
@@ -3248,8 +3291,6 @@ void Game::update(float delta) {
 	}
 
 	update_pause_menu(delta);
-
-	score_card.update(delta);
 
 	if (pause_state == PAUSE_NOT_PAUSED) {
 		time_frames += delta;
@@ -3392,6 +3433,10 @@ void Game::update_pause_menu(float delta) {
 	}
 
 	if (titlecard_state != TITLECARD_FINISHED) {
+		return;
+	}
+
+	if (score_card.state != ScoreCard::NONE) {
 		return;
 	}
 
@@ -3812,6 +3857,16 @@ void draw_objects(array<Object> objects,
 				break;
 			}
 
+			case OBJ_FORCE_SPIN: {
+				if (!show_editor_objects) break;
+
+				const Sprite& s = get_object_sprite(it->type);
+				vec2 scale = (it->radius * 2.0f) / vec2{s.width, s.height};
+				vec4 color = {1, 1, 1, 0.5f};
+				draw_sprite(s, 0, it->pos, scale, 0, color);
+				break;
+			}
+
 			default: {
 				const Sprite& s = get_object_sprite(it->type);
 				if (out_of_bounds(s, it->pos)) break;
@@ -4041,20 +4096,29 @@ void Game::draw(float delta) {
 					}
 				}
 
-				draw_sprite(s, frame_index, it->pos, {1,1}, 0, color_white, flip);
+				vec2 pos = floor(it->pos);
+				draw_sprite(s, frame_index, pos, {1,1}, 0, color_white, flip);
 				break;
 			}
 		}
 	}
 
 	// draw player shield
-	if (player.has_shield) {
+	if (player.has_shield && player.invincibility == 0) {
 		int frame = game.time_frames;
 		if (frame % 4 >= 2) {
 			const Sprite& s = get_sprite(spr_shield);
 			frame /= 4;
 			frame %= s.frames.count;
-			draw_sprite(s, frame, floor(player.pos));
+
+			vec2 pos = floor(player.pos);
+#ifdef PLAYER_NEW_RADIUS
+			if (player.anim == anim_roll) {
+				pos.y += 5;
+			}
+#endif
+
+			draw_sprite(s, frame, pos);
 		}
 	}
 
@@ -4342,7 +4406,7 @@ void Game::draw(float delta) {
 
 			vec4 color = color_yellow;
 			if (player_rings == 0) {
-				if ((SDL_GetTicks() / 500) % 2) {
+				if (fmodf(time_seconds, 1) > 0.5) {
 					color = color_red;
 				}
 			}
@@ -5047,6 +5111,12 @@ void write_objects(array<Object> objects, const char* fname) {
 				break;
 			}
 
+			case OBJ_FORCE_SPIN: {
+				vec2 radius = o.radius;
+				SDL_RWwrite(f, &radius, sizeof radius, 1);
+				break;
+			}
+
 			default: {
 				Assert(false);
 				break;
@@ -5234,6 +5304,13 @@ bool read_objects(bump_array<Object>* objects, const char* fname) {
 				o->radius = radius;
 				return true;
 			}
+
+			case OBJ_FORCE_SPIN: {
+				vec2 radius;
+				SDL_RWread(f, &radius, sizeof radius, 1);
+				o->radius = radius;
+				return true;
+			}
 		}
 
 		return false;
@@ -5368,6 +5445,8 @@ void gen_widthmap_texture(Texture* widthmap, const Tileset& ts, const Texture& t
 }
 
 const Sprite& get_object_sprite(ObjType type) {
+	// :object sprite
+	// :obj sprite
 	switch (type) {
 		case OBJ_PLAYER_INIT_POS:           return get_sprite(spr_sonic_editor_preview);
 		case OBJ_LAYER_SET_DEPRECATED:      return get_sprite(spr_layer_set);
@@ -5387,6 +5466,7 @@ const Sprite& get_object_sprite(ObjType type) {
 		case OBJ_CAMERA_REGION:             return get_sprite(spr_camera_region);
 		case OBJ_SIGN_POST:                 return get_sprite(spr_sign_post);
 		case OBJ_INVINCIBILITY_SPARKLE:     return get_sprite(spr_invincibility_sparkle);
+		case OBJ_FORCE_SPIN:                return get_sprite(spr_force_spin);
 	}
 
 	Assert(!"invalid object type");
@@ -5394,6 +5474,8 @@ const Sprite& get_object_sprite(ObjType type) {
 }
 
 vec2 get_object_size(const Object& o) {
+	// :object size
+	// :obj size
 	switch (o.type) {
 		case OBJ_PLAYER_INIT_POS: return {30, 44};
 		case OBJ_MONITOR:         return {30, 30};
@@ -5417,7 +5499,8 @@ vec2 get_object_size(const Object& o) {
 		case OBJ_LAYER_FLIP_DEPRECATED:
 		case OBJ_MOVING_PLATFORM:
 		case OBJ_LAYER_SWITCHER_VERTICAL:
-		case OBJ_LAYER_SWITCHER_HORIZONTAL: {
+		case OBJ_LAYER_SWITCHER_HORIZONTAL:
+		case OBJ_FORCE_SPIN: {
 			return o.radius * 2.0f;
 		}
 	}

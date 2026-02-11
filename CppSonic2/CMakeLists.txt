@@ -53,7 +53,6 @@ set(SOURCES
 	src/game.cpp
 	src/main.cpp
 	src/package.cpp
-	src/stdafx.cpp
 	src/texture.cpp
 	src/window_creation.cpp
 	src/imgui_glue.cpp
@@ -67,9 +66,12 @@ set(SOURCES
 	src/main_menu.cpp
 	src/program.cpp
 	src/title_screen.cpp
+	src/util.cpp
 	src/input.cpp
 	src/input_bindings.cpp
-	src/util.cpp
+	src/bunnymark.cpp
+	src/tests.cpp
+	src/common.cpp
 	src/imgui/imgui_single_file.cpp
 	src/nfd/nfd_zenity.cpp
 	src/nfd/nfd_common.cpp)

@@ -137,29 +137,6 @@ bool Input::handle_event(const SDL_Event& ev) {
 }
 
 void Input::update(float delta, Rect game_texture_rect, int game_width, int game_height) {
-#if 0
-	// Controller Axis
-	{
-		const float deadzone = 0.3f;
-
-		float leftx = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTX);
-		if (leftx < -deadzone) {
-			p->input |= INPUT_MOVE_LEFT;
-		}
-		if (leftx > deadzone) {
-			p->input |= INPUT_MOVE_RIGHT;
-		}
-
-		float lefty = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTY);
-		if (lefty < -deadzone) {
-			p->input |= INPUT_MOVE_UP;
-		}
-		if (lefty > deadzone) {
-			p->input |= INPUT_MOVE_DOWN;
-		}
-	}
-#endif
-
 	// handle mouse
 	{
 		u32 prev = mouse_state;
@@ -175,6 +152,36 @@ void Input::update(float delta, Rect game_texture_rect, int game_width, int game
 			mouse_world_pos.x = (mouse_x - game_texture_rect.x) / (float)game_texture_rect.w * (float)game_width;
 			mouse_world_pos.y = (mouse_y - game_texture_rect.y) / (float)game_texture_rect.h * (float)game_height;
 		}
+	}
+
+	// special case
+	{
+		u32 prev_axis_state = axis_state;
+		axis_state = 0;
+
+		const float deadzone = 0.5;
+
+		float axis_x = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTX);
+		float axis_y = controller_get_axis(SDL_CONTROLLER_AXIS_LEFTY);
+
+		if (axis_x > deadzone) {
+			axis_state |= INPUT_UI_RIGHT;
+		}
+
+		if (axis_x < -deadzone) {
+			axis_state |= INPUT_UI_LEFT;
+		}
+
+		if (axis_y > deadzone) {
+			axis_state |= INPUT_UI_DOWN;
+		}
+
+		if (axis_y < -deadzone) {
+			axis_state |= INPUT_UI_UP;
+		}
+
+		axis_state_press   = ~prev_axis_state &  axis_state;
+		axis_state_release =  prev_axis_state & ~axis_state;
 	}
 }
 
@@ -195,11 +202,17 @@ void Input::clear() {
 }
 
 bool is_input_held(InputKey key) {
-	return (input.state & key) != 0;
+	bool result = (input.state & key) != 0;
+
+	result |= (input.axis_state & key) != 0;
+
+	return result;
 }
 
 bool is_input_pressed(InputKey key, bool repeat) {
 	bool result = (input.state_press & key) != 0;
+
+	result |= (input.axis_state_press & key) != 0;
 
 	if (repeat) {
 		result |= (input.state_repeat & key) != 0;
@@ -209,7 +222,11 @@ bool is_input_pressed(InputKey key, bool repeat) {
 }
 
 bool is_input_released(InputKey key) {
-	return (input.state_release & key) != 0;
+	bool result = (input.state_release & key) != 0;
+
+	result |= (input.axis_state_release & key) != 0;
+
+	return result;
 }
 
 bool is_key_pressed(SDL_Scancode key, bool repeat) {

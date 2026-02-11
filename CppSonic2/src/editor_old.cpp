@@ -882,7 +882,7 @@ void Editor::update(float delta) {
 #if 1
 		// SDL converts argv to utf8, and we get process_name from argv, so process_name is utf8
 		auto str = current_level_dir.u8string();
-		const char *command_line[] = {process_name, "--game", str.c_str(), NULL};
+		const char *command_line[] = {process_name, "--game", str.c_str(), nullptr};
 
 		// @Utf8
 		// it seems like this library doesn't convert from utf8 to windows wide char
