@@ -144,7 +144,7 @@ inline void SDL_PRINTF_VARARG_FUNC(2) log_internal(Log_Type type, SDL_PRINTF_FOR
 		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, to_sdl_priority(type), "%s", buf);
 	};
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__VITA__)
 	log_impl_sdl();
 #else
 	log_impl_printf();

@@ -11,6 +11,9 @@ u32 compile_shader(GLenum type, string source, const char* debug_name) {
 #elif defined(__EMSCRIPTEN__)
 	string prefix = ("#version 300 es\n"
 					 "precision highp float;\n");
+#elif defined(__VITA__)
+	string prefix = ("#version 100\n"
+					 "precision highp float;\n");
 #else
 	string prefix = "#version 330 core\n";
 #endif

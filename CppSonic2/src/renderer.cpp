@@ -454,6 +454,9 @@ void render_end_frame() {
 		glClearColor(0, 0, 0, 1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		// NOTE: vita
+		glDisable(GL_BLEND);
+
 		u32 program = renderer.sharp_bilinear_shader.id;
 		set_shader(program);
 
@@ -488,6 +491,9 @@ void render_end_frame() {
 		draw_texture(renderer.framebuffer.texture, {}, {(float)renderer.game_texture_rect.x, (float)renderer.game_texture_rect.y}, {scale, scale}, {}, 0, color_white, {false, true});
 
 		break_batch();
+
+		// NOTE: vita
+		glEnable(GL_BLEND);
 
 		reset_shader();
 	} else {
