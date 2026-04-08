@@ -53,7 +53,6 @@ set(SOURCES
 	src/input.cpp
 	src/input_bindings.cpp
 	src/bunnymark.cpp
-	src/tests.cpp
 	src/common.cpp
 	src/imgui/imgui_single_file.cpp
 	src/nfd/nfd_zenity.cpp

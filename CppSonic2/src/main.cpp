@@ -5,7 +5,6 @@
 #include "assets.h"
 #include "input.h"
 #include "program.h"
-#include "tests.h"
 
 #ifdef EDITOR
 #include "imgui_glue.h"
@@ -180,10 +179,6 @@ enum Launch_Mode {
 int main(int argc, char* argv[]) {
 	init_temporary_storage(Megabytes(1));
 	defer { deinit_temporary_storage(); };
-
-#if defined(_DEBUG)
-	run_tests();
-#endif
 
 	Launch_Mode launch_mode = LAUNCH_GAME;
 

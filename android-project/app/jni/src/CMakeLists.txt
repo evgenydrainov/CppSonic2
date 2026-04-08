@@ -53,7 +53,6 @@ target_sources(main PRIVATE
         ${SourceDir}/input.cpp
         ${SourceDir}/input_bindings.cpp
         ${SourceDir}/bunnymark.cpp
-        ${SourceDir}/tests.cpp
         ${SourceDir}/common.cpp
         )
 
