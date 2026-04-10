@@ -2094,6 +2094,8 @@ void TilemapEditor::update(float delta) {
 
 		Tile tile = get_tile(editor.tm, tile_pos.x, tile_pos.y, layer_index);
 
+		float angle = get_tile_angle(editor.ts, tile.index);
+
 		ImGui::Text("Tile X: %d", tile_pos.x);
 		ImGui::Text("Tile Y: %d", tile_pos.y);
 		ImGui::Text("Tile ID: %d", tile.index);
@@ -2101,6 +2103,7 @@ void TilemapEditor::update(float delta) {
 		ImGui::Text("Tile VFlip: %d", tile.vflip);
 		ImGui::Text("Tile Top Solid: %d", tile.top_solid);
 		ImGui::Text("Tile LRB Solid: %d", tile.lrb_solid);
+		ImGui::Text("Tile Angle: %f", angle);
 	};
 
 	auto tilemap_editor_window = [&]() {
